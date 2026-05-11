@@ -1,0 +1,67 @@
+[gd_scene load_steps=2 format=3 uid="uid://tilttanksmain"]
+
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Terrain" type="Line2D" parent="."]
+width = 4.0
+default_color = Color(0.28, 0.82, 0.35, 1)
+
+[node name="Cannon" type="Node2D" parent="."]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="Panel" parent="UI"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 120.0
+
+[node name="StatusLabel" type="Label" parent="UI/Panel"]
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 360.0
+offset_bottom = 34.0
+text = "Player 1 turn"
+
+[node name="AngleLabel" type="Label" parent="UI/Panel"]
+offset_left = 14.0
+offset_top = 38.0
+offset_right = 180.0
+offset_bottom = 62.0
+text = "Angle: 45.0"
+
+[node name="PowerLabel" type="Label" parent="UI/Panel"]
+offset_left = 190.0
+offset_top = 38.0
+offset_right = 360.0
+offset_bottom = 62.0
+text = "Power: 500"
+
+[node name="PowerSlider" type="HSlider" parent="UI/Panel"]
+offset_left = 14.0
+offset_top = 72.0
+offset_right = 360.0
+offset_bottom = 100.0
+min_value = 100.0
+max_value = 900.0
+step = 5.0
+value = 500.0
+
+[node name="FireButton" type="Button" parent="UI/Panel"]
+offset_left = 380.0
+offset_top = 38.0
+offset_right = 500.0
+offset_bottom = 100.0
+text = "FIRE"
+
+[node name="ResetButton" type="Button" parent="UI/Panel"]
+offset_left = 516.0
+offset_top = 38.0
+offset_right = 636.0
+offset_bottom = 100.0
+text = "RESET"
