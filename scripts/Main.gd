@@ -10,12 +10,21 @@ extends Node2D
 
 const SCREEN_SIZE: Vector2 = Vector2(900, 540)
 const GROUND_Y: float = 460.0
+const TERRAIN_STEP: float = 10.0
+const TERRAIN_MIN_Y: float = 315.0
+const TERRAIN_MAX_Y: float = 485.0
 const TANK_RADIUS: float = 16.0
 const CANNON_LENGTH: float = 46.0
 const PROJECTILE_RADIUS: float = 5.0
-const EXPLOSION_RADIUS: float = 46.0
+const EXPLOSION_RADIUS: float = 58.0
+const DIRECT_HIT_RADIUS: float = 24.0
+const MAX_DAMAGE: int = 100
+const CRATER_RADIUS: float = 54.0
+const CRATER_DEPTH: float = 46.0
 
-var tank_positions: Array[Vector2] = [Vector2(120, GROUND_Y - TANK_RADIUS), Vector2(780, GROUND_Y - TANK_RADIUS)]
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var terrain_points: Array[Vector2] = []
+var tank_positions: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var tank_health: Array[int] = [100, 100]
 
 var current_player: int = 0
@@ -32,10 +41,10 @@ var explosion_timer: float = 0.0
 var game_over: bool = false
 
 func _ready() -> void:
+	rng.randomize()
 	fire_button.pressed.connect(_on_fire_pressed)
 	reset_button.pressed.connect(reset_match)
-	_make_flat_terrain()
-	_update_ui()
+	reset_match()
 
 func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_R):
@@ -56,10 +65,87 @@ func _process(delta: float) -> void:
 	_update_ui()
 	queue_redraw()
 
-func _make_flat_terrain() -> void:
+func _generate_random_terrain() -> void:
+	terrain_points.clear()
+
+	var control_spacing: float = 90.0
+	var control_points: Array[Vector2] = []
+	var control_count: int = int(ceil(SCREEN_SIZE.x / control_spacing)) + 2
+
+	for i: int in range(control_count):
+		var x: float = float(i) * control_spacing
+		var y: float = rng.randf_range(TERRAIN_MIN_Y, TERRAIN_MAX_Y)
+
+		# Keep the tank spawn edges somewhat playable.
+		if x < 180.0 or x > SCREEN_SIZE.x - 180.0:
+			y = rng.randf_range(390.0, 455.0)
+
+		control_points.append(Vector2(x, y))
+
+	var point_count: int = int(SCREEN_SIZE.x / TERRAIN_STEP) + 1
+	for i: int in range(point_count):
+		var x: float = float(i) * TERRAIN_STEP
+		var control_index: int = mini(int(floor(x / control_spacing)), control_points.size() - 2)
+		var left: Vector2 = control_points[control_index]
+		var right: Vector2 = control_points[control_index + 1]
+		var t: float = clampf((x - left.x) / (right.x - left.x), 0.0, 1.0)
+		var smooth_t: float = t * t * (3.0 - 2.0 * t)
+		var y: float = lerpf(left.y, right.y, smooth_t)
+		terrain_points.append(Vector2(x, y))
+
+	_flatten_spawn_area(120.0, 42.0)
+	_flatten_spawn_area(780.0, 42.0)
+	_refresh_terrain_line()
+	_place_tanks_on_terrain()
+
+func _flatten_spawn_area(center_x: float, half_width: float) -> void:
+	var y_sum: float = 0.0
+	var count: int = 0
+
+	for point: Vector2 in terrain_points:
+		if absf(point.x - center_x) <= half_width:
+			y_sum += point.y
+			count += 1
+
+	if count <= 0:
+		return
+
+	var flat_y: float = y_sum / float(count)
+	for i: int in range(terrain_points.size()):
+		var point: Vector2 = terrain_points[i]
+		var dist: float = absf(point.x - center_x)
+		if dist <= half_width:
+			point.y = flat_y
+		elif dist <= half_width + 35.0:
+			var blend: float = (dist - half_width) / 35.0
+			point.y = lerpf(flat_y, point.y, blend)
+		terrain_points[i] = point
+
+func _refresh_terrain_line() -> void:
 	terrain.clear_points()
-	terrain.add_point(Vector2(0, GROUND_Y))
-	terrain.add_point(Vector2(SCREEN_SIZE.x, GROUND_Y))
+	for point: Vector2 in terrain_points:
+		terrain.add_point(point)
+
+func _place_tanks_on_terrain() -> void:
+	tank_positions[0] = Vector2(120.0, _ground_y_at_x(120.0) - TANK_RADIUS)
+	tank_positions[1] = Vector2(780.0, _ground_y_at_x(780.0) - TANK_RADIUS)
+
+func _ground_y_at_x(x: float) -> float:
+	if terrain_points.is_empty():
+		return GROUND_Y
+
+	if x <= terrain_points[0].x:
+		return terrain_points[0].y
+
+	var last_index: int = terrain_points.size() - 1
+	if x >= terrain_points[last_index].x:
+		return terrain_points[last_index].y
+
+	var index: int = mini(int(floor(x / TERRAIN_STEP)), last_index - 1)
+	var left: Vector2 = terrain_points[index]
+	var right: Vector2 = terrain_points[index + 1]
+	var t: float = clampf((x - left.x) / (right.x - left.x), 0.0, 1.0)
+	return lerpf(left.y, right.y, t)
 
 func _update_angle_from_input(delta: float) -> void:
 	var gravity_vec: Vector3 = Input.get_gravity()
@@ -96,12 +182,13 @@ func _update_projectile(delta: float) -> void:
 	projectile_pos += projectile_vel * delta
 
 	var enemy: int = 1 - current_player
-	if projectile_pos.distance_to(tank_positions[enemy]) <= EXPLOSION_RADIUS:
+	if projectile_pos.distance_to(tank_positions[enemy]) <= TANK_RADIUS + PROJECTILE_RADIUS:
 		_explode(projectile_pos)
 		return
 
-	if projectile_pos.y >= GROUND_Y:
-		_explode(projectile_pos)
+	var ground_y: float = _ground_y_at_x(projectile_pos.x)
+	if projectile_pos.y >= ground_y:
+		_explode(Vector2(projectile_pos.x, ground_y))
 		return
 
 	if projectile_pos.x < -100.0 or projectile_pos.x > SCREEN_SIZE.x + 100.0 or projectile_pos.y > SCREEN_SIZE.y + 150.0:
@@ -112,16 +199,38 @@ func _explode(pos: Vector2) -> void:
 	explosion_pos = pos
 	explosion_timer = 0.35
 
-	for player: int in range(2):
-		var dist: float = pos.distance_to(tank_positions[player])
-		if dist <= EXPLOSION_RADIUS:
-			var damage: int = int(round(45.0 * (1.0 - dist / EXPLOSION_RADIUS)))
-			tank_health[player] = maxi(0, tank_health[player] - damage)
+	_apply_crater(pos)
+	_apply_explosion_damage(pos)
+	_place_tanks_on_terrain()
 
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
 	else:
 		current_player = 1 - current_player
+
+func _apply_explosion_damage(pos: Vector2) -> void:
+	for player: int in range(2):
+		var dist: float = pos.distance_to(tank_positions[player])
+		if dist <= DIRECT_HIT_RADIUS:
+			tank_health[player] = 0
+		elif dist <= EXPLOSION_RADIUS:
+			var normalized: float = (dist - DIRECT_HIT_RADIUS) / (EXPLOSION_RADIUS - DIRECT_HIT_RADIUS)
+			var damage_float: float = float(MAX_DAMAGE) * pow(1.0 - normalized, 1.35)
+			var damage: int = maxi(8, int(round(damage_float)))
+			tank_health[player] = maxi(0, tank_health[player] - damage)
+
+func _apply_crater(pos: Vector2) -> void:
+	for i: int in range(terrain_points.size()):
+		var point: Vector2 = terrain_points[i]
+		var dx: float = point.x - pos.x
+		if absf(dx) <= CRATER_RADIUS:
+			var normalized_x: float = dx / CRATER_RADIUS
+			var bowl: float = sqrt(maxf(0.0, 1.0 - normalized_x * normalized_x))
+			var target_y: float = pos.y + CRATER_DEPTH * bowl
+			point.y = clampf(maxf(point.y, target_y), TERRAIN_MIN_Y, SCREEN_SIZE.y + 80.0)
+			terrain_points[i] = point
+
+	_refresh_terrain_line()
 
 func reset_match() -> void:
 	current_player = 0
@@ -135,6 +244,7 @@ func reset_match() -> void:
 	explosion_pos = Vector2.INF
 	explosion_timer = 0.0
 	game_over = false
+	_generate_random_terrain()
 
 func _update_ui() -> void:
 	angle_label.text = "Angle: %.1f" % angle_deg
@@ -150,8 +260,7 @@ func _draw() -> void:
 	# Sky/background
 	draw_rect(Rect2(Vector2.ZERO, SCREEN_SIZE), Color(0.06, 0.07, 0.10), true)
 
-	# Ground fill
-	draw_rect(Rect2(Vector2(0, GROUND_Y), Vector2(SCREEN_SIZE.x, SCREEN_SIZE.y - GROUND_Y)), Color(0.13, 0.24, 0.12), true)
+	_draw_ground_fill()
 
 	# Tanks
 	_draw_tank(0, Color(0.25, 0.9, 0.35))
@@ -172,6 +281,17 @@ func _draw() -> void:
 	if explosion_timer > 0.0 and explosion_pos != Vector2.INF:
 		var t: float = explosion_timer / 0.35
 		draw_circle(explosion_pos, EXPLOSION_RADIUS * (1.0 - 0.25 * t), Color(1.0, 0.55, 0.1, 0.55))
+
+func _draw_ground_fill() -> void:
+	if terrain_points.is_empty():
+		return
+
+	var polygon: PackedVector2Array = PackedVector2Array()
+	polygon.append(Vector2(0.0, SCREEN_SIZE.y + 100.0))
+	for point: Vector2 in terrain_points:
+		polygon.append(point)
+	polygon.append(Vector2(SCREEN_SIZE.x, SCREEN_SIZE.y + 100.0))
+	draw_colored_polygon(polygon, Color(0.13, 0.24, 0.12))
 
 func _draw_tank(index: int, color: Color) -> void:
 	var pos: Vector2 = tank_positions[index]
