@@ -7,16 +7,20 @@ extends Node2D
 @onready var power_slider: HSlider = $UI/Panel/PowerSlider
 @onready var fire_button: Button = $UI/Panel/FireButton
 @onready var reset_button: Button = $UI/Panel/ResetButton
+@onready var ui_layer: CanvasLayer = $UI
 
 const VIEW_SIZE: Vector2 = Vector2(900, 540)
+const CAMERA_SCALE: float = 0.78
+const CAMERA_Y_OFFSET: float = 70.0
 const WORLD_WIDTH: float = 1500.0
 const GROUND_Y: float = 460.0
 const TERRAIN_STEP: float = 10.0
 const TERRAIN_MIN_Y: float = 255.0
 const TERRAIN_MAX_Y: float = 500.0
 const TANK_RADIUS: float = 16.0
-const TANK_LEFT_X: float = 130.0
-const TANK_RIGHT_X: float = WORLD_WIDTH - 130.0
+const TANK_START_LEFT_X: float = 130.0
+const TANK_START_RIGHT_X: float = WORLD_WIDTH - 130.0
+const TANK_MOVE_SPEED: float = 58.0
 const CANNON_LENGTH: float = 48.0
 const PROJECTILE_RADIUS: float = 5.0
 const EXPLOSION_RADIUS: float = 62.0
@@ -27,17 +31,21 @@ const CRATER_RADIUS: float = 58.0
 const CRATER_DEPTH: float = 48.0
 const EXPLOSION_DURATION: float = 0.525
 const MAX_WIND_ACCEL: float = 85.0
+const TURN_TIME_LIMIT: float = 15.0
 
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var terrain_points: Array[Vector2] = []
 var tank_positions: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var tank_health: Array[int] = [100, 100]
+var player_angles: Array[float] = [45.0, 45.0]
+var player_powers: Array[float] = [500.0, 500.0]
 
 var current_player: int = 0
 var angle_deg: float = 45.0
 var power: float = 500.0
 var gravity: float = 520.0
 var wind: float = 0.0
+var turn_timer: float = TURN_TIME_LIMIT
 
 var projectile_active: bool = false
 var projectile_pos: Vector2 = Vector2.ZERO
@@ -47,19 +55,37 @@ var explosion_timer: float = 0.0
 var game_over: bool = false
 var camera_x: float = 0.0
 
+var menu_button: Button
+var menu_panel: Panel
+var end_panel: Panel
+var end_label: Label
+var overlay_open: bool = false
+var end_popup_shown: bool = false
+
 func _ready() -> void:
 	rng.randomize()
+	terrain.visible = false
+	reset_button.visible = false
 	fire_button.pressed.connect(_on_fire_pressed)
-	reset_button.pressed.connect(reset_match)
+	_build_overlay_ui()
 	reset_match()
 
 func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_R):
 		reset_match()
 
-	if not projectile_active and not game_over:
+	if Input.is_action_just_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE):
+		_on_fire_pressed()
+
+	if not projectile_active and not game_over and not overlay_open:
 		_update_angle_from_input(delta)
+		_update_tank_movement(delta)
 		power = float(power_slider.value)
+		player_angles[current_player] = angle_deg
+		player_powers[current_player] = power
+		turn_timer -= delta
+		if turn_timer <= 0.0:
+			_end_turn_without_shot()
 
 	if projectile_active:
 		_update_projectile(delta)
@@ -72,6 +98,81 @@ func _process(delta: float) -> void:
 	_update_camera(delta)
 	_update_ui()
 	queue_redraw()
+
+func _build_overlay_ui() -> void:
+	menu_button = Button.new()
+	menu_button.text = "☰"
+	menu_button.position = Vector2(842, 12)
+	menu_button.size = Vector2(44, 38)
+	ui_layer.add_child(menu_button)
+	menu_button.pressed.connect(_toggle_menu)
+
+	menu_panel = Panel.new()
+	menu_panel.visible = false
+	menu_panel.position = Vector2(640, 58)
+	menu_panel.size = Vector2(230, 145)
+	ui_layer.add_child(menu_panel)
+
+	var menu_title: Label = Label.new()
+	menu_title.text = "Menu"
+	menu_title.position = Vector2(16, 12)
+	menu_title.size = Vector2(180, 24)
+	menu_panel.add_child(menu_title)
+
+	var rematch_button: Button = Button.new()
+	rematch_button.text = "Rematch"
+	rematch_button.position = Vector2(16, 46)
+	rematch_button.size = Vector2(198, 36)
+	menu_panel.add_child(rematch_button)
+	rematch_button.pressed.connect(reset_match)
+
+	var quit_button: Button = Button.new()
+	quit_button.text = "Quit"
+	quit_button.position = Vector2(16, 92)
+	quit_button.size = Vector2(198, 36)
+	menu_panel.add_child(quit_button)
+	quit_button.pressed.connect(_quit_game)
+
+	end_panel = Panel.new()
+	end_panel.visible = false
+	end_panel.position = Vector2(270, 165)
+	end_panel.size = Vector2(360, 190)
+	ui_layer.add_child(end_panel)
+
+	end_label = Label.new()
+	end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	end_label.position = Vector2(18, 20)
+	end_label.size = Vector2(324, 54)
+	end_label.text = "Player wins!"
+	end_panel.add_child(end_label)
+
+	var end_rematch_button: Button = Button.new()
+	end_rematch_button.text = "Rematch"
+	end_rematch_button.position = Vector2(36, 96)
+	end_rematch_button.size = Vector2(130, 46)
+	end_panel.add_child(end_rematch_button)
+	end_rematch_button.pressed.connect(reset_match)
+
+	var end_quit_button: Button = Button.new()
+	end_quit_button.text = "Quit"
+	end_quit_button.position = Vector2(194, 96)
+	end_quit_button.size = Vector2(130, 46)
+	end_panel.add_child(end_quit_button)
+	end_quit_button.pressed.connect(_quit_game)
+
+func _toggle_menu() -> void:
+	if game_over:
+		return
+	menu_panel.visible = not menu_panel.visible	overlay_open = menu_panel.visible
+
+func _hide_overlays() -> void:
+	menu_panel.visible = false
+	end_panel.visible = false
+	overlay_open = false
+	end_popup_shown = false
+
+func _quit_game() -> void:
+	get_tree().quit()
 
 func _generate_random_terrain() -> void:
 	terrain_points.clear()
@@ -86,7 +187,6 @@ func _generate_random_terrain() -> void:
 		var slope_kick: float = rng.randf_range(-95.0, 95.0)
 		var y: float = clampf(previous_y + slope_kick, TERRAIN_MIN_Y, TERRAIN_MAX_Y)
 
-		# Keep the tank spawn edges somewhat playable, but allow the middle to get rougher.
 		if x < 210.0 or x > WORLD_WIDTH - 210.0:
 			y = rng.randf_range(385.0, 455.0)
 
@@ -103,16 +203,15 @@ func _generate_random_terrain() -> void:
 		var smooth_t: float = t * t * (3.0 - 2.0 * t)
 		var y: float = lerpf(left.y, right.y, smooth_t)
 
-		# Add subtle small-scale roughness away from spawns.
 		if x > 230.0 and x < WORLD_WIDTH - 230.0:
 			y += 10.0 * sin(x * 0.035 + rng.randf_range(-0.15, 0.15))
 
 		terrain_points.append(Vector2(x, clampf(y, TERRAIN_MIN_Y, TERRAIN_MAX_Y)))
 
-	_flatten_spawn_area(TANK_LEFT_X, 48.0)
-	_flatten_spawn_area(TANK_RIGHT_X, 48.0)
+	_flatten_spawn_area(TANK_START_LEFT_X, 48.0)
+	_flatten_spawn_area(TANK_START_RIGHT_X, 48.0)
 	_refresh_terrain_line()
-	_place_tanks_on_terrain()
+	_settle_tanks_on_terrain()
 
 func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 	var y_sum: float = 0.0
@@ -142,9 +241,9 @@ func _refresh_terrain_line() -> void:
 	for point: Vector2 in terrain_points:
 		terrain.add_point(point)
 
-func _place_tanks_on_terrain() -> void:
-	tank_positions[0] = Vector2(TANK_LEFT_X, _ground_y_at_x(TANK_LEFT_X) - TANK_RADIUS)
-	tank_positions[1] = Vector2(TANK_RIGHT_X, _ground_y_at_x(TANK_RIGHT_X) - TANK_RADIUS)
+func _settle_tanks_on_terrain() -> void:
+	for player: int in range(2):
+		tank_positions[player].y = _ground_y_at_x(tank_positions[player].x) - TANK_RADIUS
 
 func _ground_y_at_x(x: float) -> float:
 	if terrain_points.is_empty():
@@ -166,23 +265,45 @@ func _ground_y_at_x(x: float) -> float:
 func _update_angle_from_input(delta: float) -> void:
 	var gravity_vec: Vector3 = Input.get_gravity()
 
-	# Desktop/editor fallback. Mobile sensors usually return non-zero on device.
 	if gravity_vec.length() < 0.01:
 		if Input.is_key_pressed(KEY_UP):
 			angle_deg += 75.0 * delta
 		if Input.is_key_pressed(KEY_DOWN):
 			angle_deg -= 75.0 * delta
 	else:
-		# First-pass tilt mapping. Tune this after testing on actual phones.
-		# Depending on device orientation, you may prefer gravity_vec.x instead.
 		var tilt: float = clampf(gravity_vec.y / 9.8, -1.0, 1.0)
 		angle_deg = lerpf(12.0, 85.0, (tilt + 1.0) * 0.5)
 
 	angle_deg = clampf(angle_deg, 5.0, 88.0)
 
-func _on_fire_pressed() -> void:
-	if projectile_active or game_over:
+func _update_tank_movement(delta: float) -> void:
+	var direction: float = 0.0
+	if Input.is_key_pressed(KEY_LEFT):
+		direction -= 1.0
+	if Input.is_key_pressed(KEY_RIGHT):
+		direction += 1.0
+
+	if direction == 0.0:
 		return
+
+	var min_x: float = 45.0
+	var max_x: float = WORLD_WIDTH - 45.0
+	var new_x: float = clampf(tank_positions[current_player].x + direction * TANK_MOVE_SPEED * delta, min_x, max_x)
+
+	# Keep a minimum separation so players cannot drive into each other.
+	var other_player: int = 1 - current_player
+	if absf(new_x - tank_positions[other_player].x) < 90.0:
+		return
+
+	tank_positions[current_player].x = new_x
+	tank_positions[current_player].y = _ground_y_at_x(new_x) - TANK_RADIUS
+
+func _on_fire_pressed() -> void:
+	if projectile_active or game_over or overlay_open:
+		return
+
+	player_angles[current_player] = angle_deg
+	player_powers[current_player] = power
 
 	var facing: float = 1.0 if current_player == 0 else -1.0
 	var rad: float = deg_to_rad(angle_deg)
@@ -217,12 +338,13 @@ func _explode(pos: Vector2) -> void:
 
 	_apply_crater(pos)
 	_apply_explosion_damage(pos)
-	_place_tanks_on_terrain()
+	_settle_tanks_on_terrain()
 
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
+		_show_end_popup()
 	else:
-		current_player = 1 - current_player
+		_advance_turn()
 
 func _apply_explosion_damage(pos: Vector2) -> void:
 	for player: int in range(2):
@@ -248,13 +370,33 @@ func _apply_crater(pos: Vector2) -> void:
 
 	_refresh_terrain_line()
 
+func _advance_turn() -> void:
+	current_player = 1 - current_player
+	_load_current_player_settings()
+	turn_timer = TURN_TIME_LIMIT
+
+func _end_turn_without_shot() -> void:
+	player_angles[current_player] = angle_deg
+	player_powers[current_player] = power
+	_advance_turn()
+
+func _load_current_player_settings() -> void:
+	angle_deg = player_angles[current_player]
+	power = player_powers[current_player]
+	power_slider.value = power
+
 func reset_match() -> void:
+	_hide_overlays()
 	current_player = 0
+	player_angles = [45.0, 45.0]
+	player_powers = [500.0, 500.0]
 	angle_deg = 45.0
 	power = 500.0
 	power_slider.value = power
+	turn_timer = TURN_TIME_LIMIT
 	wind = rng.randf_range(-MAX_WIND_ACCEL, MAX_WIND_ACCEL)
 	tank_health = [100, 100]
+	tank_positions = [Vector2(TANK_START_LEFT_X, 0.0), Vector2(TANK_START_RIGHT_X, 0.0)]
 	projectile_active = false
 	projectile_pos = Vector2.ZERO
 	projectile_vel = Vector2.ZERO
@@ -263,6 +405,15 @@ func reset_match() -> void:
 	game_over = false
 	_generate_random_terrain()
 	camera_x = _camera_target_x()
+
+func _show_end_popup() -> void:
+	if end_popup_shown:
+		return
+	var winner: int = 1 if tank_health[0] <= 0 else 0
+	end_label.text = "Player %d wins!\nP1 HP: %d    P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
+	end_panel.visible = true
+	overlay_open = true
+	end_popup_shown = true
 
 func _update_camera(delta: float) -> void:
 	var target: float = _camera_target_x()
@@ -275,58 +426,44 @@ func _camera_target_x() -> float:
 	elif explosion_timer > 0.0 and explosion_pos != Vector2.INF:
 		focus_x = explosion_pos.x
 
-	return clampf(focus_x - VIEW_SIZE.x * 0.5, 0.0, WORLD_WIDTH - VIEW_SIZE.x)
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	return clampf(focus_x - camera_world_width * 0.5, 0.0, WORLD_WIDTH - camera_world_width)
 
 func _world_to_screen(world_point: Vector2) -> Vector2:
-	return Vector2(world_point.x - camera_x, world_point.y)
+	return Vector2((world_point.x - camera_x) * CAMERA_SCALE, world_point.y * CAMERA_SCALE + CAMERA_Y_OFFSET)
 
 func _update_ui() -> void:
 	angle_label.text = "Angle: %.1f" % angle_deg
 	power_label.text = "Power: %.0f" % power
 
-	var wind_arrow: String = "→" if wind > 0.0 else "←"
-	var wind_speed: float = absf(wind) / MAX_WIND_ACCEL * 10.0
-	var wind_text: String = "Wind %s %.1f" % [wind_arrow, wind_speed]
-
 	if game_over:
 		var winner: int = 1 if tank_health[0] <= 0 else 0
-		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d    %s" % [winner + 1, tank_health[0], tank_health[1], wind_text]
+		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
 	else:
-		status_label.text = "Player %d turn    P1 HP: %d    P2 HP: %d    %s" % [current_player + 1, tank_health[0], tank_health[1], wind_text]
+		status_label.text = "P%d turn    Time: %02d    P1 HP: %d    P2 HP: %d" % [current_player + 1, int(ceil(turn_timer)), tank_health[0], tank_health[1]]
 
 func _draw() -> void:
-	# Sky/background
 	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color(0.06, 0.07, 0.10), true)
 	_draw_distant_mountains()
 	_draw_ground_fill()
+	_draw_terrain_outline()
 
-	# Tanks
 	_draw_tank(0, Color(0.25, 0.9, 0.35))
 	_draw_tank(1, Color(0.95, 0.25, 0.25))
 
-	# Active cannon
 	var base: Vector2 = _world_to_screen(tank_positions[current_player])
 	var facing: float = 1.0 if current_player == 0 else -1.0
 	var rad: float = deg_to_rad(angle_deg)
-	var tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	draw_line(base, tip, Color.WHITE, 5.0)
+	var tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(rad), -CANNON_LENGTH * CAMERA_SCALE * sin(rad))
+	draw_line(base, tip, Color.WHITE, 4.0)
 
-	# Projectile
 	if projectile_active:
-		draw_circle(_world_to_screen(projectile_pos), PROJECTILE_RADIUS, Color(1.0, 0.92, 0.2))
+		draw_circle(_world_to_screen(projectile_pos), PROJECTILE_RADIUS * CAMERA_SCALE, Color(1.0, 0.92, 0.2))
 
-	# Explosion flash
 	if explosion_timer > 0.0 and explosion_pos != Vector2.INF:
-		var elapsed_ratio: float = 1.0 - explosion_timer / EXPLOSION_DURATION
-		var center: Vector2 = _world_to_screen(explosion_pos)
-		var outer_radius: float = EXPLOSION_RADIUS * (0.55 + 0.65 * elapsed_ratio)
-		var inner_radius: float = outer_radius * 0.48
-		draw_circle(center, outer_radius, Color(1.0, 0.42, 0.06, 0.42 * (1.0 - elapsed_ratio)))
-		draw_circle(center, inner_radius, Color(1.0, 0.88, 0.20, 0.75 * (1.0 - elapsed_ratio)))
-		for i: int in range(8):
-			var a: float = TAU * float(i) / 8.0
-			var ray_end: Vector2 = center + Vector2(cos(a), sin(a)) * outer_radius * 1.15
-			draw_line(center, ray_end, Color(1.0, 0.75, 0.15, 0.45 * (1.0 - elapsed_ratio)), 2.0)
+		_draw_explosion()
+
+	_draw_wind_widget()
 
 func _draw_distant_mountains() -> void:
 	var offset: float = camera_x * 0.18
@@ -347,43 +484,77 @@ func _draw_ground_fill() -> void:
 	polygon.append(Vector2(0.0, VIEW_SIZE.y + 100.0))
 	for point: Vector2 in terrain_points:
 		var screen_point: Vector2 = _world_to_screen(point)
-		if screen_point.x >= -20.0 and screen_point.x <= VIEW_SIZE.x + 20.0:
+		if screen_point.x >= -25.0 and screen_point.x <= VIEW_SIZE.x + 25.0:
 			polygon.append(screen_point)
 	polygon.append(Vector2(VIEW_SIZE.x, VIEW_SIZE.y + 100.0))
 
 	if polygon.size() >= 3:
 		draw_colored_polygon(polygon, Color(0.13, 0.24, 0.12))
 
+func _draw_terrain_outline() -> void:
+	var visible_points: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in terrain_points:
+		var screen_point: Vector2 = _world_to_screen(point)
+		if screen_point.x >= -25.0 and screen_point.x <= VIEW_SIZE.x + 25.0:
+			visible_points.append(screen_point)
+	if visible_points.size() >= 2:
+		draw_polyline(visible_points, Color(0.28, 0.82, 0.35), 3.0)
+
+func _draw_explosion() -> void:
+	var elapsed_ratio: float = 1.0 - explosion_timer / EXPLOSION_DURATION
+	var center: Vector2 = _world_to_screen(explosion_pos)
+	var outer_radius: float = EXPLOSION_RADIUS * CAMERA_SCALE * (0.55 + 0.65 * elapsed_ratio)
+	var inner_radius: float = outer_radius * 0.48
+	draw_circle(center, outer_radius, Color(1.0, 0.42, 0.06, 0.42 * (1.0 - elapsed_ratio)))
+	draw_circle(center, inner_radius, Color(1.0, 0.88, 0.20, 0.75 * (1.0 - elapsed_ratio)))
+	for i: int in range(8):
+		var a: float = TAU * float(i) / 8.0
+		var ray_end: Vector2 = center + Vector2(cos(a), sin(a)) * outer_radius * 1.15
+		draw_line(center, ray_end, Color(1.0, 0.75, 0.15, 0.45 * (1.0 - elapsed_ratio)), 2.0)
+
+func _draw_wind_widget() -> void:
+	var box: Rect2 = Rect2(Vector2(18, 132), Vector2(122, 42))
+	draw_rect(box, Color(0.02, 0.03, 0.04, 0.58), true)
+	draw_rect(box, Color(0.85, 0.90, 1.0, 0.30), false, 1.0)
+
+	var wind_strength: float = absf(wind) / MAX_WIND_ACCEL * 10.0
+	var arrow_start: Vector2 = Vector2(38, 153)
+	var arrow_end: Vector2 = Vector2(92, 153)
+	if wind < 0.0:
+		arrow_start = Vector2(92, 153)
+		arrow_end = Vector2(38, 153)
+	draw_line(arrow_start, arrow_end, Color(0.78, 0.90, 1.0), 3.0)
+	draw_line(arrow_end, arrow_end + Vector2(-8 if wind > 0.0 else 8, -6), Color(0.78, 0.90, 1.0), 3.0)
+	draw_line(arrow_end, arrow_end + Vector2(-8 if wind > 0.0 else 8, 6), Color(0.78, 0.90, 1.0), 3.0)
+	draw_string(ThemeDB.fallback_font, Vector2(28, 169), "%.1f" % wind_strength, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color.WHITE)
+
 func _draw_tank(index: int, color: Color) -> void:
 	var pos: Vector2 = _world_to_screen(tank_positions[index])
 	var facing: float = 1.0 if index == 0 else -1.0
+	var s: float = CAMERA_SCALE
 
-	# Tread base
 	var tread_points: PackedVector2Array = PackedVector2Array([
-		pos + Vector2(-25, 8),
-		pos + Vector2(25, 8),
-		pos + Vector2(30, 16),
-		pos + Vector2(22, 22),
-		pos + Vector2(-22, 22),
-		pos + Vector2(-30, 16),
+		pos + Vector2(-25, 8) * s,
+		pos + Vector2(25, 8) * s,
+		pos + Vector2(30, 16) * s,
+		pos + Vector2(22, 22) * s,
+		pos + Vector2(-22, 22) * s,
+		pos + Vector2(-30, 16) * s,
 	])
 	draw_colored_polygon(tread_points, Color(color.r * 0.45, color.g * 0.45, color.b * 0.45))
-	draw_line(pos + Vector2(-24, 15), pos + Vector2(24, 15), Color.BLACK, 3.0)
+	draw_line(pos + Vector2(-24, 15) * s, pos + Vector2(24, 15) * s, Color.BLACK, 3.0)
 
-	# Tank body and turret.
 	var body_points: PackedVector2Array = PackedVector2Array([
-		pos + Vector2(-22, 5),
-		pos + Vector2(22, 5),
-		pos + Vector2(16, -10),
-		pos + Vector2(-16, -10),
+		pos + Vector2(-22, 5) * s,
+		pos + Vector2(22, 5) * s,
+		pos + Vector2(16, -10) * s,
+		pos + Vector2(-16, -10) * s,
 	])
 	draw_colored_polygon(body_points, color)
-	draw_circle(pos + Vector2(0, -13), 12.0, color)
+	draw_circle(pos + Vector2(0, -13) * s, 12.0 * s, color)
 
-	# Stub barrel on inactive tanks so they still read as tanks.
 	if index != current_player or game_over:
-		draw_line(pos + Vector2(facing * 6.0, -15.0), pos + Vector2(facing * 38.0, -21.0), Color.WHITE, 4.0)
+		draw_line(pos + Vector2(facing * 6.0, -15.0) * s, pos + Vector2(facing * 38.0, -21.0) * s, Color.WHITE, 3.0)
 
-	# Tread wheels.
 	for wheel_x: float in [-18.0, 0.0, 18.0]:
-		draw_circle(pos + Vector2(wheel_x, 16), 4.0, Color.BLACK)
+		draw_circle(pos + Vector2(wheel_x, 16) * s, 4.0 * s, Color.BLACK)
