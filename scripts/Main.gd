@@ -32,17 +32,23 @@ const CRATER_DEPTH: float = 48.0
 const EXPLOSION_DURATION: float = 0.525
 const MAX_WIND_ACCEL: float = 85.0
 const TURN_TIME_LIMIT: float = 15.0
+const POWER_MIN: float = 500.0
+const POWER_MAX: float = 1300.0
+const POWER_DEFAULT: float = 800.0
+const MOBILE_TILT_FULL_SCALE: float = 0.18
+const MOBILE_MIN_ANGLE: float = 2.0
+const MOBILE_MAX_ANGLE: float = 94.0
 
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var terrain_points: Array[Vector2] = []
 var tank_positions: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var tank_health: Array[int] = [100, 100]
 var player_angles: Array[float] = [45.0, 45.0]
-var player_powers: Array[float] = [500.0, 500.0]
+var player_powers: Array[float] = [POWER_DEFAULT, POWER_DEFAULT]
 
 var current_player: int = 0
 var angle_deg: float = 45.0
-var power: float = 500.0
+var power: float = POWER_DEFAULT
 var gravity: float = 520.0
 var wind: float = 0.0
 var turn_timer: float = TURN_TIME_LIMIT
@@ -71,10 +77,13 @@ func _ready() -> void:
 	rng.randomize()
 	terrain.visible = false
 	reset_button.visible = false
+	fire_button.visible = false
+	power_slider.min_value = POWER_MIN
+	power_slider.max_value = POWER_MAX
+	power_slider.step = 10.0
 	power_slider.focus_mode = Control.FOCUS_NONE
 	fire_button.focus_mode = Control.FOCUS_NONE
 	reset_button.focus_mode = Control.FOCUS_NONE
-	fire_button.pressed.connect(_on_fire_pressed)
 	_build_overlay_ui()
 	reset_match()
 
@@ -107,12 +116,36 @@ func _process(delta: float) -> void:
 	_update_ui()
 	queue_redraw()
 
+func _style_mobile_button(button: Button) -> void:
+	button.focus_mode = Control.FOCUS_NONE
+	var normal_style: StyleBoxFlat = StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.15, 0.17, 0.20, 0.82)
+	normal_style.border_color = Color(0.85, 0.90, 1.0, 0.42)
+	normal_style.border_width_left = 2
+	normal_style.border_width_top = 2
+	normal_style.border_width_right = 2
+	normal_style.border_width_bottom = 2
+	normal_style.corner_radius_top_left = 12
+	normal_style.corner_radius_top_right = 12
+	normal_style.corner_radius_bottom_left = 12
+	normal_style.corner_radius_bottom_right = 12
+	var pressed_style: StyleBoxFlat = normal_style.duplicate() as StyleBoxFlat
+	pressed_style.bg_color = Color(0.38, 0.46, 0.58, 0.92)
+	button.add_theme_stylebox_override("normal", normal_style)
+	button.add_theme_stylebox_override("hover", normal_style)
+	button.add_theme_stylebox_override("focus", normal_style)
+	button.add_theme_stylebox_override("pressed", pressed_style)
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_focus_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+
 func _build_overlay_ui() -> void:
 	menu_button = Button.new()
 	menu_button.text = "☰"
 	menu_button.position = Vector2(842, 12)
 	menu_button.size = Vector2(44, 38)
-	menu_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(menu_button)
 	ui_layer.add_child(menu_button)
 	menu_button.pressed.connect(_toggle_menu)
 
@@ -120,27 +153,36 @@ func _build_overlay_ui() -> void:
 	mobile_left_button.text = "◀"
 	mobile_left_button.position = Vector2(18, 448)
 	mobile_left_button.size = Vector2(78, 72)
-	mobile_left_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(mobile_left_button)
 	ui_layer.add_child(mobile_left_button)
 	mobile_left_button.button_down.connect(func() -> void: mobile_left_pressed = true)
-	mobile_left_button.button_up.connect(func() -> void: mobile_left_pressed = false)
+	mobile_left_button.button_up.connect(func() -> void:
+		mobile_left_pressed = false
+		mobile_left_button.release_focus()
+	)
 
 	mobile_right_button = Button.new()
 	mobile_right_button.text = "▶"
 	mobile_right_button.position = Vector2(108, 448)
 	mobile_right_button.size = Vector2(78, 72)
-	mobile_right_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(mobile_right_button)
 	ui_layer.add_child(mobile_right_button)
 	mobile_right_button.button_down.connect(func() -> void: mobile_right_pressed = true)
-	mobile_right_button.button_up.connect(func() -> void: mobile_right_pressed = false)
+	mobile_right_button.button_up.connect(func() -> void:
+		mobile_right_pressed = false
+		mobile_right_button.release_focus()
+	)
 
 	mobile_fire_button = Button.new()
 	mobile_fire_button.text = "FIRE"
 	mobile_fire_button.position = Vector2(382, 462)
 	mobile_fire_button.size = Vector2(136, 58)
-	mobile_fire_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(mobile_fire_button)
 	ui_layer.add_child(mobile_fire_button)
-	mobile_fire_button.pressed.connect(_on_fire_pressed)
+	mobile_fire_button.pressed.connect(func() -> void:
+		mobile_fire_button.release_focus()
+		_on_fire_pressed()
+	)
 
 	menu_panel = Panel.new()
 	menu_panel.visible = false
@@ -158,7 +200,7 @@ func _build_overlay_ui() -> void:
 	rematch_button.text = "Rematch"
 	rematch_button.position = Vector2(16, 46)
 	rematch_button.size = Vector2(198, 36)
-	rematch_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(rematch_button)
 	menu_panel.add_child(rematch_button)
 	rematch_button.pressed.connect(reset_match)
 
@@ -166,7 +208,7 @@ func _build_overlay_ui() -> void:
 	quit_button.text = "Quit"
 	quit_button.position = Vector2(16, 92)
 	quit_button.size = Vector2(198, 36)
-	quit_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(quit_button)
 	menu_panel.add_child(quit_button)
 	quit_button.pressed.connect(_quit_game)
 
@@ -187,7 +229,7 @@ func _build_overlay_ui() -> void:
 	end_rematch_button.text = "Rematch"
 	end_rematch_button.position = Vector2(36, 96)
 	end_rematch_button.size = Vector2(130, 46)
-	end_rematch_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(end_rematch_button)
 	end_panel.add_child(end_rematch_button)
 	end_rematch_button.pressed.connect(reset_match)
 
@@ -195,13 +237,14 @@ func _build_overlay_ui() -> void:
 	end_quit_button.text = "Quit"
 	end_quit_button.position = Vector2(194, 96)
 	end_quit_button.size = Vector2(130, 46)
-	end_quit_button.focus_mode = Control.FOCUS_NONE
+	_style_mobile_button(end_quit_button)
 	end_panel.add_child(end_quit_button)
 	end_quit_button.pressed.connect(_quit_game)
 
 func _toggle_menu() -> void:
 	if game_over:
 		return
+	menu_button.release_focus()
 	menu_panel.visible = not menu_panel.visible
 	overlay_open = menu_panel.visible
 
@@ -218,23 +261,18 @@ func _quit_game() -> void:
 
 func _generate_random_terrain() -> void:
 	terrain_points.clear()
-
 	var control_spacing: float = rng.randf_range(65.0, 115.0)
 	var control_points: Array[Vector2] = []
 	var control_count: int = int(ceil(WORLD_WIDTH / control_spacing)) + 2
 	var previous_y: float = rng.randf_range(360.0, 455.0)
-
 	for i: int in range(control_count):
 		var x: float = float(i) * control_spacing
 		var slope_kick: float = rng.randf_range(-95.0, 95.0)
 		var y: float = clampf(previous_y + slope_kick, TERRAIN_MIN_Y, TERRAIN_MAX_Y)
-
 		if x < 210.0 or x > WORLD_WIDTH - 210.0:
 			y = rng.randf_range(385.0, 455.0)
-
 		control_points.append(Vector2(x, y))
 		previous_y = y
-
 	var point_count: int = int(WORLD_WIDTH / TERRAIN_STEP) + 1
 	for i: int in range(point_count):
 		var x: float = float(i) * TERRAIN_STEP
@@ -244,12 +282,9 @@ func _generate_random_terrain() -> void:
 		var t: float = clampf((x - left.x) / (right.x - left.x), 0.0, 1.0)
 		var smooth_t: float = t * t * (3.0 - 2.0 * t)
 		var y: float = lerpf(left.y, right.y, smooth_t)
-
 		if x > 230.0 and x < WORLD_WIDTH - 230.0:
 			y += 10.0 * sin(x * 0.035 + rng.randf_range(-0.15, 0.15))
-
 		terrain_points.append(Vector2(x, clampf(y, TERRAIN_MIN_Y, TERRAIN_MAX_Y)))
-
 	_flatten_spawn_area(TANK_START_LEFT_X, 48.0)
 	_flatten_spawn_area(TANK_START_RIGHT_X, 48.0)
 	_refresh_terrain_line()
@@ -258,15 +293,12 @@ func _generate_random_terrain() -> void:
 func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 	var y_sum: float = 0.0
 	var count: int = 0
-
 	for point: Vector2 in terrain_points:
 		if absf(point.x - center_x) <= half_width:
 			y_sum += point.y
 			count += 1
-
 	if count <= 0:
 		return
-
 	var flat_y: float = y_sum / float(count)
 	for i: int in range(terrain_points.size()):
 		var point: Vector2 = terrain_points[i]
@@ -290,14 +322,11 @@ func _settle_tanks_on_terrain() -> void:
 func _ground_y_at_x(x: float) -> float:
 	if terrain_points.is_empty():
 		return GROUND_Y
-
 	if x <= terrain_points[0].x:
 		return terrain_points[0].y
-
 	var last_index: int = terrain_points.size() - 1
 	if x >= terrain_points[last_index].x:
 		return terrain_points[last_index].y
-
 	var index: int = mini(int(floor(x / TERRAIN_STEP)), last_index - 1)
 	var left: Vector2 = terrain_points[index]
 	var right: Vector2 = terrain_points[index + 1]
@@ -306,18 +335,17 @@ func _ground_y_at_x(x: float) -> float:
 
 func _update_angle_from_input(delta: float) -> void:
 	var gravity_vec: Vector3 = Input.get_gravity()
-
 	if gravity_vec.length() < 0.01:
 		if Input.is_key_pressed(KEY_UP):
 			angle_deg += 75.0 * delta
 		if Input.is_key_pressed(KEY_DOWN):
 			angle_deg -= 75.0 * delta
 	else:
-		# Phone aiming. If this feels reversed or sideways, we can flip/swap this axis next.
-		var tilt: float = clampf(gravity_vec.y / 9.8, -1.0, 1.0)
-		angle_deg = lerpf(12.0, 85.0, (tilt + 1.0) * 0.5)
-
-	angle_deg = clampf(angle_deg, 5.0, 88.0)
+		# Mobile aiming uses left/right roll only. A small comfortable roll maps to the full turret range.
+		var roll: float = clampf(gravity_vec.x / 9.8, -MOBILE_TILT_FULL_SCALE, MOBILE_TILT_FULL_SCALE)
+		var normalized_roll: float = (roll / MOBILE_TILT_FULL_SCALE + 1.0) * 0.5
+		angle_deg = lerpf(MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE, normalized_roll)
+	angle_deg = clampf(angle_deg, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
 
 func _update_tank_movement(delta: float) -> void:
 	var direction: float = 0.0
@@ -325,33 +353,26 @@ func _update_tank_movement(delta: float) -> void:
 		direction -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or mobile_right_pressed:
 		direction += 1.0
-
 	if direction == 0.0:
 		return
-
 	var min_x: float = 45.0
 	var max_x: float = WORLD_WIDTH - 45.0
 	var new_x: float = clampf(tank_positions[current_player].x + direction * TANK_MOVE_SPEED * delta, min_x, max_x)
-
 	var other_player: int = 1 - current_player
 	if absf(new_x - tank_positions[other_player].x) < 90.0:
 		return
-
 	tank_positions[current_player].x = new_x
 	tank_positions[current_player].y = _ground_y_at_x(new_x) - TANK_RADIUS
 
 func _on_fire_pressed() -> void:
 	if projectile_active or game_over or overlay_open:
 		return
-
 	power_slider.release_focus()
 	player_angles[current_player] = angle_deg
 	player_powers[current_player] = power
-
 	var facing: float = 1.0 if current_player == 0 else -1.0
 	var rad: float = deg_to_rad(angle_deg)
 	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-
 	projectile_pos = tank_positions[current_player] + muzzle_offset
 	projectile_vel = Vector2(facing * power * cos(rad), -power * sin(rad))
 	projectile_active = true
@@ -360,17 +381,14 @@ func _update_projectile(delta: float) -> void:
 	projectile_vel.y += gravity * delta
 	projectile_vel.x += wind * delta
 	projectile_pos += projectile_vel * delta
-
 	var enemy: int = 1 - current_player
 	if projectile_pos.distance_to(tank_positions[enemy]) <= TANK_RADIUS + PROJECTILE_RADIUS:
 		_explode(projectile_pos)
 		return
-
 	var ground_y: float = _ground_y_at_x(projectile_pos.x)
 	if projectile_pos.y >= ground_y:
 		_explode(Vector2(projectile_pos.x, ground_y))
 		return
-
 	if projectile_pos.x < -100.0 or projectile_pos.x > WORLD_WIDTH + 100.0 or projectile_pos.y > VIEW_SIZE.y + 160.0:
 		_explode(projectile_pos)
 
@@ -378,11 +396,9 @@ func _explode(pos: Vector2) -> void:
 	projectile_active = false
 	explosion_pos = pos
 	explosion_timer = EXPLOSION_DURATION
-
 	_apply_crater(pos)
 	_apply_explosion_damage(pos)
 	_settle_tanks_on_terrain()
-
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
 		_show_end_popup()
@@ -410,7 +426,6 @@ func _apply_crater(pos: Vector2) -> void:
 			var target_y: float = pos.y + CRATER_DEPTH * bowl
 			point.y = clampf(maxf(point.y, target_y), TERRAIN_MIN_Y, VIEW_SIZE.y + 80.0)
 			terrain_points[i] = point
-
 	_refresh_terrain_line()
 
 func _advance_turn() -> void:
@@ -419,6 +434,8 @@ func _advance_turn() -> void:
 	turn_timer = TURN_TIME_LIMIT
 	mobile_left_pressed = false
 	mobile_right_pressed = false
+	mobile_left_button.release_focus()
+	mobile_right_button.release_focus()
 
 func _end_turn_without_shot() -> void:
 	player_angles[current_player] = angle_deg
@@ -435,9 +452,9 @@ func reset_match() -> void:
 	_hide_overlays()
 	current_player = 0
 	player_angles = [45.0, 45.0]
-	player_powers = [500.0, 500.0]
+	player_powers = [POWER_DEFAULT, POWER_DEFAULT]
 	angle_deg = 45.0
-	power = 500.0
+	power = POWER_DEFAULT
 	power_slider.value = power
 	power_slider.release_focus()
 	turn_timer = TURN_TIME_LIMIT
@@ -474,7 +491,6 @@ func _camera_target_x() -> float:
 		focus_x = projectile_pos.x
 	elif explosion_timer > 0.0 and explosion_pos != Vector2.INF:
 		focus_x = explosion_pos.x
-
 	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
 	return clampf(focus_x - camera_world_width * 0.5, 0.0, WORLD_WIDTH - camera_world_width)
 
@@ -484,7 +500,6 @@ func _world_to_screen(world_point: Vector2) -> Vector2:
 func _update_ui() -> void:
 	angle_label.text = "Angle: %.1f" % angle_deg
 	power_label.text = "Power: %.0f" % power
-
 	if game_over:
 		var winner: int = 1 if tank_health[0] <= 0 else 0
 		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
@@ -496,22 +511,17 @@ func _draw() -> void:
 	_draw_distant_mountains()
 	_draw_ground_fill()
 	_draw_terrain_outline()
-
 	_draw_tank(0, Color(0.25, 0.9, 0.35))
 	_draw_tank(1, Color(0.95, 0.25, 0.25))
-
 	var base: Vector2 = _world_to_screen(tank_positions[current_player])
 	var facing: float = 1.0 if current_player == 0 else -1.0
 	var rad: float = deg_to_rad(angle_deg)
 	var tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(rad), -CANNON_LENGTH * CAMERA_SCALE * sin(rad))
 	draw_line(base, tip, Color.WHITE, 4.0)
-
 	if projectile_active:
 		draw_circle(_world_to_screen(projectile_pos), PROJECTILE_RADIUS * CAMERA_SCALE, Color(1.0, 0.92, 0.2))
-
 	if explosion_timer > 0.0 and explosion_pos != Vector2.INF:
 		_draw_explosion()
-
 	_draw_wind_widget()
 	_draw_turn_widget()
 
@@ -529,7 +539,6 @@ func _draw_distant_mountains() -> void:
 func _draw_ground_fill() -> void:
 	if terrain_points.is_empty():
 		return
-
 	var polygon: PackedVector2Array = PackedVector2Array()
 	polygon.append(Vector2(0.0, VIEW_SIZE.y + 100.0))
 	for point: Vector2 in terrain_points:
@@ -537,7 +546,6 @@ func _draw_ground_fill() -> void:
 		if screen_point.x >= -25.0 and screen_point.x <= VIEW_SIZE.x + 25.0:
 			polygon.append(screen_point)
 	polygon.append(Vector2(VIEW_SIZE.x, VIEW_SIZE.y + 100.0))
-
 	if polygon.size() >= 3:
 		draw_colored_polygon(polygon, Color(0.13, 0.24, 0.12))
 
@@ -566,7 +574,6 @@ func _draw_wind_widget() -> void:
 	var box: Rect2 = Rect2(Vector2(18, 132), Vector2(122, 42))
 	draw_rect(box, Color(0.02, 0.03, 0.04, 0.58), true)
 	draw_rect(box, Color(0.85, 0.90, 1.0, 0.30), false, 1.0)
-
 	var wind_strength: float = absf(wind) / MAX_WIND_ACCEL * 10.0
 	var arrow_start: Vector2 = Vector2(38, 153)
 	var arrow_end: Vector2 = Vector2(92, 153)
@@ -581,7 +588,6 @@ func _draw_wind_widget() -> void:
 func _draw_turn_widget() -> void:
 	if game_over:
 		return
-
 	var box: Rect2 = Rect2(Vector2(VIEW_SIZE.x - 178.0, VIEW_SIZE.y - 70.0), Vector2(158.0, 48.0))
 	draw_rect(box, Color(0.02, 0.03, 0.04, 0.64), true)
 	draw_rect(box, Color(1.0, 1.0, 1.0, 0.30), false, 1.0)
@@ -592,7 +598,6 @@ func _draw_tank(index: int, color: Color) -> void:
 	var pos: Vector2 = _world_to_screen(tank_positions[index])
 	var facing: float = 1.0 if index == 0 else -1.0
 	var s: float = CAMERA_SCALE
-
 	var tread_points: PackedVector2Array = PackedVector2Array([
 		pos + Vector2(-25, 8) * s,
 		pos + Vector2(25, 8) * s,
@@ -603,7 +608,6 @@ func _draw_tank(index: int, color: Color) -> void:
 	])
 	draw_colored_polygon(tread_points, Color(color.r * 0.45, color.g * 0.45, color.b * 0.45))
 	draw_line(pos + Vector2(-24, 15) * s, pos + Vector2(24, 15) * s, Color.BLACK, 3.0)
-
 	var body_points: PackedVector2Array = PackedVector2Array([
 		pos + Vector2(-22, 5) * s,
 		pos + Vector2(22, 5) * s,
@@ -612,9 +616,7 @@ func _draw_tank(index: int, color: Color) -> void:
 	])
 	draw_colored_polygon(body_points, color)
 	draw_circle(pos + Vector2(0, -13) * s, 12.0 * s, color)
-
 	if index != current_player or game_over:
 		draw_line(pos + Vector2(facing * 6.0, -15.0) * s, pos + Vector2(facing * 38.0, -21.0) * s, Color.WHITE, 3.0)
-
 	for wheel_x: float in [-18.0, 0.0, 18.0]:
 		draw_circle(pos + Vector2(wheel_x, 16) * s, 4.0 * s, Color.BLACK)
