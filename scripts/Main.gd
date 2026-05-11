@@ -163,11 +163,14 @@ func _build_overlay_ui() -> void:
 func _toggle_menu() -> void:
 	if game_over:
 		return
-	menu_panel.visible = not menu_panel.visible	overlay_open = menu_panel.visible
+	menu_panel.visible = not menu_panel.visible
+	overlay_open = menu_panel.visible
 
 func _hide_overlays() -> void:
-	menu_panel.visible = false
-	end_panel.visible = false
+	if menu_panel != null:
+		menu_panel.visible = false
+	if end_panel != null:
+		end_panel.visible = false
 	overlay_open = false
 	end_popup_shown = false
 
@@ -290,7 +293,6 @@ func _update_tank_movement(delta: float) -> void:
 	var max_x: float = WORLD_WIDTH - 45.0
 	var new_x: float = clampf(tank_positions[current_player].x + direction * TANK_MOVE_SPEED * delta, min_x, max_x)
 
-	# Keep a minimum separation so players cannot drive into each other.
 	var other_player: int = 1 - current_player
 	if absf(new_x - tank_positions[other_player].x) < 90.0:
 		return
