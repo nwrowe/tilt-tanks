@@ -66,6 +66,9 @@ func _ready() -> void:
 	rng.randomize()
 	terrain.visible = false
 	reset_button.visible = false
+	power_slider.focus_mode = Control.FOCUS_NONE
+	fire_button.focus_mode = Control.FOCUS_NONE
+	reset_button.focus_mode = Control.FOCUS_NONE
 	fire_button.pressed.connect(_on_fire_pressed)
 	_build_overlay_ui()
 	reset_match()
@@ -104,6 +107,7 @@ func _build_overlay_ui() -> void:
 	menu_button.text = "☰"
 	menu_button.position = Vector2(842, 12)
 	menu_button.size = Vector2(44, 38)
+	menu_button.focus_mode = Control.FOCUS_NONE
 	ui_layer.add_child(menu_button)
 	menu_button.pressed.connect(_toggle_menu)
 
@@ -123,6 +127,7 @@ func _build_overlay_ui() -> void:
 	rematch_button.text = "Rematch"
 	rematch_button.position = Vector2(16, 46)
 	rematch_button.size = Vector2(198, 36)
+	rematch_button.focus_mode = Control.FOCUS_NONE
 	menu_panel.add_child(rematch_button)
 	rematch_button.pressed.connect(reset_match)
 
@@ -130,6 +135,7 @@ func _build_overlay_ui() -> void:
 	quit_button.text = "Quit"
 	quit_button.position = Vector2(16, 92)
 	quit_button.size = Vector2(198, 36)
+	quit_button.focus_mode = Control.FOCUS_NONE
 	menu_panel.add_child(quit_button)
 	quit_button.pressed.connect(_quit_game)
 
@@ -150,6 +156,7 @@ func _build_overlay_ui() -> void:
 	end_rematch_button.text = "Rematch"
 	end_rematch_button.position = Vector2(36, 96)
 	end_rematch_button.size = Vector2(130, 46)
+	end_rematch_button.focus_mode = Control.FOCUS_NONE
 	end_panel.add_child(end_rematch_button)
 	end_rematch_button.pressed.connect(reset_match)
 
@@ -157,6 +164,7 @@ func _build_overlay_ui() -> void:
 	end_quit_button.text = "Quit"
 	end_quit_button.position = Vector2(194, 96)
 	end_quit_button.size = Vector2(130, 46)
+	end_quit_button.focus_mode = Control.FOCUS_NONE
 	end_panel.add_child(end_quit_button)
 	end_quit_button.pressed.connect(_quit_game)
 
@@ -304,6 +312,7 @@ func _on_fire_pressed() -> void:
 	if projectile_active or game_over or overlay_open:
 		return
 
+	power_slider.release_focus()
 	player_angles[current_player] = angle_deg
 	player_powers[current_player] = power
 
@@ -386,6 +395,7 @@ func _load_current_player_settings() -> void:
 	angle_deg = player_angles[current_player]
 	power = player_powers[current_player]
 	power_slider.value = power
+	power_slider.release_focus()
 
 func reset_match() -> void:
 	_hide_overlays()
@@ -395,6 +405,7 @@ func reset_match() -> void:
 	angle_deg = 45.0
 	power = 500.0
 	power_slider.value = power
+	power_slider.release_focus()
 	turn_timer = TURN_TIME_LIMIT
 	wind = rng.randf_range(-MAX_WIND_ACCEL, MAX_WIND_ACCEL)
 	tank_health = [100, 100]
@@ -442,7 +453,7 @@ func _update_ui() -> void:
 		var winner: int = 1 if tank_health[0] <= 0 else 0
 		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
 	else:
-		status_label.text = "P%d turn    Time: %02d    P1 HP: %d    P2 HP: %d" % [current_player + 1, int(ceil(turn_timer)), tank_health[0], tank_health[1]]
+		status_label.text = "P1 HP: %d    P2 HP: %d" % [tank_health[0], tank_health[1]]
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color(0.06, 0.07, 0.10), true)
@@ -466,6 +477,7 @@ func _draw() -> void:
 		_draw_explosion()
 
 	_draw_wind_widget()
+	_draw_turn_widget()
 
 func _draw_distant_mountains() -> void:
 	var offset: float = camera_x * 0.18
@@ -529,6 +541,16 @@ func _draw_wind_widget() -> void:
 	draw_line(arrow_end, arrow_end + Vector2(-8 if wind > 0.0 else 8, -6), Color(0.78, 0.90, 1.0), 3.0)
 	draw_line(arrow_end, arrow_end + Vector2(-8 if wind > 0.0 else 8, 6), Color(0.78, 0.90, 1.0), 3.0)
 	draw_string(ThemeDB.fallback_font, Vector2(28, 169), "%.1f" % wind_strength, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color.WHITE)
+
+func _draw_turn_widget() -> void:
+	if game_over:
+		return
+
+	var box: Rect2 = Rect2(Vector2(VIEW_SIZE.x - 178.0, VIEW_SIZE.y - 70.0), Vector2(158.0, 48.0))
+	draw_rect(box, Color(0.02, 0.03, 0.04, 0.64), true)
+	draw_rect(box, Color(1.0, 1.0, 1.0, 0.30), false, 1.0)
+	var text: String = "P%d  %02ds" % [current_player + 1, int(ceil(turn_timer))]
+	draw_string(ThemeDB.fallback_font, box.position + Vector2(18.0, 31.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
 
 func _draw_tank(index: int, color: Color) -> void:
 	var pos: Vector2 = _world_to_screen(tank_positions[index])
