@@ -59,6 +59,11 @@ var menu_button: Button
 var menu_panel: Panel
 var end_panel: Panel
 var end_label: Label
+var mobile_left_button: Button
+var mobile_right_button: Button
+var mobile_fire_button: Button
+var mobile_left_pressed: bool = false
+var mobile_right_pressed: bool = false
 var overlay_open: bool = false
 var end_popup_shown: bool = false
 
@@ -110,6 +115,32 @@ func _build_overlay_ui() -> void:
 	menu_button.focus_mode = Control.FOCUS_NONE
 	ui_layer.add_child(menu_button)
 	menu_button.pressed.connect(_toggle_menu)
+
+	mobile_left_button = Button.new()
+	mobile_left_button.text = "◀"
+	mobile_left_button.position = Vector2(18, 448)
+	mobile_left_button.size = Vector2(78, 72)
+	mobile_left_button.focus_mode = Control.FOCUS_NONE
+	ui_layer.add_child(mobile_left_button)
+	mobile_left_button.button_down.connect(func() -> void: mobile_left_pressed = true)
+	mobile_left_button.button_up.connect(func() -> void: mobile_left_pressed = false)
+
+	mobile_right_button = Button.new()
+	mobile_right_button.text = "▶"
+	mobile_right_button.position = Vector2(108, 448)
+	mobile_right_button.size = Vector2(78, 72)
+	mobile_right_button.focus_mode = Control.FOCUS_NONE
+	ui_layer.add_child(mobile_right_button)
+	mobile_right_button.button_down.connect(func() -> void: mobile_right_pressed = true)
+	mobile_right_button.button_up.connect(func() -> void: mobile_right_pressed = false)
+
+	mobile_fire_button = Button.new()
+	mobile_fire_button.text = "FIRE"
+	mobile_fire_button.position = Vector2(382, 462)
+	mobile_fire_button.size = Vector2(136, 58)
+	mobile_fire_button.focus_mode = Control.FOCUS_NONE
+	ui_layer.add_child(mobile_fire_button)
+	mobile_fire_button.pressed.connect(_on_fire_pressed)
 
 	menu_panel = Panel.new()
 	menu_panel.visible = false
@@ -282,6 +313,7 @@ func _update_angle_from_input(delta: float) -> void:
 		if Input.is_key_pressed(KEY_DOWN):
 			angle_deg -= 75.0 * delta
 	else:
+		# Phone aiming. If this feels reversed or sideways, we can flip/swap this axis next.
 		var tilt: float = clampf(gravity_vec.y / 9.8, -1.0, 1.0)
 		angle_deg = lerpf(12.0, 85.0, (tilt + 1.0) * 0.5)
 
@@ -289,9 +321,9 @@ func _update_angle_from_input(delta: float) -> void:
 
 func _update_tank_movement(delta: float) -> void:
 	var direction: float = 0.0
-	if Input.is_key_pressed(KEY_LEFT):
+	if Input.is_key_pressed(KEY_LEFT) or mobile_left_pressed:
 		direction -= 1.0
-	if Input.is_key_pressed(KEY_RIGHT):
+	if Input.is_key_pressed(KEY_RIGHT) or mobile_right_pressed:
 		direction += 1.0
 
 	if direction == 0.0:
@@ -385,6 +417,8 @@ func _advance_turn() -> void:
 	current_player = 1 - current_player
 	_load_current_player_settings()
 	turn_timer = TURN_TIME_LIMIT
+	mobile_left_pressed = false
+	mobile_right_pressed = false
 
 func _end_turn_without_shot() -> void:
 	player_angles[current_player] = angle_deg
@@ -416,6 +450,8 @@ func reset_match() -> void:
 	explosion_pos = Vector2.INF
 	explosion_timer = 0.0
 	game_over = false
+	mobile_left_pressed = false
+	mobile_right_pressed = false
 	_generate_random_terrain()
 	camera_x = _camera_target_x()
 
