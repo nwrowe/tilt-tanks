@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://tilttanksmain"]
 
-[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/MainStablePowerPercent.gd" id="1_main"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -40,17 +40,17 @@ offset_left = 190.0
 offset_top = 38.0
 offset_right = 360.0
 offset_bottom = 62.0
-text = "Power: 800"
+text = "Power: 50 percent"
 
 [node name="PowerSlider" type="HSlider" parent="UI/Panel"]
 offset_left = 14.0
 offset_top = 72.0
 offset_right = 360.0
 offset_bottom = 100.0
-min_value = 500.0
-max_value = 1300.0
-step = 10.0
-value = 800.0
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 50.0
 
 [node name="FireButton" type="Button" parent="UI/Panel"]
 offset_left = 380.0
