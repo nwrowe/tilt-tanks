@@ -45,7 +45,9 @@ func _on_mobile_fire_pressed() -> void:
 		if mobile_fire_button != null:
 			mobile_fire_button.release_focus()
 		return
-	super._on_mobile_fire_pressed()
+	if mobile_fire_button != null:
+		mobile_fire_button.release_focus()
+	_on_fire_pressed()
 
 func _on_realtime_fire_button_down() -> void:
 	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
