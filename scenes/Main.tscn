@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://tilttanksmain"]
 
-[ext_resource type="Script" path="res://scripts/MainHybridModes4.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/MainHybridModes5.gd" id="1_main"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -63,5 +63,5 @@ text = "SHOOT"
 offset_left = 516.0
 offset_top = 38.0
 offset_right = 636.0
-offset_bottom = 100.0
 text = "RESET"
+offset_bottom = 100.0
