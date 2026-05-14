@@ -19,6 +19,58 @@ func _ready() -> void:
 	super._ready()
 	print("Tilt Tanks active script: %s" % ACTIVE_BUILD_NAME)
 
+# UI facade
+# ---------
+# Route reusable menu/button utilities through UIManager while the prototype
+# chain still owns menu construction and gameplay-specific UI state.
+
+func _point_inside_control(control: Control, point: Vector2) -> bool:
+	return UIManager.point_inside_control(control, point)
+
+func _relabel_quit_buttons_recursive(node: Node) -> void:
+	UIManager.relabel_buttons_recursive(node, "Quit", "Main Menu")
+
+func _relayout_three_line_menu() -> void:
+	if menu_panel == null:
+		return
+	var next_y: float = UIManager.layout_buttons_by_label(
+		menu_panel,
+		["Rematch", "Main Menu", "Quit"],
+		MENU_PANEL_BUTTON_X,
+		MENU_PANEL_START_Y,
+		MENU_PANEL_BUTTON_W,
+		MENU_PANEL_BUTTON_H,
+		MENU_PANEL_GAP_Y
+	)
+	menu_panel.size = Vector2(230.0, next_y + 12.0)
+
+func _handle_outside_menu_tap(event: InputEvent) -> bool:
+	if menu_state != MENU_STATE_GAME:
+		return false
+	var click_pos: Vector2 = Vector2.INF
+	var is_press: bool = false
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		is_press = touch.pressed
+		click_pos = touch.position
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		is_press = mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
+		click_pos = mb.position
+	if not is_press:
+		return false
+	if suppress_next_outside_close:
+		suppress_next_outside_close = false
+		return false
+	var closed_menu: bool = UIManager.close_if_outside(menu_panel, menu_button, click_pos)
+	var closed_weapon: bool = UIManager.close_if_outside(weapon_panel, weapon_button, click_pos)
+	if closed_weapon:
+		weapon_menu_open = false
+	if closed_menu or closed_weapon:
+		overlay_open = (menu_panel != null and menu_panel.visible) or (weapon_panel != null and weapon_panel.visible) or (end_panel != null and end_panel.visible)
+		return true
+	return false
+
 # Terrain math facade
 # -------------------
 # Centralize reusable terrain calculations before moving full terrain/water/snow
