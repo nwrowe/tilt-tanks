@@ -103,3 +103,58 @@ static func apply_crater(points: Array[Vector2], pos: Vector2, radius: float, de
 
 static func clamp_tank_x(x: float, world_width: float, edge_margin: float) -> float:
 	return clampf(x, edge_margin, maxf(edge_margin, world_width - edge_margin))
+
+static func visible_surface_points(
+	points: Array[Vector2],
+	camera_x: float,
+	camera_scale: float,
+	view_width: float,
+	terrain_step: float,
+	left_screen_x: float,
+	right_screen_x: float
+) -> PackedVector2Array:
+	var surface: PackedVector2Array = PackedVector2Array()
+	if points.size() < 2 or camera_scale <= 0.0:
+		return surface
+	var left_world_x: float = camera_x + left_screen_x / camera_scale
+	var right_world_x: float = camera_x + right_screen_x / camera_scale
+	surface.append(Vector2(left_world_x, TerrainMath.ground_y_at_x(points, left_world_x, terrain_step)))
+	for point: Vector2 in points:
+		if point.x > left_world_x and point.x < right_world_x:
+			surface.append(point)
+	surface.append(Vector2(right_world_x, TerrainMath.ground_y_at_x(points, right_world_x, terrain_step)))
+	return surface
+
+static func ground_fill_polygon_world(
+	points: Array[Vector2],
+	camera_x: float,
+	camera_scale: float,
+	view_width: float,
+	view_height: float,
+	terrain_step: float,
+	left_screen_x: float,
+	right_screen_x: float,
+	bottom_y: float
+) -> PackedVector2Array:
+	var surface: PackedVector2Array = visible_surface_points(points, camera_x, camera_scale, view_width, terrain_step, left_screen_x, right_screen_x)
+	var polygon: PackedVector2Array = PackedVector2Array()
+	if surface.size() < 2:
+		return polygon
+	var left_world_x: float = camera_x + left_screen_x / camera_scale
+	var right_world_x: float = camera_x + right_screen_x / camera_scale
+	polygon.append(Vector2(left_world_x, bottom_y))
+	polygon.append(Vector2(right_world_x, bottom_y))
+	for i: int in range(surface.size() - 1, -1, -1):
+		polygon.append(surface[i])
+	return polygon
+
+static func terrain_outline_world(
+	points: Array[Vector2],
+	camera_x: float,
+	camera_scale: float,
+	view_width: float,
+	terrain_step: float,
+	left_screen_x: float,
+	right_screen_x: float
+) -> PackedVector2Array:
+	return visible_surface_points(points, camera_x, camera_scale, view_width, terrain_step, left_screen_x, right_screen_x)
