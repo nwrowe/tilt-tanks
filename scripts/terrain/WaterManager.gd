@@ -1,6 +1,132 @@
 extends RefCounted
 class_name WaterManager
 
+static func generate_ponds(
+	rng: RandomNumberGenerator,
+	points: Array[Vector2],
+	active_right_start_x: float,
+	left_spawn_x: float,
+	pond_chance: float,
+	attempts: int,
+	min_width: float,
+	max_width: float,
+	min_depth: float,
+	rim_search_radius: int,
+	surface_drop: float,
+	spawn_avoid_radius: float,
+	terrain_step: float
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if points.size() < 30:
+		return result
+	if rng.randf() > pond_chance:
+		return result
+
+	var best_pond: Dictionary = {}
+	var best_score: float = -INF
+	for attempt: int in range(attempts):
+		var pond: Dictionary = try_find_pond(
+			rng,
+			points,
+			active_right_start_x,
+			left_spawn_x,
+			min_width,
+			max_width,
+			min_depth,
+			rim_search_radius,
+			surface_drop,
+			spawn_avoid_radius
+		)
+		if pond.is_empty():
+			continue
+		var score: float = float(pond.get("score", 0.0))
+		if score > best_score:
+			best_score = score
+			best_pond = pond
+
+	if not best_pond.is_empty():
+		result.append(add_volume_to_pond(points, best_pond, terrain_step))
+	return result
+
+static func try_find_pond(
+	rng: RandomNumberGenerator,
+	points: Array[Vector2],
+	active_right_start_x: float,
+	left_spawn_x: float,
+	min_width: float,
+	max_width: float,
+	min_depth: float,
+	rim_search_radius: int,
+	surface_drop: float,
+	spawn_avoid_radius: float
+) -> Dictionary:
+	var min_i: int = 12
+	var max_i: int = points.size() - 13
+	if max_i <= min_i:
+		return {}
+
+	var center_i: int = rng.randi_range(min_i, max_i)
+	var center_x: float = points[center_i].x
+	if absf(center_x - left_spawn_x) < spawn_avoid_radius:
+		return {}
+	if absf(center_x - active_right_start_x) < spawn_avoid_radius:
+		return {}
+
+	var valley_i: int = center_i
+	var search_left: int = maxi(min_i, center_i - 12)
+	var search_right: int = mini(max_i, center_i + 12)
+	for i: int in range(search_left, search_right + 1):
+		if points[i].y > points[valley_i].y:
+			valley_i = i
+
+	var valley_y: float = points[valley_i].y
+	var left_best_i: int = valley_i
+	var right_best_i: int = valley_i
+	var left_highest_ground_y: float = valley_y
+	var right_highest_ground_y: float = valley_y
+
+	for step: int in range(1, rim_search_radius + 1):
+		var left_i: int = valley_i - step
+		if left_i < 1:
+			break
+		if points[left_i].y < left_highest_ground_y:
+			left_highest_ground_y = points[left_i].y
+			left_best_i = left_i
+
+	for step: int in range(1, rim_search_radius + 1):
+		var right_i: int = valley_i + step
+		if right_i >= points.size() - 1:
+			break
+		if points[right_i].y < right_highest_ground_y:
+			right_highest_ground_y = points[right_i].y
+			right_best_i = right_i
+
+	var spill_y: float = maxf(left_highest_ground_y, right_highest_ground_y)
+	var depth: float = valley_y - spill_y
+	if depth < min_depth:
+		return {}
+
+	var start_i: int = left_best_i
+	var end_i: int = right_best_i
+	if start_i >= end_i:
+		return {}
+	var width: float = points[end_i].x - points[start_i].x
+	if width < min_width or width > max_width:
+		return {}
+
+	var water_y: float = spill_y + surface_drop
+	if water_y >= valley_y - 4.0:
+		return {}
+
+	return {
+		"start_i": start_i,
+		"end_i": end_i,
+		"start_x": points[start_i].x,
+		"end_x": points[end_i].x,
+		"water_y": water_y,
+		"score": depth + width * 0.08
+	}
+
 static func pond_at_x(ponds: Array[Dictionary], terrain_points: Array[Vector2], x: float, terrain_step: float, min_visible_depth: float) -> Dictionary:
 	for pond: Dictionary in ponds:
 		var start_x: float = float(pond.get("start_x", 0.0))
@@ -34,6 +160,8 @@ static func water_volume_for_range(points: Array[Vector2], start_i: int, end_i: 
 	return volume
 
 static func add_volume_to_pond(points: Array[Vector2], pond: Dictionary, terrain_step: float) -> Dictionary:
+	if points.is_empty():
+		return pond
 	var updated: Dictionary = pond.duplicate(true)
 	var start_i: int = clampi(int(updated.get("start_i", 0)), 0, points.size() - 1)
 	var end_i: int = clampi(int(updated.get("end_i", 0)), 0, points.size() - 1)
@@ -124,3 +252,40 @@ static func reflow_single_pond(
 		"volume": volume,
 		"score": volume
 	}
+
+static func backing_rects_for_ponds(ponds: Array[Dictionary], points: Array[Vector2], floor_y: float) -> Array[Dictionary]:
+	var rects: Array[Dictionary] = []
+	if points.is_empty():
+		return rects
+	for pond: Dictionary in ponds:
+		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, points.size() - 1)
+		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, points.size() - 1)
+		var water_y: float = float(pond.get("water_y", 0.0))
+		if end_i <= start_i:
+			continue
+		rects.append({
+			"start": Vector2(points[start_i].x, water_y),
+			"end": Vector2(points[end_i].x, floor_y + 260.0)
+		})
+	return rects
+
+static func surface_segments_for_ponds(ponds: Array[Dictionary], points: Array[Vector2], min_visible_depth: float) -> Array[Dictionary]:
+	var segments: Array[Dictionary] = []
+	if points.is_empty():
+		return segments
+	for pond: Dictionary in ponds:
+		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, points.size() - 1)
+		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, points.size() - 1)
+		var water_y: float = float(pond.get("water_y", 0.0))
+		var segment_start: int = -1
+		for i: int in range(start_i, end_i + 1):
+			var visible: bool = points[i].y > water_y + min_visible_depth
+			if visible and segment_start < 0:
+				segment_start = i
+			elif not visible and segment_start >= 0:
+				if i - 1 > segment_start:
+					segments.append({"start": Vector2(points[segment_start].x, water_y), "end": Vector2(points[i - 1].x, water_y)})
+				segment_start = -1
+		if segment_start >= 0 and end_i > segment_start:
+			segments.append({"start": Vector2(points[segment_start].x, water_y), "end": Vector2(points[end_i].x, water_y)})
+	return segments
