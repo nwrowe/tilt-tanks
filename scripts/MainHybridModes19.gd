@@ -206,15 +206,43 @@ func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_s
 		SNOW_UPHILL_BLOCK_SLOPE,
 		SNOW_SLIDE_SLOPE,
 		SNOW_SLIDE_SPEED,
-		SNOW_DRIVE_MULT
+		SNOW_DRIVE_MULT,
+		SNOW_UPHILL_SLOW_MULT
 	)
 
 func _draw_snow_caps() -> void:
+	_draw_snow_faces()
+	_draw_snow_surface_highlights()
+
+func _draw_snow_faces() -> void:
+	for face_data: Dictionary in SnowManager.snow_face_polygons(terrain_points, SNOW_LINE_Y, 0.62):
+		var face_world: PackedVector2Array = face_data.get("face", PackedVector2Array())
+		var face_screen: PackedVector2Array = PackedVector2Array()
+		for point: Vector2 in face_world:
+			face_screen.append(_world_to_screen(point))
+		if face_screen.size() >= 3:
+			draw_colored_polygon(face_screen, Color(0.90, 0.95, 1.0, SNOW_FACE_ALPHA))
+
+		var shadow_world: PackedVector2Array = face_data.get("shadow", PackedVector2Array())
+		var shadow_screen: PackedVector2Array = PackedVector2Array()
+		for point: Vector2 in shadow_world:
+			shadow_screen.append(_world_to_screen(point))
+		if shadow_screen.size() >= 3:
+			draw_colored_polygon(shadow_screen, Color(0.62, 0.78, 1.0, SNOW_FACE_SHADOW_ALPHA))
+
+func _draw_snow_surface_highlights() -> void:
 	for segment_world: Array in SnowManager.snow_segments(terrain_points, SNOW_LINE_Y):
 		var segment: PackedVector2Array = PackedVector2Array()
 		for point: Vector2 in segment_world:
 			segment.append(_world_to_screen(point))
-		_draw_snow_segment(segment)
+		_draw_snow_highlight_segment(segment)
+
+func _draw_snow_highlight_segment(segment: PackedVector2Array) -> void:
+	if segment.size() < 2:
+		return
+	for i: int in range(segment.size() - 1):
+		draw_line(segment[i], segment[i + 1], Color(0.98, 1.0, 1.0, 0.96), 3.5)
+		draw_line(segment[i] + Vector2(0, 5), segment[i + 1] + Vector2(0, 5), Color(0.68, 0.82, 1.0, 0.28), 1.5)
 
 func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
 	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
