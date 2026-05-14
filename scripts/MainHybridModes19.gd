@@ -24,6 +24,9 @@ func reset_match() -> void:
 func _style_mobile_button(button: Button) -> void:
 	MobileControls.style_mobile_button(button)
 
+func _make_button(text: String, pos: Vector2, size: Vector2, parent: Node) -> Button:
+	return MobileControls.make_button(text, pos, size, parent)
+
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
 
