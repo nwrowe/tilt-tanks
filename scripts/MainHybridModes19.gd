@@ -116,6 +116,31 @@ func _build_weapon_ui() -> void:
 	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
 	close_button.pressed.connect(_close_weapon_menu)
 
+func _generate_random_terrain() -> void:
+	terrain_points.clear()
+	active_world_width = rng.randf_range(WORLD_WIDTH_MIN_TWEAK, WORLD_WIDTH_MAX_TWEAK)
+	active_right_start_x = active_world_width - 130.0
+	terrain_points = TerrainManager.generate_varied_terrain(
+		rng,
+		active_world_width,
+		TERRAIN_STEP,
+		_bottom_floor_y(),
+		VAR_TERRAIN_MIN_Y,
+		VAR_TERRAIN_MAX_Y,
+		VAR_START_MIN_Y,
+		VAR_START_MAX_Y,
+		VAR_CONTROL_SPACING_MIN,
+		VAR_CONTROL_SPACING_MAX,
+		VAR_SLOPE_KICK,
+		VAR_DETAIL_WAVE_AMOUNT,
+		TANK_START_LEFT_X,
+		active_right_start_x,
+		54.0
+	)
+	_refresh_terrain_line()
+	_settle_tanks_on_terrain()
+	_generate_ponds()
+
 func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 	TerrainManager.flatten_spawn_area(terrain_points, center_x, half_width)
 
