@@ -116,6 +116,31 @@ func _build_weapon_ui() -> void:
 	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
 	close_button.pressed.connect(_close_weapon_menu)
 
+func _flatten_spawn_area(center_x: float, half_width: float) -> void:
+	TerrainManager.flatten_spawn_area(terrain_points, center_x, half_width)
+
+func _refresh_terrain_line() -> void:
+	TerrainManager.refresh_terrain_line(terrain, terrain_points)
+
+func _settle_tanks_on_terrain() -> void:
+	TerrainManager.settle_tanks_on_terrain(tank_positions, terrain_points, TERRAIN_STEP, TANK_RADIUS)
+
+func _ground_y_at_x(x: float) -> float:
+	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
+
+func _bottom_floor_y() -> float:
+	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
+
+func _terrain_slope_at_x(x: float) -> float:
+	return TerrainMath.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
+
+func _is_snow_at_x(x: float) -> bool:
+	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
+
+func _apply_crater(pos: Vector2) -> void:
+	TerrainManager.apply_crater(terrain_points, pos, CRATER_RADIUS, CRATER_DEPTH, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
+	_refresh_terrain_line()
+
 func _add_main_menu_controls() -> void:
 	# The active overlay builder already creates the Main Menu button. Keep this
 	# override as a no-op because an inherited _ready() still calls it.
