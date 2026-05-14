@@ -111,15 +111,16 @@ Done:
 - Routed active overlay UI construction through MobileControls.gd and EndPopup.gd while keeping callbacks in the active game script.
 - Added TerrainManager.gd with stateless terrain helpers.
 - Routed active terrain utility methods through TerrainMath.gd and TerrainManager.gd while keeping terrain state ownership in the active game script.
+- Routed active terrain generation algorithm through TerrainManager.gd while keeping world assignment, ponds, line refresh, and tank settling in the active game script.
 - Created a stable backup branch.
 ```
 
 Still pending:
 
 ```text
-- Test terrain utility routing for ground collision, craters, snow slopes, and spawn placement.
-- Move terrain generation ownership out of the legacy chain.
+- Test terrain generation routing for map shape, spawn placement, ponds, snow slopes, craters, and projectile collision.
 - Move water and snow ownership further out of the legacy chain.
+- Continue moving terrain ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
 ```
