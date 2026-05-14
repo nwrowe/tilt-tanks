@@ -100,6 +100,7 @@ Done:
 - Removed inactive temporary MainGameModes.gd facade.
 - Added MobileControls.gd helper for behavior-identical mobile/menu button construction.
 - Routed active mobile/menu button styling through MobileControls.gd.
+- Routed generic active button construction through MobileControls.gd.
 - Added WeaponSelectMenu.gd as a construction-only weapon selector helper.
 - Routed active weapon menu construction through WeaponSelectMenu.gd.
 - Added PauseMenu.gd as a construction-only pause/menu helper.
@@ -110,7 +111,7 @@ Done:
 Still pending:
 
 ```text
-- Move remaining active menu/mobile-control construction out of the legacy chain.
+- Move remaining active menu/mobile-control ownership out of the legacy chain.
 - Move actual terrain ownership out of the legacy chain.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
