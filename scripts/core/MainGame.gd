@@ -51,7 +51,7 @@ func _update_hotseat_charge(delta: float) -> void:
 
 	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
 
-	if keyboard_down and not hotseat_keyboard_fire_held and _hotseat_can_begin_charge():
+	if HotseatMode.can_begin_keyboard_charge(keyboard_down, hotseat_keyboard_fire_held, projectile_active, turn_projectiles, game_over, overlay_open):
 		hotseat_keyboard_fire_held = true
 		hotseat_charge_time = 0.0
 		hotseat_charge_percent = HOTSEAT_CHARGE_MIN_PERCENT
@@ -74,7 +74,7 @@ func _update_hotseat_charge(delta: float) -> void:
 	elif _hotseat_can_begin_charge():
 		_update_fire_button_charge_style(0.0)
 
-	if not keyboard_down and hotseat_keyboard_fire_held:
+	if HotseatMode.should_release_keyboard_charge(keyboard_down, hotseat_keyboard_fire_held):
 		hotseat_keyboard_fire_held = false
 		_release_hotseat_charged_shot()
 
