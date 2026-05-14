@@ -122,11 +122,11 @@ func _update_realtime_fire_charge(delta: float) -> void:
 
 	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
 
-	if keyboard_down and not rt_keyboard_fire_held and _player_can_fire() and not overlay_open:
+	if RealtimeSinglePlayerMode.can_begin_fire_charge(keyboard_down, rt_keyboard_fire_held, rt_player_shell_active, game_over, overlay_open):
 		rt_keyboard_fire_held = true
 		rt_fire_charge_time = 0.0
 		rt_fire_charge_percent = RT_CHARGE_MIN_PERCENT
-	elif not keyboard_down and rt_keyboard_fire_held:
+	elif RealtimeSinglePlayerMode.should_release_fire_charge(keyboard_down, rt_keyboard_fire_held):
 		rt_keyboard_fire_held = false
 		_release_realtime_charged_shot()
 
