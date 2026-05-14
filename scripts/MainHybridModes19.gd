@@ -404,30 +404,40 @@ func _point_inside_control(control: Control, point: Vector2) -> bool:
 	return rect.has_point(point)
 
 func _draw_ground_fill() -> void:
-	if terrain_points.size() < 2:
+	var polygon_world: PackedVector2Array = TerrainManager.ground_fill_polygon_world(
+		terrain_points,
+		camera_x,
+		CAMERA_SCALE,
+		VIEW_SIZE.x,
+		VIEW_SIZE.y,
+		TERRAIN_STEP,
+		-25.0,
+		VIEW_SIZE.x + 25.0,
+		_bottom_floor_y() + 260.0
+	)
+	if polygon_world.size() < 3:
 		return
-	var left_screen_x: float = -25.0
-	var right_screen_x: float = VIEW_SIZE.x + 25.0
-	var left_world_x: float = camera_x + left_screen_x / CAMERA_SCALE
-	var right_world_x: float = camera_x + right_screen_x / CAMERA_SCALE
+	var polygon_screen: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in polygon_world:
+		polygon_screen.append(_world_to_screen(point))
+	draw_colored_polygon(polygon_screen, Color(0.13, 0.24, 0.12))
 
-	var surface_points: PackedVector2Array = PackedVector2Array()
-	surface_points.append(_world_to_screen(Vector2(left_world_x, _ground_y_at_x(left_world_x))))
-	for point: Vector2 in terrain_points:
-		if point.x > left_world_x and point.x < right_world_x:
-			surface_points.append(_world_to_screen(point))
-	surface_points.append(_world_to_screen(Vector2(right_world_x, _ground_y_at_x(right_world_x))))
-
-	if surface_points.size() < 2:
+func _draw_terrain_outline() -> void:
+	var outline_world: PackedVector2Array = TerrainManager.terrain_outline_world(
+		terrain_points,
+		camera_x,
+		CAMERA_SCALE,
+		VIEW_SIZE.x,
+		TERRAIN_STEP,
+		-25.0,
+		VIEW_SIZE.x + 25.0
+	)
+	if outline_world.size() < 2:
 		return
-	var bottom_y: float = VIEW_SIZE.y + 100.0
-	var polygon: PackedVector2Array = PackedVector2Array()
-	polygon.append(Vector2(left_screen_x, bottom_y))
-	polygon.append(Vector2(right_screen_x, bottom_y))
-	for i: int in range(surface_points.size() - 1, -1, -1):
-		polygon.append(surface_points[i])
-	if polygon.size() >= 3:
-		draw_colored_polygon(polygon, Color(0.13, 0.24, 0.12))
+	var outline_screen: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in outline_world:
+		outline_screen.append(_world_to_screen(point))
+	draw_polyline(outline_screen, Color(0.28, 0.82, 0.35), 3.0)
 
 func _camera_target_x() -> float:
 	if realtime_cluster_focus_pos != Vector2.INF:
