@@ -147,6 +147,33 @@ static func is_in_pond(ponds: Array[Dictionary], terrain_points: Array[Vector2],
 				return true
 	return false
 
+static func tank_y_for_surface(
+	ponds: Array[Dictionary],
+	terrain_points: Array[Vector2],
+	x: float,
+	terrain_step: float,
+	tank_radius: float,
+	min_visible_depth: float,
+	float_submergence: float
+) -> float:
+	var ground_y: float = TerrainMath.ground_y_at_x(terrain_points, x, terrain_step) - tank_radius
+	var pond: Dictionary = pond_at_x(ponds, terrain_points, x, terrain_step, min_visible_depth)
+	if pond.is_empty():
+		return ground_y
+	var water_y: float = float(pond.get("water_y", 0.0))
+	var float_y: float = water_y + tank_radius * (1.0 - float_submergence)
+	return minf(ground_y, float_y)
+
+static func movement_speed_mult_at_x(
+	ponds: Array[Dictionary],
+	terrain_points: Array[Vector2],
+	x: float,
+	terrain_step: float,
+	min_visible_depth: float,
+	water_drive_speed_mult: float
+) -> float:
+	return water_drive_speed_mult if not pond_at_x(ponds, terrain_points, x, terrain_step, min_visible_depth).is_empty() else 1.0
+
 static func water_volume_for_range(points: Array[Vector2], start_i: int, end_i: int, water_y: float, terrain_step: float) -> float:
 	if points.is_empty():
 		return 0.0
