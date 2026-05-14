@@ -33,19 +33,28 @@ func _update_hotseat_charge(delta: float) -> void:
 		hotseat_keyboard_fire_held = true
 		hotseat_charge_time = 0.0
 		hotseat_charge_percent = HOTSEAT_CHARGE_MIN_PERCENT
-	elif not keyboard_down and hotseat_keyboard_fire_held:
-		hotseat_keyboard_fire_held = false
-		_release_hotseat_charged_shot()
 
 	if hotseat_fire_button_held or hotseat_keyboard_fire_held:
 		hotseat_charge_time = minf(HOTSEAT_CHARGE_TIME_MAX, hotseat_charge_time + delta)
+
 		var charge_ratio: float = clampf(hotseat_charge_time / HOTSEAT_CHARGE_TIME_MAX, 0.0, 1.0)
-		hotseat_charge_percent = HotseatMode.charge_percent(hotseat_charge_time, HOTSEAT_CHARGE_TIME_MAX, HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT)
+		hotseat_charge_percent = HotseatMode.charge_percent(
+			hotseat_charge_time,
+			HOTSEAT_CHARGE_TIME_MAX,
+			HOTSEAT_CHARGE_MIN_PERCENT,
+			HOTSEAT_CHARGE_MAX_PERCENT
+		)
+
 		power_percent = hotseat_charge_percent
 		power = _power_from_percent(power_percent)
 		_update_fire_button_charge_style(charge_ratio)
+
 	elif _hotseat_can_begin_charge():
 		_update_fire_button_charge_style(0.0)
+
+	if not keyboard_down and hotseat_keyboard_fire_held:
+		hotseat_keyboard_fire_held = false
+		_release_hotseat_charged_shot()
 
 func _draw_trajectory_preview() -> void:
 	if projectile_active or not turn_projectiles.is_empty() or game_over:
@@ -108,6 +117,21 @@ func _update_realtime_fire_charge(delta: float) -> void:
 		_update_fire_button_unavailable_style()
 	else:
 		_update_fire_button_charge_style(0.0)
+
+func _release_hotseat_charged_shot() -> void:
+	if not _hotseat_can_begin_charge():
+		_reset_hotseat_charge()
+		return
+
+	power_percent = clampf(hotseat_charge_percent, HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT)
+	power = _power_from_percent(power_percent)
+
+	player_angles[current_player] = angle_deg
+	player_power_percents[current_player] = power_percent
+	player_powers[current_player] = power
+
+	_on_fire_pressed()
+	_reset_hotseat_charge()
 
 func _release_realtime_charged_shot() -> void:
 	if not _player_can_fire() or game_over or overlay_open:
