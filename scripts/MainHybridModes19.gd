@@ -55,6 +55,12 @@ func _build_weapon_ui() -> void:
 	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
 	close_button.pressed.connect(_close_weapon_menu)
 
+func _add_main_menu_controls() -> void:
+	if menu_panel == null:
+		return
+	var main_button: Button = PauseMenu.make_main_menu_button(menu_panel)
+	main_button.pressed.connect(_return_to_main_menu)
+
 func _add_true_quit_button() -> void:
 	if menu_panel == null:
 		return
@@ -62,7 +68,7 @@ func _add_true_quit_button() -> void:
 	for child: Node in menu_panel.get_children():
 		if child is Button and (child as Button).text == "Quit":
 			return
-	var quit_button: Button = MobileControls.make_button("Quit", Vector2.ZERO, Vector2.ZERO, menu_panel)
+	var quit_button: Button = PauseMenu.make_quit_button(menu_panel)
 	quit_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
