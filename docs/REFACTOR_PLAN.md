@@ -116,6 +116,8 @@ Done:
 - Routed active terrain ground-fill and outline geometry through TerrainManager.gd while keeping actual draw calls in the active game script.
 - Added WaterManager.gd reflow helper and routed active pond/water query helpers through WaterManager.gd.
 - Added WaterManager.gd pond generation and draw-geometry helpers.
+- Added WaterManager.gd tank-surface and water-speed helpers.
+- Routed active tank floating height and water movement speed calculations through WaterManager.gd.
 - Routed active pond generation and water draw geometry through WaterManager.gd while keeping actual drawing in the active game script.
 - Added SnowManager.gd with stateless snow movement and segment helpers.
 - Routed active snow detection, slope, movement adjustment, and snow cap geometry through SnowManager.gd while keeping drawing and tank state in the active game script.
@@ -127,7 +129,7 @@ Done:
 Still pending:
 
 ```text
-- Test terrain render helper routing for ground fill, terrain outline, craters, water, and snow overlap.
+- Test tank water helper routing for floating height, water slowdown, craters near water, and realtime AI/player movement in ponds.
 - Continue moving terrain/water/snow ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
