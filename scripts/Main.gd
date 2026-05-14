@@ -10,7 +10,7 @@ extends Node2D
 @onready var ui_layer: CanvasLayer = $UI
 
 const VIEW_SIZE: Vector2 = Vector2(900, 540)
-const CAMERA_SCALE: float = 0.78
+const CAMERA_SCALE: float = 0.66
 const CAMERA_Y_OFFSET: float = 70.0
 const WORLD_WIDTH: float = 1500.0
 const GROUND_Y: float = 460.0
