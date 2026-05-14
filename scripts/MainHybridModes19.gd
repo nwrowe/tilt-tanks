@@ -148,7 +148,8 @@ func _refresh_terrain_line() -> void:
 	TerrainManager.refresh_terrain_line(terrain, terrain_points)
 
 func _settle_tanks_on_terrain() -> void:
-	TerrainManager.settle_tanks_on_terrain(tank_positions, terrain_points, TERRAIN_STEP, TANK_RADIUS)
+	for player: int in range(tank_positions.size()):
+		tank_positions[player].y = _tank_y_for_surface(player, tank_positions[player].x)
 
 func _ground_y_at_x(x: float) -> float:
 	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
@@ -162,9 +163,34 @@ func _terrain_slope_at_x(x: float) -> float:
 func _is_snow_at_x(x: float) -> bool:
 	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
 
+func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
+	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
+
+func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
+	return WaterManager.add_volume_to_pond(terrain_points, pond, TERRAIN_STEP)
+
+func _deepest_index_in_range(start_i: int, end_i: int) -> int:
+	return TerrainMath.deepest_index_in_range(terrain_points, start_i, end_i)
+
+func _connected_basin_from_valley(valley_i: int, reference_water_y: float) -> Dictionary:
+	return WaterManager.connected_basin_from_valley(terrain_points, valley_i, reference_water_y, WATER_CONNECTED_MARGIN)
+
+func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
+	return WaterManager.solve_water_level_for_volume(terrain_points, left_i, right_i, target_volume, TERRAIN_STEP, WATER_MAX_SURFACE_ITERATIONS)
+
+func _pond_at_x(x: float) -> Dictionary:
+	return WaterManager.pond_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
+
+func _is_in_pond(pos: Vector2) -> bool:
+	return WaterManager.is_in_pond(ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
+
+func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
+	return WaterManager.reflow_single_pond(terrain_points, pond, TERRAIN_STEP, WATER_CONNECTED_MARGIN, WATER_MIN_VISIBLE_DEPTH, WATER_MAX_SURFACE_ITERATIONS)
+
 func _apply_crater(pos: Vector2) -> void:
 	TerrainManager.apply_crater(terrain_points, pos, CRATER_RADIUS, CRATER_DEPTH, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
 	_refresh_terrain_line()
+	_reflow_water_after_terrain_change(pos.x)
 
 func _add_main_menu_controls() -> void:
 	# The active overlay builder already creates the Main Menu button. Keep this
