@@ -115,6 +115,8 @@ Done:
 - Added WaterManager.gd reflow helper and routed active pond/water query helpers through WaterManager.gd.
 - Added WaterManager.gd pond generation and draw-geometry helpers.
 - Routed active pond generation and water draw geometry through WaterManager.gd while keeping actual drawing in the active game script.
+- Added SnowManager.gd with stateless snow movement and segment helpers.
+- Routed active snow detection, slope, movement adjustment, and snow cap segment generation through SnowManager.gd while keeping drawing and tank state in the active game script.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
 - Created a stable backup branch.
 ```
@@ -122,9 +124,8 @@ Done:
 Still pending:
 
 ```text
-- Test pond generation/draw routing for pond frequency, shape, water surfaces, tank floating/slowing, projectile-water collision, and crater reflow.
-- Move snow ownership further out of the legacy chain.
-- Continue moving terrain ownership out of the active legacy facade.
+- Test snow helper routing for snowy-slope movement, sliding, uphill blocking, and snow cap drawing.
+- Continue moving terrain/water/snow ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
 ```
