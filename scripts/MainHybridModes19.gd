@@ -27,6 +27,62 @@ func _style_mobile_button(button: Button) -> void:
 func _make_button(text: String, pos: Vector2, size: Vector2, parent: Node) -> Button:
 	return MobileControls.make_button(text, pos, size, parent)
 
+func _build_overlay_ui() -> void:
+	menu_button = MobileControls.make_menu_button(ui_layer)
+	menu_button.pressed.connect(_toggle_menu)
+
+	mobile_left_button = MobileControls.make_left_button(ui_layer)
+	mobile_right_button = MobileControls.make_right_button(ui_layer)
+	mobile_fire_button = MobileControls.make_fire_button(ui_layer)
+
+	mobile_left_button.button_down.connect(func() -> void:
+		mobile_left_pressed = true
+	)
+	mobile_left_button.button_up.connect(func() -> void:
+		mobile_left_pressed = false
+		mobile_left_button.release_focus()
+	)
+
+	mobile_right_button.button_down.connect(func() -> void:
+		mobile_right_pressed = true
+	)
+	mobile_right_button.button_up.connect(func() -> void:
+		mobile_right_pressed = false
+		mobile_right_button.release_focus()
+	)
+
+	mobile_fire_button.pressed.connect(func() -> void:
+		mobile_fire_button.release_focus()
+		_on_fire_pressed()
+	)
+
+	menu_panel = Panel.new()
+	menu_panel.visible = false
+	menu_panel.position = Vector2(640, 58)
+	menu_panel.size = Vector2(230, 145)
+	ui_layer.add_child(menu_panel)
+
+	var menu_title: Label = Label.new()
+	menu_title.text = "Menu"
+	menu_title.position = Vector2(16, 12)
+	menu_title.size = Vector2(180, 24)
+	menu_panel.add_child(menu_title)
+
+	var rematch_button: Button = MobileControls.make_button("Rematch", Vector2(16, 46), Vector2(198, 36), menu_panel)
+	rematch_button.pressed.connect(reset_match)
+
+	var quit_button: Button = MobileControls.make_button("Quit", Vector2(16, 92), Vector2(198, 36), menu_panel)
+	quit_button.pressed.connect(_quit_game)
+
+	end_panel = EndPopup.make_panel(ui_layer)
+	end_label = EndPopup.make_label(end_panel)
+
+	var end_rematch_button: Button = EndPopup.make_rematch_button(end_panel)
+	end_rematch_button.pressed.connect(reset_match)
+
+	var end_quit_button: Button = EndPopup.make_quit_button(end_panel)
+	end_quit_button.pressed.connect(_quit_game)
+
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
 
@@ -61,6 +117,9 @@ func _build_weapon_ui() -> void:
 func _add_main_menu_controls() -> void:
 	if menu_panel == null:
 		return
+	for child: Node in menu_panel.get_children():
+		if child is Button and (child as Button).text == "Main Menu":
+			return
 	var main_button: Button = PauseMenu.make_main_menu_button(menu_panel)
 	main_button.pressed.connect(_return_to_main_menu)
 
