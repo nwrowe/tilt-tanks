@@ -21,58 +21,6 @@ func _ready() -> void:
 	super._ready()
 	print("Tilt Tanks active script: %s" % ACTIVE_BUILD_NAME)
 
-# UI facade
-# ---------
-# Route reusable menu/button utilities through UIManager while the prototype
-# chain still owns menu construction and gameplay-specific UI state.
-
-func _point_inside_control(control: Control, point: Vector2) -> bool:
-	return UIManager.point_inside_control(control, point)
-
-func _relabel_quit_buttons_recursive(node: Node) -> void:
-	UIManager.relabel_buttons_recursive(node, "Quit", "Main Menu")
-
-func _relayout_three_line_menu() -> void:
-	if menu_panel == null:
-		return
-	var next_y: float = UIManager.layout_buttons_by_label(
-		menu_panel,
-		["Rematch", "Main Menu", "Quit"],
-		MENU_PANEL_BUTTON_X,
-		MENU_PANEL_START_Y,
-		MENU_PANEL_BUTTON_W,
-		MENU_PANEL_BUTTON_H,
-		MENU_PANEL_GAP_Y
-	)
-	menu_panel.size = Vector2(230.0, next_y + 12.0)
-
-func _handle_outside_menu_tap(event: InputEvent) -> bool:
-	if menu_state != MENU_STATE_GAME:
-		return false
-	var click_pos: Vector2 = Vector2.INF
-	var is_press: bool = false
-	if event is InputEventScreenTouch:
-		var touch: InputEventScreenTouch = event as InputEventScreenTouch
-		is_press = touch.pressed
-		click_pos = touch.position
-	elif event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		is_press = mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
-		click_pos = mb.position
-	if not is_press:
-		return false
-	if suppress_next_outside_close:
-		suppress_next_outside_close = false
-		return false
-	var closed_menu: bool = UIManager.close_if_outside(menu_panel, menu_button, click_pos)
-	var closed_weapon: bool = UIManager.close_if_outside(weapon_panel, weapon_button, click_pos)
-	if closed_weapon:
-		weapon_menu_open = false
-	if closed_menu or closed_weapon:
-		overlay_open = (menu_panel != null and menu_panel.visible) or (weapon_panel != null and weapon_panel.visible) or (end_panel != null and end_panel.visible)
-		return true
-	return false
-
 # Mode facade
 # -----------
 # Low-risk hotseat/realtime decisions are routed through scripts/modes/*.gd
@@ -245,49 +193,6 @@ func _update_ui() -> void:
 			rt_fire_charge_percent,
 			0.0
 		)
-
-# Terrain math facade
-# -------------------
-# Centralize reusable terrain calculations before moving full terrain/water/snow
-# ownership out of the prototype chain.
-
-func _bottom_floor_y() -> float:
-	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
-
-func _ground_y_at_x(x: float) -> float:
-	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
-
-func _terrain_slope_at_x(x: float) -> float:
-	return TerrainMath.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
-
-func _deepest_index_in_range(start_i: int, end_i: int) -> int:
-	return TerrainMath.deepest_index_in_range(terrain_points, start_i, end_i)
-
-func _is_snow_at_x(x: float) -> bool:
-	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
-
-# Water facade
-# ------------
-# Keep the prototype pond storage/drawing for now, but move reusable water math
-# into WaterManager so water behavior can be extracted cleanly next.
-
-func _pond_at_x(x: float) -> Dictionary:
-	return WaterManager.pond_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
-
-func _is_in_pond(pos: Vector2) -> bool:
-	return WaterManager.is_in_pond(ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
-
-func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
-	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
-
-func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
-	return WaterManager.add_volume_to_pond(terrain_points, pond, TERRAIN_STEP)
-
-func _connected_basin_from_valley(valley_i: int, reference_water_y: float) -> Dictionary:
-	return WaterManager.connected_basin_from_valley(terrain_points, valley_i, reference_water_y, WATER_CONNECTED_MARGIN)
-
-func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
-	return WaterManager.solve_water_level_for_volume(terrain_points, left_i, right_i, target_volume, TERRAIN_STEP, WATER_MAX_SURFACE_ITERATIONS)
 
 # Effects facade
 # --------------
