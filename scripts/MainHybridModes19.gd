@@ -189,10 +189,32 @@ func _bottom_floor_y() -> float:
 	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
 
 func _terrain_slope_at_x(x: float) -> float:
-	return TerrainMath.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
+	return SnowManager.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
 
 func _is_snow_at_x(x: float) -> bool:
-	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
+	return SnowManager.is_snow_at_x(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
+
+func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
+	return SnowManager.adjusted_direction_and_speed(
+		terrain_points,
+		x,
+		input_direction,
+		base_speed,
+		TERRAIN_STEP,
+		active_world_width,
+		SNOW_LINE_Y,
+		SNOW_UPHILL_BLOCK_SLOPE,
+		SNOW_SLIDE_SLOPE,
+		SNOW_SLIDE_SPEED,
+		SNOW_DRIVE_MULT
+	)
+
+func _draw_snow_caps() -> void:
+	for segment_world: Array in SnowManager.snow_segments(terrain_points, SNOW_LINE_Y):
+		var segment: PackedVector2Array = PackedVector2Array()
+		for point: Vector2 in segment_world:
+			segment.append(_world_to_screen(point))
+		_draw_snow_segment(segment)
 
 func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
 	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
