@@ -102,6 +102,8 @@ Done:
 - Routed active mobile/menu button styling through MobileControls.gd.
 - Added WeaponSelectMenu.gd as a construction-only weapon selector helper.
 - Routed active weapon menu construction through WeaponSelectMenu.gd.
+- Added PauseMenu.gd as a construction-only pause/menu helper.
+- Routed active pause menu add-on buttons through PauseMenu.gd.
 - Created a stable backup branch.
 ```
 
