@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://tilttanksmain"]
 
-[ext_resource type="Script" path="res://scripts/core/MainGame.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/core/MainGameEffects.gd" id="1_main"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -57,7 +57,7 @@ offset_left = 380.0
 offset_top = 38.0
 offset_right = 500.0
 offset_bottom = 100.0
-text = "SHOOT"
+text = "FIRE"
 
 [node name="ResetButton" type="Button" parent="UI/Panel"]
 offset_left = 516.0
