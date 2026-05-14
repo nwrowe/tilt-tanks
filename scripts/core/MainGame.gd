@@ -19,6 +19,26 @@ func _ready() -> void:
 	super._ready()
 	print("Tilt Tanks active script: %s" % ACTIVE_BUILD_NAME)
 
+# Terrain math facade
+# -------------------
+# Centralize reusable terrain calculations before moving full terrain/water/snow
+# ownership out of the prototype chain.
+
+func _bottom_floor_y() -> float:
+	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
+
+func _ground_y_at_x(x: float) -> float:
+	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
+
+func _terrain_slope_at_x(x: float) -> float:
+	return TerrainMath.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
+
+func _deepest_index_in_range(start_i: int, end_i: int) -> int:
+	return TerrainMath.deepest_index_in_range(terrain_points, start_i, end_i)
+
+func _is_snow_at_x(x: float) -> bool:
+	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
+
 # Weapon lookup facade
 # --------------------
 # The prototype chain still owns most projectile behavior, but active weapon
