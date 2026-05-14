@@ -141,6 +141,37 @@ func _generate_random_terrain() -> void:
 	_settle_tanks_on_terrain()
 	_generate_ponds()
 
+func _generate_ponds() -> void:
+	ponds = WaterManager.generate_ponds(
+		rng,
+		terrain_points,
+		active_right_start_x,
+		TANK_START_LEFT_X,
+		POND_CHANCE,
+		POND_ATTEMPTS,
+		POND_MIN_WIDTH,
+		POND_MAX_WIDTH,
+		POND_MIN_DEPTH,
+		POND_RIM_SEARCH_RADIUS,
+		POND_SURFACE_DROP,
+		POND_SPAWN_AVOID_RADIUS,
+		TERRAIN_STEP
+	)
+
+func _try_find_pond() -> Dictionary:
+	return WaterManager.try_find_pond(
+		rng,
+		terrain_points,
+		active_right_start_x,
+		TANK_START_LEFT_X,
+		POND_MIN_WIDTH,
+		POND_MAX_WIDTH,
+		POND_MIN_DEPTH,
+		POND_RIM_SEARCH_RADIUS,
+		POND_SURFACE_DROP,
+		POND_SPAWN_AVOID_RADIUS
+	)
+
 func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 	TerrainManager.flatten_spawn_area(terrain_points, center_x, half_width)
 
@@ -186,6 +217,29 @@ func _is_in_pond(pos: Vector2) -> bool:
 
 func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
 	return WaterManager.reflow_single_pond(terrain_points, pond, TERRAIN_STEP, WATER_CONNECTED_MARGIN, WATER_MIN_VISIBLE_DEPTH, WATER_MAX_SURFACE_ITERATIONS)
+
+func _draw_ponds_under_ground() -> void:
+	for rect: Dictionary in WaterManager.backing_rects_for_ponds(ponds, terrain_points, _bottom_floor_y()):
+		var top_left: Vector2 = _world_to_screen(rect.get("start", Vector2.ZERO))
+		var bottom_right: Vector2 = _world_to_screen(rect.get("end", Vector2.ZERO))
+		draw_rect(Rect2(top_left, bottom_right - top_left), Color(0.035, 0.22, 0.50, 0.95), true)
+
+func _draw_water_surfaces() -> void:
+	for segment: Dictionary in WaterManager.surface_segments_for_ponds(ponds, terrain_points, WATER_MIN_VISIBLE_DEPTH):
+		_draw_water_surface_segment_world(segment.get("start", Vector2.ZERO), segment.get("end", Vector2.ZERO))
+
+func _draw_water_surface_segment(start_i: int, end_i: int, water_y: float) -> void:
+	if terrain_points.is_empty() or end_i <= start_i:
+		return
+	var left_i: int = clampi(start_i, 0, terrain_points.size() - 1)
+	var right_i: int = clampi(end_i, 0, terrain_points.size() - 1)
+	_draw_water_surface_segment_world(Vector2(terrain_points[left_i].x, water_y), Vector2(terrain_points[right_i].x, water_y))
+
+func _draw_water_surface_segment_world(start_world: Vector2, end_world: Vector2) -> void:
+	var left: Vector2 = _world_to_screen(start_world)
+	var right: Vector2 = _world_to_screen(end_world)
+	draw_line(left, right, Color(0.18, 0.66, 1.0, 0.88), 3.0)
+	draw_line(left + Vector2(0, 3), right + Vector2(0, 3), Color(0.72, 0.92, 1.0, 0.28), 1.5)
 
 func _apply_crater(pos: Vector2) -> void:
 	TerrainManager.apply_crater(terrain_points, pos, CRATER_RADIUS, CRATER_DEPTH, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
