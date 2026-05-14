@@ -72,3 +72,55 @@ static func solve_water_level_for_volume(points: Array[Vector2], left_i: int, ri
 		else:
 			high_surface = mid
 	return (low_surface + high_surface) * 0.5
+
+static func reflow_single_pond(
+	points: Array[Vector2],
+	pond: Dictionary,
+	terrain_step: float,
+	connected_margin: float,
+	min_visible_depth: float,
+	max_surface_iterations: int
+) -> Dictionary:
+	if points.is_empty():
+		return pond
+	var old_start_i: int = clampi(int(pond.get("start_i", 0)), 0, points.size() - 1)
+	var old_end_i: int = clampi(int(pond.get("end_i", 0)), 0, points.size() - 1)
+	var volume: float = float(pond.get("volume", 0.0))
+	if volume <= 0.0:
+		volume = water_volume_for_range(points, old_start_i, old_end_i, float(pond.get("water_y", 0.0)), terrain_step)
+	if volume <= 0.0:
+		return pond
+
+	var old_water_y: float = float(pond.get("water_y", 0.0))
+	var valley_i: int = TerrainMath.deepest_index_in_range(points, old_start_i, old_end_i)
+	var basin: Dictionary = connected_basin_from_valley(points, valley_i, old_water_y, connected_margin)
+	var left_i: int = int(basin.get("left_i", old_start_i))
+	var right_i: int = int(basin.get("right_i", old_end_i))
+	if right_i <= left_i:
+		return pond
+
+	var water_y: float = solve_water_level_for_volume(points, left_i, right_i, volume, terrain_step, max_surface_iterations)
+	var deepest_i: int = TerrainMath.deepest_index_in_range(points, left_i, right_i)
+	if water_y >= points[deepest_i].y - min_visible_depth:
+		var unchanged: Dictionary = pond.duplicate(true)
+		unchanged["volume"] = volume
+		return unchanged
+
+	var wet_start_i: int = deepest_i
+	while wet_start_i > left_i and points[wet_start_i].y > water_y + connected_margin:
+		wet_start_i -= 1
+	var wet_end_i: int = deepest_i
+	while wet_end_i < right_i and points[wet_end_i].y > water_y + connected_margin:
+		wet_end_i += 1
+	if wet_end_i <= wet_start_i:
+		return pond
+
+	return {
+		"start_i": wet_start_i,
+		"end_i": wet_end_i,
+		"start_x": points[wet_start_i].x,
+		"end_x": points[wet_end_i].x,
+		"water_y": water_y,
+		"volume": volume,
+		"score": volume
+	}
