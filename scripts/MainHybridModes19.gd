@@ -118,6 +118,26 @@ func _camera_target_x() -> float:
 		return clampf(realtime_cluster_focus_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
 	return super._camera_target_x()
 
+func _draw_trajectory_preview() -> void:
+	if projectile_active or not turn_projectiles.is_empty() or game_over:
+		return
+	var facing: float = 1.0 if current_player == 0 else -1.0
+	var rad: float = deg_to_rad(angle_deg)
+	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	var pos: Vector2 = tank_positions[current_player] + muzzle_offset
+	var preview_power: float = power
+	if _is_hotseat_game_active() and (hotseat_fire_button_held or hotseat_keyboard_fire_held):
+		preview_power = _power_from_percent(clampf(hotseat_charge_percent, HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT))
+	var vel: Vector2 = Vector2(facing * preview_power * cos(rad), -preview_power * sin(rad))
+	for i: int in range(1, TRAJECTORY_DOT_COUNT + 1):
+		vel.y += gravity * TRAJECTORY_DOT_DT
+		vel.x += wind * TRAJECTORY_DOT_DT
+		pos += vel * TRAJECTORY_DOT_DT
+		if pos.x < 0.0 or pos.x > active_world_width or pos.y >= _ground_y_at_x(pos.x):
+			break
+		var alpha: float = 0.55 * (1.0 - float(i - 1) / float(TRAJECTORY_DOT_COUNT))
+		draw_circle(_world_to_screen(pos), TRAJECTORY_DOT_RADIUS, Color(1.0, 1.0, 1.0, alpha))
+
 func _update_all_realtime_projectiles(delta: float) -> void:
 	if rt_projectiles.is_empty():
 		return
