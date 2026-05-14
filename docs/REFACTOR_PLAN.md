@@ -10,15 +10,33 @@ Main.gd -> MainStable... -> MainWithMenus... -> MainHybridModes1 -> ... -> MainH
 
 That was useful for fast experimentation, but it is not a good long-term architecture.
 
+## Stable Backup
+
+The current working refactor state has been frozen as:
+
+```text
+backup/working-mode-facade-2026-05-13
+```
+
+Use this branch as the rollback point if a later cleanup step breaks gameplay.
+
 ## New Direction
 
-The active scene should now point to:
+The intended clean active entry point is:
 
 ```text
 scripts/core/MainGame.gd
 ```
 
-For the moment, `MainGame.gd` extends the latest working prototype so the game behavior remains stable. Future changes should be added by extracting systems into modules rather than creating more `MainHybridModesXX.gd` files.
+During the mode split, the scene may temporarily point at:
+
+```text
+scripts/modes/MainGameModes.gd
+```
+
+That file is a temporary mode facade used to test Hotseat and Realtime Single Player extraction before those overrides are folded back into `MainGame.gd`.
+
+Future changes should be added by extracting systems into modules rather than creating more `MainHybridModesXX.gd` files.
 
 ## Target Structure
 
@@ -69,7 +87,33 @@ scripts/
 5. Move terrain, water, and snow into terrain managers.
 6. Move menu and mobile button handling into UI scripts.
 7. Split Hotseat and Realtime Single Player into explicit mode scripts.
-8. Delete or archive old prototype wrapper files after parity is confirmed.
+8. Fold temporary mode facade behavior back into `MainGame.gd` after testing.
+9. Delete or archive old prototype wrapper files after parity is confirmed.
+
+## Current Progress
+
+Done:
+
+```text
+- Created clean core entry direction with MainGame.gd.
+- Added WeaponCatalog, ProjectileFactory, and ProjectileManager.
+- Added TerrainMath and WaterManager.
+- Added UIManager.
+- Added EffectsManager.
+- Added HotseatMode and RealtimeSinglePlayerMode helpers.
+- Added and tested temporary MainGameModes.gd mode facade.
+- Created a stable backup branch.
+```
+
+Still pending:
+
+```text
+- Fold MainGameModes.gd overrides back into MainGame.gd.
+- Move actual terrain ownership out of the legacy chain.
+- Move actual menu/mobile-control construction out of the legacy chain.
+- Fully separate Hotseat and Realtime Single Player runtime loops.
+- Archive or delete MainHybridModesXX only after parity is confirmed.
+```
 
 ## Rule Going Forward
 
