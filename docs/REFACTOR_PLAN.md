@@ -1,25 +1,26 @@
 # Tilt Tanks Refactor Plan
 
-## Current Situation
+## Refactor Phase Status
 
-The game is working and now routes active gameplay through:
+This refactor phase is complete.
+
+The game is working and routes active gameplay through:
 
 ```text
 scenes/Main.tscn -> scripts/core/MainGame.gd
 ```
 
-`MainGame.gd` remains the active facade while the older prototype inheritance chain is frozen as compatibility scaffolding. See:
+Current architecture and follow-on rules are documented in:
 
 ```text
+docs/CURRENT_ARCHITECTURE.md
 docs/ACTIVE_FACADE.md
 docs/LEGACY_CHAIN.md
 ```
 
-The legacy chain is still present for behavior parity, but new gameplay work should happen in `MainGame.gd` or the organized helper/manager modules.
-
 ## Stable Backup
 
-The current working refactor state has been frozen as:
+The working pre-closeout backup branch is:
 
 ```text
 backup/working-mode-facade-2026-05-13
@@ -35,7 +36,7 @@ The active scene script is:
 scripts/core/MainGame.gd
 ```
 
-Rules:
+Rules going forward:
 
 ```text
 - Do not create additional MainHybridModesXX.gd wrappers.
@@ -45,14 +46,12 @@ Rules:
 - Remove the legacy inheritance chain only in a later parity-tested hardening pass.
 ```
 
-## Target Structure
+## Completed Structure
 
 ```text
 scripts/
   core/
     MainGame.gd
-    GameController.gd
-    CameraController.gd
 
   modes/
     GameMode.gd
@@ -67,34 +66,26 @@ scripts/
 
   weapons/
     WeaponCatalog.gd
-    WeaponManager.gd
     ProjectileFactory.gd
     ProjectileManager.gd
 
   effects/
     EffectsManager.gd
-    ExplosionEffect.gd
-    SmokeEffect.gd
-    RecoilEffect.gd
 
   ui/
     UIManager.gd
-    MainMenu.gd
     PauseMenu.gd
     WeaponSelectMenu.gd
     MobileControls.gd
     EndPopup.gd
-
-  legacy/
-    MainHybridModesXX.gd files, eventually archived here or deleted
 ```
 
-## Current Progress
-
-Done:
+## Completed Work
 
 ```text
 - Created clean core entry direction with MainGame.gd.
+- Verified Main.tscn points to res://scripts/core/MainGame.gd.
+- Added CURRENT_ARCHITECTURE.md to describe the post-refactor structure.
 - Added ACTIVE_FACADE.md to document the active facade boundary and frozen legacy-chain rules.
 - Added LEGACY_CHAIN.md to document the frozen legacy chain, where new work goes, and how to remove the chain later.
 - Added WeaponCatalog, ProjectileFactory, and ProjectileManager.
@@ -115,14 +106,29 @@ Done:
 - Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
 - Routed hotseat and realtime keyboard charge begin/release decisions through mode helpers.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
-- Created a stable backup branch.
+- Documented the frozen legacy chain as compatibility scaffolding.
+- Closed this refactor phase so normal gameplay development can resume.
 ```
 
-Still pending for this closeout phase:
+## Deferred Future Hardening
+
+The legacy inheritance chain still exists and `MainGame.gd` still extends:
+
+```gdscript
+extends "res://scripts/MainHybridModes19.gd"
+```
+
+That dependency is intentionally deferred. Removing it is the next hardening pass, not part of this completed refactor phase.
+
+Future legacy-removal pass:
 
 ```text
-- Add current architecture notes for future development.
-- Close this refactor phase and list legacy-chain removal as a separate future hardening pass.
+1. Create a backup branch.
+2. Inventory remaining inherited state and lifecycle methods required by MainGame.gd.
+3. Move required state into MainGame.gd or dedicated controllers/managers.
+4. Change MainGame.gd to extend Node2D directly.
+5. Test hotseat, realtime, terrain, water, snow, UI, weapons, projectiles, and effects.
+6. Only then archive or delete the old prototype files.
 ```
 
 ## Rule Going Forward
