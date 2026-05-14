@@ -39,6 +39,29 @@ func _deepest_index_in_range(start_i: int, end_i: int) -> int:
 func _is_snow_at_x(x: float) -> bool:
 	return TerrainMath.is_above_snow_line(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
 
+# Water facade
+# ------------
+# Keep the prototype pond storage/drawing for now, but move reusable water math
+# into WaterManager so water behavior can be extracted cleanly next.
+
+func _pond_at_x(x: float) -> Dictionary:
+	return WaterManager.pond_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
+
+func _is_in_pond(pos: Vector2) -> bool:
+	return WaterManager.is_in_pond(ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
+
+func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
+	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
+
+func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
+	return WaterManager.add_volume_to_pond(terrain_points, pond, TERRAIN_STEP)
+
+func _connected_basin_from_valley(valley_i: int, reference_water_y: float) -> Dictionary:
+	return WaterManager.connected_basin_from_valley(terrain_points, valley_i, reference_water_y, WATER_CONNECTED_MARGIN)
+
+func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
+	return WaterManager.solve_water_level_for_volume(terrain_points, left_i, right_i, target_volume, TERRAIN_STEP, WATER_MAX_SURFACE_ITERATIONS)
+
 # Weapon lookup facade
 # --------------------
 # The prototype chain still owns most projectile behavior, but active weapon
