@@ -112,14 +112,17 @@ Done:
 - Added TerrainManager.gd with stateless terrain helpers.
 - Routed active terrain utility methods through TerrainMath.gd and TerrainManager.gd while keeping terrain state ownership in the active game script.
 - Routed active terrain generation algorithm through TerrainManager.gd while keeping world assignment, ponds, line refresh, and tank settling in the active game script.
+- Added WaterManager.gd reflow helper and routed active pond/water query helpers through WaterManager.gd.
+- Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
 - Created a stable backup branch.
 ```
 
 Still pending:
 
 ```text
-- Test terrain generation routing for map shape, spawn placement, ponds, snow slopes, craters, and projectile collision.
-- Move water and snow ownership further out of the legacy chain.
+- Test water helper routing for pond detection, pond reflow after craters, tank floating/slowing, and projectile-water collision.
+- Move water drawing and pond generation ownership further out of the legacy chain.
+- Move snow ownership further out of the legacy chain.
 - Continue moving terrain ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
