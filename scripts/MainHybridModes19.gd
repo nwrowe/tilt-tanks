@@ -265,6 +265,12 @@ func _pond_at_x(x: float) -> Dictionary:
 func _is_in_pond(pos: Vector2) -> bool:
 	return WaterManager.is_in_pond(ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
 
+func _tank_y_for_surface(player: int, x: float) -> float:
+	return WaterManager.tank_y_for_surface(ponds, terrain_points, x, TERRAIN_STEP, TANK_RADIUS, WATER_MIN_VISIBLE_DEPTH, WATER_FLOAT_TANK_SUBMERGENCE)
+
+func _movement_speed_mult_at_x(x: float) -> float:
+	return WaterManager.movement_speed_mult_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH, WATER_DRIVE_SPEED_MULT)
+
 func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
 	return WaterManager.reflow_single_pond(terrain_points, pond, TERRAIN_STEP, WATER_CONNECTED_MARGIN, WATER_MIN_VISIBLE_DEPTH, WATER_MAX_SURFACE_ITERATIONS)
 
