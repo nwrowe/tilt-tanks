@@ -112,11 +112,14 @@ Done:
 - Added TerrainManager.gd with stateless terrain helpers.
 - Routed active terrain utility methods through TerrainMath.gd and TerrainManager.gd while keeping terrain state ownership in the active game script.
 - Routed active terrain generation algorithm through TerrainManager.gd while keeping world assignment, ponds, line refresh, and tank settling in the active game script.
+- Added TerrainManager.gd render-geometry helpers.
+- Routed active terrain ground-fill and outline geometry through TerrainManager.gd while keeping actual draw calls in the active game script.
 - Added WaterManager.gd reflow helper and routed active pond/water query helpers through WaterManager.gd.
 - Added WaterManager.gd pond generation and draw-geometry helpers.
 - Routed active pond generation and water draw geometry through WaterManager.gd while keeping actual drawing in the active game script.
 - Added SnowManager.gd with stateless snow movement and segment helpers.
-- Routed active snow detection, slope, movement adjustment, and snow cap segment generation through SnowManager.gd while keeping drawing and tank state in the active game script.
+- Routed active snow detection, slope, movement adjustment, and snow cap geometry through SnowManager.gd while keeping drawing and tank state in the active game script.
+- Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
 - Created a stable backup branch.
 ```
@@ -124,7 +127,7 @@ Done:
 Still pending:
 
 ```text
-- Test snow helper routing for snowy-slope movement, sliding, uphill blocking, and snow cap drawing.
+- Test terrain render helper routing for ground fill, terrain outline, craters, water, and snow overlap.
 - Continue moving terrain/water/snow ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
