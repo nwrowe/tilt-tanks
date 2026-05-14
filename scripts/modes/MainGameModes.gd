@@ -75,3 +75,63 @@ func _draw_trajectory_preview() -> void:
 
 func _player_can_fire() -> bool:
 	return RealtimeSinglePlayerMode.player_can_fire(rt_player_shell_active, game_over)
+
+func _update_realtime_fire_charge(delta: float) -> void:
+	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
+		return
+
+	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
+
+	if keyboard_down and not rt_keyboard_fire_held and _player_can_fire() and not overlay_open:
+		rt_keyboard_fire_held = true
+		rt_fire_charge_time = 0.0
+		rt_fire_charge_percent = RT_CHARGE_MIN_PERCENT
+	elif not keyboard_down and rt_keyboard_fire_held:
+		rt_keyboard_fire_held = false
+		_release_realtime_charged_shot()
+
+	if rt_fire_button_held or rt_keyboard_fire_held:
+		rt_fire_charge_time = minf(RT_CHARGE_TIME_MAX, rt_fire_charge_time + delta)
+
+		var charge_ratio: float = clampf(rt_fire_charge_time / RT_CHARGE_TIME_MAX, 0.0, 1.0)
+		rt_fire_charge_percent = RealtimeSinglePlayerMode.charge_percent(
+			rt_fire_charge_time,
+			RT_CHARGE_TIME_MAX,
+			RT_CHARGE_MIN_PERCENT,
+			RT_CHARGE_MAX_PERCENT
+		)
+
+		power_percent = rt_fire_charge_percent
+		power = _power_from_percent(power_percent)
+		_update_fire_button_charge_style(charge_ratio)
+	elif rt_player_shell_active:
+		_update_fire_button_unavailable_style()
+	else:
+		_update_fire_button_charge_style(0.0)
+
+func _release_realtime_charged_shot() -> void:
+	if not _player_can_fire() or game_over or overlay_open:
+		_reset_realtime_charge_state()
+		return
+
+	power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
+	power = _power_from_percent(power_percent)
+
+	player_angles[HUMAN_PLAYER_INDEX] = angle_deg
+	player_power_percents[HUMAN_PLAYER_INDEX] = power_percent
+	player_powers[HUMAN_PLAYER_INDEX] = power
+
+	_fire_realtime_projectile(HUMAN_PLAYER_INDEX)
+	rt_player_shell_active = true
+	_reset_realtime_charge_state()
+
+func _update_ui() -> void:
+	super._update_ui()
+
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME and not game_over:
+		power_label.text = RealtimeSinglePlayerMode.shell_status_label(
+			rt_player_shell_active,
+			rt_fire_button_held or rt_keyboard_fire_held,
+			rt_fire_charge_percent,
+			0.0
+		)
