@@ -100,7 +100,8 @@ Done:
 - Removed inactive temporary MainGameModes.gd facade.
 - Added MobileControls.gd helper for behavior-identical mobile/menu button construction.
 - Routed active mobile/menu button styling through MobileControls.gd.
-- Routed active weapon menu button construction through MobileControls.gd.
+- Added WeaponSelectMenu.gd as a construction-only weapon selector helper.
+- Routed active weapon menu construction through WeaponSelectMenu.gd.
 - Created a stable backup branch.
 ```
 
