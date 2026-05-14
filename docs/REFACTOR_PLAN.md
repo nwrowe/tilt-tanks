@@ -123,6 +123,8 @@ Done:
 - Added SnowManager.gd with stateless snow movement and segment helpers.
 - Routed active snow detection, slope, movement adjustment, and snow cap geometry through SnowManager.gd while keeping drawing and tank state in the active game script.
 - Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
+- Added realtime charge input helper methods to RealtimeSinglePlayerMode.gd.
+- Routed MainGame.gd realtime keyboard charge begin/release decisions through RealtimeSinglePlayerMode.gd.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
 - Created a stable backup branch.
 ```
@@ -130,7 +132,7 @@ Done:
 Still pending:
 
 ```text
-- Test MainGame facade cleanup for menu behavior, terrain/water/snow visuals, and movement parity.
+- Test realtime charge routing for keyboard hold/release, mobile FIRE hold/release, shell-in-flight blocking, and hotseat parity.
 - Continue moving terrain/water/snow ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
