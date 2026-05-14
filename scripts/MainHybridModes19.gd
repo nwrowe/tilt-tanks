@@ -28,10 +28,7 @@ func _add_true_quit_button() -> void:
 	for child: Node in menu_panel.get_children():
 		if child is Button and (child as Button).text == "Quit":
 			return
-	var quit_button: Button = Button.new()
-	quit_button.text = "Quit"
-	_style_mobile_button(quit_button)
-	menu_panel.add_child(quit_button)
+	var quit_button: Button = MobileControls.make_button("Quit", Vector2.ZERO, Vector2.ZERO, menu_panel)
 	quit_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
