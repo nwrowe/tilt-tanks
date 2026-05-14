@@ -28,13 +28,7 @@ The intended clean active entry point is:
 scripts/core/MainGame.gd
 ```
 
-During the mode split, the scene may temporarily point at:
-
-```text
-scripts/modes/MainGameModes.gd
-```
-
-That file is a temporary mode facade used to test Hotseat and Realtime Single Player extraction before those overrides are folded back into `MainGame.gd`.
+The scene should remain pointed at `scripts/core/MainGame.gd`. Do not create additional `MainHybridModesXX.gd` wrappers for normal refactor work.
 
 Future changes should be added by extracting systems into modules rather than creating more `MainHybridModesXX.gd` files.
 
@@ -102,13 +96,16 @@ Done:
 - Added EffectsManager.
 - Added HotseatMode and RealtimeSinglePlayerMode helpers.
 - Added and tested temporary MainGameModes.gd mode facade.
+- Folded MainGameModes.gd overrides back into MainGame.gd.
+- Removed inactive temporary MainGameModes.gd facade.
+- Added MobileControls.gd helper for behavior-identical mobile/menu button construction.
 - Created a stable backup branch.
 ```
 
 Still pending:
 
 ```text
-- Fold MainGameModes.gd overrides back into MainGame.gd.
+- Route active mobile/menu button construction through MobileControls.gd.
 - Move actual terrain ownership out of the legacy chain.
 - Move actual menu/mobile-control construction out of the legacy chain.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
