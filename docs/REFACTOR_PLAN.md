@@ -48,6 +48,7 @@ scripts/
 
   terrain/
     TerrainManager.gd
+    TerrainMath.gd
     WaterManager.gd
     SnowManager.gd
 
@@ -108,15 +109,17 @@ Done:
 - Routed active pause menu add-on buttons through PauseMenu.gd.
 - Added EndPopup.gd as a construction-only end popup helper.
 - Routed active overlay UI construction through MobileControls.gd and EndPopup.gd while keeping callbacks in the active game script.
+- Added TerrainManager.gd with stateless terrain helpers.
+- Routed active terrain utility methods through TerrainMath.gd and TerrainManager.gd while keeping terrain state ownership in the active game script.
 - Created a stable backup branch.
 ```
 
 Still pending:
 
 ```text
-- Test full UI parity after active overlay builder routing.
-- Move remaining active menu/mobile-control ownership out of the legacy chain.
-- Move actual terrain ownership out of the legacy chain.
+- Test terrain utility routing for ground collision, craters, snow slopes, and spawn placement.
+- Move terrain generation ownership out of the legacy chain.
+- Move water and snow ownership further out of the legacy chain.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
 ```
