@@ -12,6 +12,7 @@ scenes/Main.tscn -> scripts/core/MainGame.gd
 
 ```text
 docs/ACTIVE_FACADE.md
+docs/LEGACY_CHAIN.md
 ```
 
 The legacy chain is still present for behavior parity, but new gameplay work should happen in `MainGame.gd` or the organized helper/manager modules.
@@ -95,6 +96,7 @@ Done:
 ```text
 - Created clean core entry direction with MainGame.gd.
 - Added ACTIVE_FACADE.md to document the active facade boundary and frozen legacy-chain rules.
+- Added LEGACY_CHAIN.md to document the frozen legacy chain, where new work goes, and how to remove the chain later.
 - Added WeaponCatalog, ProjectileFactory, and ProjectileManager.
 - Added TerrainMath, TerrainManager, WaterManager, and SnowManager.
 - Added UIManager, MobileControls, WeaponSelectMenu, PauseMenu, and EndPopup helpers.
@@ -119,7 +121,6 @@ Done:
 Still pending for this closeout phase:
 
 ```text
-- Freeze and document the legacy MainHybridModes chain as compatibility scaffolding.
 - Add current architecture notes for future development.
 - Close this refactor phase and list legacy-chain removal as a separate future hardening pass.
 ```
