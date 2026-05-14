@@ -299,6 +299,32 @@ func _point_inside_control(control: Control, point: Vector2) -> bool:
 	var rect: Rect2 = Rect2(control.global_position, control.size)
 	return rect.has_point(point)
 
+func _draw_ground_fill() -> void:
+	if terrain_points.size() < 2:
+		return
+	var left_screen_x: float = -25.0
+	var right_screen_x: float = VIEW_SIZE.x + 25.0
+	var left_world_x: float = camera_x + left_screen_x / CAMERA_SCALE
+	var right_world_x: float = camera_x + right_screen_x / CAMERA_SCALE
+
+	var surface_points: PackedVector2Array = PackedVector2Array()
+	surface_points.append(_world_to_screen(Vector2(left_world_x, _ground_y_at_x(left_world_x))))
+	for point: Vector2 in terrain_points:
+		if point.x > left_world_x and point.x < right_world_x:
+			surface_points.append(_world_to_screen(point))
+	surface_points.append(_world_to_screen(Vector2(right_world_x, _ground_y_at_x(right_world_x))))
+
+	if surface_points.size() < 2:
+		return
+	var bottom_y: float = VIEW_SIZE.y + 100.0
+	var polygon: PackedVector2Array = PackedVector2Array()
+	polygon.append(Vector2(left_screen_x, bottom_y))
+	polygon.append(Vector2(right_screen_x, bottom_y))
+	for i: int in range(surface_points.size() - 1, -1, -1):
+		polygon.append(surface_points[i])
+	if polygon.size() >= 3:
+		draw_colored_polygon(polygon, Color(0.13, 0.24, 0.12))
+
 func _camera_target_x() -> float:
 	if realtime_cluster_focus_pos != Vector2.INF:
 		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
