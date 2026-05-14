@@ -106,15 +106,16 @@ Done:
 - Routed active weapon menu construction through WeaponSelectMenu.gd.
 - Added PauseMenu.gd as a construction-only pause/menu helper.
 - Routed active pause menu add-on buttons through PauseMenu.gd.
-- Added EndPopup.gd as a construction-only end popup helper; not yet active-routed because the current end popup creation is embedded in the larger legacy overlay builder.
+- Added EndPopup.gd as a construction-only end popup helper.
+- Routed active overlay UI construction through MobileControls.gd and EndPopup.gd while keeping callbacks in the active game script.
 - Created a stable backup branch.
 ```
 
 Still pending:
 
 ```text
+- Test full UI parity after active overlay builder routing.
 - Move remaining active menu/mobile-control ownership out of the legacy chain.
-- Safely route end popup construction through EndPopup.gd once a narrow hook exists or the full overlay builder is ready to move.
 - Move actual terrain ownership out of the legacy chain.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
