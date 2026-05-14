@@ -4,6 +4,8 @@ extends "res://scripts/core/MainGame.gd"
 # Routes low-risk mode decisions through scripts/modes/*.gd.
 # If this tests cleanly, fold these overrides back into MainGame.gd.
 
+var hotseat_release_in_progress: bool = false
+
 func _is_hotseat_game_active() -> bool:
 	return HotseatMode.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_SINGLE_PLAYER_REALTIME)
 
@@ -85,6 +87,15 @@ func _draw_trajectory_preview() -> void:
 func _player_can_fire() -> bool:
 	return RealtimeSinglePlayerMode.player_can_fire(rt_player_shell_active, game_over)
 
+func _on_fire_pressed() -> void:
+	# In hotseat mode, keyboard/mobile charging should be the only path that
+	# launches a shot. Spacebar can otherwise trigger a focused Button's pressed
+	# signal immediately, causing a minimum-power shot.
+	if _is_hotseat_game_active() and not hotseat_release_in_progress:
+		return
+
+	super._on_fire_pressed()
+
 func _update_realtime_fire_charge(delta: float) -> void:
 	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
 		return
@@ -130,7 +141,10 @@ func _release_hotseat_charged_shot() -> void:
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
 
+	hotseat_release_in_progress = true
 	_on_fire_pressed()
+	hotseat_release_in_progress = false
+
 	_reset_hotseat_charge()
 
 func _release_realtime_charged_shot() -> void:
