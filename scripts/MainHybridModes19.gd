@@ -21,6 +21,9 @@ func reset_match() -> void:
 	super.reset_match()
 	_relayout_three_line_menu()
 
+func _style_mobile_button(button: Button) -> void:
+	MobileControls.style_mobile_button(button)
+
 func _add_true_quit_button() -> void:
 	if menu_panel == null:
 		return
