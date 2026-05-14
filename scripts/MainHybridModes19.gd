@@ -156,18 +156,30 @@ func _relayout_three_line_menu() -> void:
 	menu_panel.size = Vector2(230.0, y + 12.0)
 
 func _toggle_menu() -> void:
-	suppress_next_outside_close = true
+	if game_over:
+		return
+	if menu_button != null:
+		menu_button.release_focus()
 	if weapon_menu_open:
 		_close_weapon_menu()
-	super._toggle_menu()
+	if menu_panel == null:
+		return
+	menu_panel.visible = not menu_panel.visible
+	overlay_open = (menu_panel != null and menu_panel.visible) or (weapon_panel != null and weapon_panel.visible) or (end_panel != null and end_panel.visible)
 	_relayout_three_line_menu()
 
 func _toggle_weapon_menu() -> void:
-	suppress_next_outside_close = true
+	if game_over:
+		return
+	if weapon_button != null:
+		weapon_button.release_focus()
 	if menu_panel != null and menu_panel.visible:
 		menu_panel.visible = false
-		overlay_open = false
-	super._toggle_weapon_menu()
+	if weapon_menu_open:
+		_close_weapon_menu()
+	else:
+		_open_weapon_menu()
+	overlay_open = (menu_panel != null and menu_panel.visible) or (weapon_panel != null and weapon_panel.visible) or (end_panel != null and end_panel.visible)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_outside_menu_tap(event):
@@ -188,9 +200,6 @@ func _handle_outside_menu_tap(event: InputEvent) -> bool:
 		is_press = mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
 		click_pos = mb.position
 	if not is_press:
-		return false
-	if suppress_next_outside_close:
-		suppress_next_outside_close = false
 		return false
 	var closed_any: bool = false
 	if menu_panel != null and menu_panel.visible and not _point_inside_control(menu_panel, click_pos) and not _point_inside_control(menu_button, click_pos):
