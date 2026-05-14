@@ -5,6 +5,57 @@ class_name TerrainManager
 # MainHybridModes inheritance chain. Ownership of terrain_points, tanks, water,
 # and drawing still remains in the active game script for now.
 
+static func generate_varied_terrain(
+	rng: RandomNumberGenerator,
+	world_width: float,
+	terrain_step: float,
+	floor_y: float,
+	terrain_min_y: float,
+	terrain_max_y: float,
+	start_min_y: float,
+	start_max_y: float,
+	control_spacing_min: float,
+	control_spacing_max: float,
+	slope_kick_amount: float,
+	detail_wave_amount: float,
+	left_spawn_x: float,
+	right_spawn_x: float,
+	spawn_flatten_half_width: float
+) -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	var max_y: float = minf(terrain_max_y, floor_y)
+	var control_spacing: float = rng.randf_range(control_spacing_min, control_spacing_max)
+	var control_points: Array[Vector2] = []
+	var control_count: int = int(ceil(world_width / control_spacing)) + 2
+	var previous_y: float = rng.randf_range(start_min_y, minf(start_max_y, max_y))
+
+	for i: int in range(control_count):
+		var x: float = float(i) * control_spacing
+		var slope_kick: float = rng.randf_range(-slope_kick_amount, slope_kick_amount)
+		var y: float = clampf(previous_y + slope_kick, terrain_min_y, max_y)
+		if x < 230.0 or x > world_width - 230.0:
+			y = rng.randf_range(start_min_y, minf(start_max_y, max_y))
+		control_points.append(Vector2(x, y))
+		previous_y = y
+
+	var point_count: int = int(world_width / terrain_step) + 1
+	for i: int in range(point_count):
+		var x: float = float(i) * terrain_step
+		var control_index: int = mini(int(floor(x / control_spacing)), control_points.size() - 2)
+		var left: Vector2 = control_points[control_index]
+		var right: Vector2 = control_points[control_index + 1]
+		var t: float = clampf((x - left.x) / (right.x - left.x), 0.0, 1.0)
+		var smooth_t: float = t * t * (3.0 - 2.0 * t)
+		var y: float = lerpf(left.y, right.y, smooth_t)
+		if x > 250.0 and x < world_width - 250.0:
+			y += detail_wave_amount * sin(x * 0.035 + rng.randf_range(-0.15, 0.15))
+			y += 7.0 * sin(x * 0.071 + rng.randf_range(-0.2, 0.2))
+		points.append(Vector2(x, clampf(y, terrain_min_y, max_y)))
+
+	flatten_spawn_area(points, left_spawn_x, spawn_flatten_half_width)
+	flatten_spawn_area(points, right_spawn_x, spawn_flatten_half_width)
+	return points
+
 static func flatten_spawn_area(points: Array[Vector2], center_x: float, half_width: float) -> void:
 	if points.is_empty():
 		return
