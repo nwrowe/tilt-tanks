@@ -100,6 +100,7 @@ Done:
 - Added and tested temporary MainGameModes.gd mode facade.
 - Folded MainGameModes.gd overrides back into MainGame.gd.
 - Removed inactive temporary MainGameModes.gd facade.
+- Removed stale MainGame.gd UI/terrain/water/snow facade overrides so the newer tested MainHybridModes19.gd helper-routed implementations are no longer shadowed.
 - Added MobileControls.gd helper for behavior-identical mobile/menu button construction.
 - Routed active mobile/menu button styling through MobileControls.gd.
 - Routed generic active button construction through MobileControls.gd.
@@ -129,7 +130,7 @@ Done:
 Still pending:
 
 ```text
-- Test tank water helper routing for floating height, water slowdown, craters near water, and realtime AI/player movement in ponds.
+- Test MainGame facade cleanup for menu behavior, terrain/water/snow visuals, and movement parity.
 - Continue moving terrain/water/snow ownership out of the active legacy facade.
 - Fully separate Hotseat and Realtime Single Player runtime loops.
 - Archive or delete MainHybridModesXX only after parity is confirmed.
