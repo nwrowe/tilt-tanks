@@ -7,6 +7,22 @@ class_name MobileControls
 # and _make_button() implementations while construction is migrated out of the
 # MainHybridModes inheritance chain.
 
+const MENU_BUTTON_TEXT: String = "☰"
+const MENU_BUTTON_POS: Vector2 = Vector2(842, 12)
+const MENU_BUTTON_SIZE: Vector2 = Vector2(44, 38)
+
+const LEFT_BUTTON_TEXT: String = "◀"
+const LEFT_BUTTON_POS: Vector2 = Vector2(18, 448)
+const LEFT_BUTTON_SIZE: Vector2 = Vector2(78, 72)
+
+const RIGHT_BUTTON_TEXT: String = "▶"
+const RIGHT_BUTTON_POS: Vector2 = Vector2(108, 448)
+const RIGHT_BUTTON_SIZE: Vector2 = Vector2(78, 72)
+
+const FIRE_BUTTON_TEXT: String = "FIRE"
+const FIRE_BUTTON_POS: Vector2 = Vector2(382, 462)
+const FIRE_BUTTON_SIZE: Vector2 = Vector2(136, 58)
+
 static func style_mobile_button(button: Button) -> void:
 	if button == null:
 		return
@@ -39,3 +55,15 @@ static func make_button(text: String, pos: Vector2, size: Vector2, parent: Node)
 	if parent != null:
 		parent.add_child(button)
 	return button
+
+static func make_menu_button(parent: Node) -> Button:
+	return make_button(MENU_BUTTON_TEXT, MENU_BUTTON_POS, MENU_BUTTON_SIZE, parent)
+
+static func make_left_button(parent: Node) -> Button:
+	return make_button(LEFT_BUTTON_TEXT, LEFT_BUTTON_POS, LEFT_BUTTON_SIZE, parent)
+
+static func make_right_button(parent: Node) -> Button:
+	return make_button(RIGHT_BUTTON_TEXT, RIGHT_BUTTON_POS, RIGHT_BUTTON_SIZE, parent)
+
+static func make_fire_button(parent: Node) -> Button:
+	return make_button(FIRE_BUTTON_TEXT, FIRE_BUTTON_POS, FIRE_BUTTON_SIZE, parent)
