@@ -1,4 +1,7 @@
-extends "res://scripts/MainStableTweaks.gd"
+extends "res://scripts/MainStablePowerPercent.gd"
+
+# Stable terrain/camera helpers from MainStableTweaks.gd have been folded here
+# while keeping menu construction in this layer.
 
 # -----------------------------------------------------------------------------
 # Menu asset paths
@@ -22,6 +25,13 @@ const MENU_STATE_OPTIONS: int = 2
 const MENU_STATE_MULTIPLAYER: int = 3
 const MENU_STATE_GAME: int = 4
 
+const WORLD_WIDTH_MIN_TWEAK: float = 1500.0
+const WORLD_WIDTH_MAX_TWEAK: float = 2600.0
+const TRAJECTORY_DOT_COUNT: int = 7
+const TRAJECTORY_DOT_DT: float = 0.145
+const TRAJECTORY_DOT_RADIUS: float = 3.0
+const BOTTOM_FLOOR_SCREEN_MARGIN: float = 4.0
+
 var menu_state: int = MENU_STATE_MAIN
 var menu_layer: CanvasLayer
 var menu_buttons: Array[Control] = []
@@ -29,6 +39,9 @@ var menu_logo_texture: Texture2D
 var menu_bg_landscape_texture: Texture2D
 var menu_bg_portrait_texture: Texture2D
 var single_player_mode: bool = false
+
+var active_world_width: float = 1500.0
+var active_right_start_x: float = 1370.0
 
 func _ready() -> void:
 	super._ready()
@@ -47,6 +60,77 @@ func _draw() -> void:
 		super._draw()
 		return
 	_draw_menu_background()
+
+func _bottom_floor_y() -> float:
+	return (VIEW_SIZE.y - CAMERA_Y_OFFSET) / CAMERA_SCALE - BOTTOM_FLOOR_SCREEN_MARGIN
+
+func _generate_random_terrain() -> void:
+	terrain_points.clear()
+	active_world_width = rng.randf_range(WORLD_WIDTH_MIN_TWEAK, WORLD_WIDTH_MAX_TWEAK)
+	active_right_start_x = active_world_width - 130.0
+	var floor_y: float = _bottom_floor_y()
+	var control_spacing: float = rng.randf_range(65.0, 115.0)
+	var control_points: Array[Vector2] = []
+	var control_count: int = int(ceil(active_world_width / control_spacing)) + 2
+	var previous_y: float = rng.randf_range(360.0, 455.0)
+	for i: int in range(control_count):
+		var x: float = float(i) * control_spacing
+		var slope_kick: float = rng.randf_range(-95.0, 95.0)
+		var y: float = clampf(previous_y + slope_kick, TERRAIN_MIN_Y, minf(TERRAIN_MAX_Y, floor_y))
+		if x < 210.0 or x > active_world_width - 210.0:
+			y = rng.randf_range(385.0, minf(455.0, floor_y))
+		control_points.append(Vector2(x, y))
+		previous_y = y
+	var point_count: int = int(active_world_width / TERRAIN_STEP) + 1
+	for i: int in range(point_count):
+		var x: float = float(i) * TERRAIN_STEP
+		var control_index: int = mini(int(floor(x / control_spacing)), control_points.size() - 2)
+		var left: Vector2 = control_points[control_index]
+		var right: Vector2 = control_points[control_index + 1]
+		var t: float = clampf((x - left.x) / (right.x - left.x), 0.0, 1.0)
+		var smooth_t: float = t * t * (3.0 - 2.0 * t)
+		var y: float = lerpf(left.y, right.y, smooth_t)
+		if x > 230.0 and x < active_world_width - 230.0:
+			y += 10.0 * sin(x * 0.035 + rng.randf_range(-0.15, 0.15))
+		terrain_points.append(Vector2(x, clampf(y, TERRAIN_MIN_Y, floor_y)))
+	_flatten_spawn_area(TANK_START_LEFT_X, 48.0)
+	_flatten_spawn_area(active_right_start_x, 48.0)
+	_refresh_terrain_line()
+	_settle_tanks_on_terrain()
+
+func _update_angle_from_input(delta: float) -> void:
+	var gravity_vec: Vector3 = Input.get_gravity()
+	if gravity_vec.length() < 0.01:
+		if Input.is_key_pressed(KEY_UP):
+			angle_deg += 75.0 * delta
+		if Input.is_key_pressed(KEY_DOWN):
+			angle_deg -= 75.0 * delta
+	else:
+		var roll: float = clampf(gravity_vec.x / 9.8, -MOBILE_TILT_FULL_SCALE, MOBILE_TILT_FULL_SCALE)
+		var aiming_roll: float = -roll if current_player == 0 else roll
+		var normalized_roll: float = (aiming_roll / MOBILE_TILT_FULL_SCALE + 1.0) * 0.5
+		angle_deg = lerpf(MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE, normalized_roll)
+	angle_deg = clampf(angle_deg, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
+
+func _camera_target_x() -> float:
+	var focus_x: float = tank_positions[current_player].x
+	if projectile_active:
+		focus_x = projectile_pos.x
+	elif explosion_timer > 0.0 and explosion_pos != Vector2.INF:
+		focus_x = explosion_pos.x
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+
+func _draw_distant_mountains() -> void:
+	var offset: float = camera_x * 0.18
+	var points: PackedVector2Array = PackedVector2Array()
+	points.append(Vector2(-60.0, VIEW_SIZE.y))
+	for i: int in range(9):
+		var x: float = float(i) * 150.0 - fmod(offset, 150.0) - 60.0
+		var y: float = 295.0 + 48.0 * sin(float(i) * 1.7)
+		points.append(Vector2(x, y))
+	points.append(Vector2(VIEW_SIZE.x + 60.0, VIEW_SIZE.y))
+	draw_colored_polygon(points, Color(0.08, 0.10, 0.13))
 
 func _load_menu_assets() -> void:
 	menu_bg_landscape_texture = _load_texture_if_exists(MENU_BG_LANDSCAPE_PATH)
@@ -242,8 +326,8 @@ func _draw_fallback_menu_background(viewport_size: Vector2) -> void:
 	var hill: PackedVector2Array = PackedVector2Array()
 	hill.append(Vector2(0, viewport_size.y))
 	for i: int in range(30):
-		var x: float = viewport_size.x * float(i) / 29.0
-		var y: float = hill_y + 32.0 * sin(float(i) * 0.42)
-		hill.append(Vector2(x, y))
+		var x2: float = viewport_size.x * float(i) / 29.0
+		var y2: float = hill_y + 32.0 * sin(float(i) * 0.42)
+		hill.append(Vector2(x2, y2))
 	hill.append(Vector2(viewport_size.x, viewport_size.y))
 	draw_colored_polygon(hill, Color(0.08, 0.25, 0.08, 1.0))
