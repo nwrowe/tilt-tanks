@@ -1,11 +1,10 @@
-extends "res://scripts/MainHybridModes18.gd"
+extends "res://scripts/MainHybridModes15.gd"
 
 # CLEAN ACTIVE ENTRY POINT
 # ------------------------
-# MainGame.gd is now the active gameplay facade. The former
-# MainHybridModes19 compatibility layer has been inlined here, so this file no
-# longer directly depends on MainHybridModes19.gd. The remaining inherited
-# compatibility chain is intentionally removed in smaller follow-up passes.
+# MainGame.gd is now the active gameplay facade. MainHybridModes19, 18, 17,
+# and 16 have been inlined here. The remaining inherited compatibility chain
+# is intentionally removed in smaller follow-up passes.
 
 const ACTIVE_BUILD_NAME: String = "MainGame refactor facade"
 
@@ -15,13 +14,51 @@ const MENU_PANEL_BUTTON_H: float = 36.0
 const MENU_PANEL_START_Y: float = 46.0
 const MENU_PANEL_GAP_Y: float = 46.0
 
+const CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION: float = 0.85
+
+const HOTSEAT_CHARGE_TIME_MAX: float = 1.65
+const HOTSEAT_CHARGE_MIN_PERCENT: float = 10.0
+const HOTSEAT_CHARGE_MAX_PERCENT: float = 100.0
+const PAN_RELEASE_HOLD_TIME: float = 1.4
+
+const MUZZLE_RECOIL_TIME: float = 0.18
+const MUZZLE_RECOIL_DISTANCE: float = 13.0
+const MUZZLE_SMOKE_LIFETIME: float = 0.55
+const MUZZLE_SMOKE_RISE_SPEED: float = 26.0
+const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
+const MUZZLE_SMOKE_START_RADIUS: float = 3.0
+const MUZZLE_SMOKE_END_RADIUS: float = 10.0
+
 var realtime_cluster_focus_count: int = 0
 var realtime_cluster_focus_pos: Vector2 = Vector2.INF
 var suppress_next_outside_close: bool = false
 var hotseat_release_in_progress: bool = false
 
+var cluster_camera_hold_timer: float = 0.0
+var cluster_camera_hold_pos: Vector2 = Vector2.INF
+
+var hotseat_fire_button_held: bool = false
+var hotseat_keyboard_fire_held: bool = false
+var hotseat_charge_time: float = 0.0
+var hotseat_charge_percent: float = 0.0
+var swipe_panning: bool = false
+var manual_camera_active: bool = false
+var manual_camera_timer: float = 0.0
+var turn_cluster_camera_pos: Vector2 = Vector2.INF
+
+var barrel_recoil_timers: Array[float] = [0.0, 0.0]
+var barrel_recoil_angles: Array[float] = [45.0, 45.0]
+var muzzle_smoke_puffs: Array[Dictionary] = []
+
 func _ready() -> void:
 	super._ready()
+	if mobile_fire_button != null:
+		if not mobile_fire_button.button_down.is_connected(_on_hotseat_fire_button_down):
+			mobile_fire_button.button_down.connect(_on_hotseat_fire_button_down)
+		if not mobile_fire_button.button_up.is_connected(_on_hotseat_fire_button_up):
+			mobile_fire_button.button_up.connect(_on_hotseat_fire_button_up)
+	_update_power_slider_visibility()
+	_add_true_quit_button()
 	_relayout_three_line_menu()
 	print("Tilt Tanks active script: %s" % ACTIVE_BUILD_NAME)
 
@@ -29,8 +66,45 @@ func reset_match() -> void:
 	realtime_cluster_focus_count = 0
 	realtime_cluster_focus_pos = Vector2.INF
 	suppress_next_outside_close = false
+	cluster_camera_hold_timer = 0.0
+	cluster_camera_hold_pos = Vector2.INF
+	hotseat_fire_button_held = false
+	hotseat_keyboard_fire_held = false
+	hotseat_charge_time = 0.0
+	hotseat_charge_percent = 0.0
+	manual_camera_active = false
+	manual_camera_timer = 0.0
+	turn_cluster_camera_pos = Vector2.INF
+	barrel_recoil_timers = [0.0, 0.0]
+	barrel_recoil_angles = [45.0, 45.0]
+	muzzle_smoke_puffs.clear()
 	super.reset_match()
+	_update_power_slider_visibility()
 	_relayout_three_line_menu()
+
+func _process(delta: float) -> void:
+	if cluster_camera_hold_timer > 0.0:
+		cluster_camera_hold_timer = maxf(0.0, cluster_camera_hold_timer - delta)
+		if cluster_camera_hold_timer <= 0.0:
+			cluster_camera_hold_pos = Vector2.INF
+	_update_hotseat_charge(delta)
+	if manual_camera_active:
+		manual_camera_timer = maxf(0.0, manual_camera_timer - delta)
+		if manual_camera_timer <= 0.0:
+			manual_camera_active = false
+	super._process(delta)
+	_update_muzzle_effects(delta)
+
+func _show_game_ui() -> void:
+	super._show_game_ui()
+	_update_power_slider_visibility()
+
+func _update_power_slider_visibility() -> void:
+	if menu_state == MENU_STATE_GAME:
+		if power_slider != null:
+			power_slider.visible = false
+		if power_label != null:
+			power_label.visible = true
 
 # UI facade formerly in MainHybridModes19.gd
 
@@ -66,7 +140,7 @@ func _build_overlay_ui() -> void:
 
 	mobile_fire_button.pressed.connect(func() -> void:
 		mobile_fire_button.release_focus()
-		_on_fire_pressed()
+		_on_mobile_fire_pressed()
 	)
 
 	menu_panel = Panel.new()
@@ -130,14 +204,9 @@ func _build_weapon_ui() -> void:
 	close_button.pressed.connect(_close_weapon_menu)
 
 func _add_main_menu_controls() -> void:
-	# The active overlay builder already creates the Main Menu button. Keep this
-	# override as a no-op because an inherited _ready() still calls it.
 	return
 
 func _relabel_quit_buttons() -> void:
-	# Legacy builds used this to turn old Quit buttons into Main Menu buttons.
-	# The active builder now creates Main Menu explicitly and adds real Quit
-	# separately, so relabeling would create duplicate overlapping labels.
 	return
 
 func _add_true_quit_button() -> void:
@@ -199,7 +268,22 @@ func _toggle_weapon_menu() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_outside_menu_tap(event):
 		return
-	super._unhandled_input(event)
+	if menu_state != MENU_STATE_GAME or overlay_open:
+		super._unhandled_input(event)
+		return
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		swipe_panning = touch.pressed
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		_apply_camera_pan_delta(drag.relative.x)
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			swipe_panning = mb.pressed
+	elif event is InputEventMouseMotion and swipe_panning and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		var mm: InputEventMouseMotion = event as InputEventMouseMotion
+		_apply_camera_pan_delta(mm.relative.x)
 
 func _handle_outside_menu_tap(event: InputEvent) -> bool:
 	if menu_state != MENU_STATE_GAME:
@@ -234,6 +318,15 @@ func _point_inside_control(control: Control, point: Vector2) -> bool:
 		return false
 	var rect: Rect2 = Rect2(control.global_position, control.size)
 	return rect.has_point(point)
+
+func _apply_camera_pan_delta(screen_dx: float) -> void:
+	if absf(screen_dx) < 0.01:
+		return
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	camera_x = clampf(camera_x - screen_dx / CAMERA_SCALE, 0.0, maxf(0.0, active_world_width - camera_world_width))
+	manual_camera_active = true
+	manual_camera_timer = PAN_RELEASE_HOLD_TIME
+	queue_redraw()
 
 # Terrain/water/snow facade formerly in MainHybridModes19.gd
 
@@ -542,10 +635,62 @@ func _draw_trajectory_preview() -> void:
 func _player_can_fire() -> bool:
 	return RealtimeSinglePlayerMode.player_can_fire(rt_player_shell_active, game_over)
 
+func _on_hotseat_fire_button_down() -> void:
+	if not _is_hotseat_game_active():
+		return
+	if not _hotseat_can_begin_charge():
+		return
+	hotseat_fire_button_held = true
+	hotseat_charge_time = 0.0
+	hotseat_charge_percent = HOTSEAT_CHARGE_MIN_PERCENT
+	if mobile_fire_button != null:
+		mobile_fire_button.release_focus()
+
+func _on_hotseat_fire_button_up() -> void:
+	if not _is_hotseat_game_active():
+		return
+	if hotseat_fire_button_held:
+		_release_hotseat_charged_shot()
+	hotseat_fire_button_held = false
+	if mobile_fire_button != null:
+		mobile_fire_button.release_focus()
+
+func _reset_hotseat_charge() -> void:
+	hotseat_charge_time = 0.0
+	hotseat_charge_percent = 0.0
+	hotseat_fire_button_held = false
+	hotseat_keyboard_fire_held = false
+
+func _on_mobile_fire_pressed() -> void:
+	if menu_state == MENU_STATE_GAME:
+		if mobile_fire_button != null:
+			mobile_fire_button.release_focus()
+		return
+	super._on_mobile_fire_pressed()
+
 func _on_fire_pressed() -> void:
 	if _is_hotseat_game_active() and not hotseat_release_in_progress:
 		return
-	super._on_fire_pressed()
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
+		super._on_fire_pressed()
+		return
+	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open:
+		return
+	power_slider.release_focus()
+	player_angles[current_player] = angle_deg
+	player_power_percents[current_player] = power_percent
+	player_powers[current_player] = power
+	turn_projectile_weapon = selected_weapon
+	turn_projectile_split_done = false
+	turn_cluster_camera_pos = Vector2.INF
+	var facing: float = 1.0 if current_player == 0 else -1.0
+	var rad: float = deg_to_rad(angle_deg)
+	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	projectile_pos = tank_positions[current_player] + muzzle_offset
+	projectile_vel = Vector2(facing * power * cos(rad), -power * sin(rad))
+	projectile_active = true
+	manual_camera_active = false
+	_trigger_fire_fx(current_player, angle_deg)
 
 func _update_realtime_fire_charge(delta: float) -> void:
 	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
@@ -617,7 +762,12 @@ func _release_realtime_charged_shot() -> void:
 func _update_ui() -> void:
 	super._update_ui()
 
-	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME and not game_over:
+	if _is_hotseat_game_active() and not game_over:
+		if hotseat_fire_button_held or hotseat_keyboard_fire_held:
+			power_label.text = "Charge: %.0f%%" % hotseat_charge_percent
+		else:
+			power_label.text = "Hold FIRE"
+	elif game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME and not game_over:
 		power_label.text = RealtimeSinglePlayerMode.shell_status_label(
 			rt_player_shell_active,
 			rt_fire_button_held or rt_keyboard_fire_held,
@@ -633,6 +783,21 @@ func _update_muzzle_effects(delta: float) -> void:
 	muzzle_smoke_puffs = EffectsManager.update_rising_puffs(muzzle_smoke_puffs, delta, MUZZLE_SMOKE_RISE_SPEED)
 	if not muzzle_smoke_puffs.is_empty():
 		queue_redraw()
+
+func _trigger_fire_fx(owner: int, shot_angle: float) -> void:
+	if owner < 0 or owner >= 2:
+		return
+	barrel_recoil_timers[owner] = MUZZLE_RECOIL_TIME
+	barrel_recoil_angles[owner] = shot_angle
+	var facing: float = 1.0 if owner == 0 else -1.0
+	var rad: float = deg_to_rad(shot_angle)
+	var tip: Vector2 = tank_positions[owner] + Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	for i: int in range(4):
+		muzzle_smoke_puffs.append(EffectsManager.make_puff(
+			tip + Vector2(rng.randf_range(-4.0, 4.0), rng.randf_range(-4.0, 4.0)),
+			MUZZLE_SMOKE_LIFETIME,
+			rng.randf_range(-MUZZLE_SMOKE_DRIFT_SPEED, MUZZLE_SMOKE_DRIFT_SPEED)
+		))
 
 func _spawn_destroyed_smoke_puff() -> void:
 	if destroyed_tank_index < 0 or destroyed_tank_index >= tank_positions.size():
@@ -653,6 +818,26 @@ func _spawn_steam_puff() -> void:
 		STEAM_PUFF_LIFETIME,
 		rng.randf_range(-STEAM_PUFF_DRIFT_SPEED, STEAM_PUFF_DRIFT_SPEED)
 	))
+
+func _draw() -> void:
+	super._draw()
+	_draw_recoil_barrels()
+	_draw_muzzle_smoke_puffs()
+	_draw_turn_cluster_projectiles()
+
+func _draw_recoil_barrels() -> void:
+	for owner: int in range(2):
+		if barrel_recoil_timers[owner] <= 0.0:
+			continue
+		var t: float = clampf(barrel_recoil_timers[owner] / MUZZLE_RECOIL_TIME, 0.0, 1.0)
+		var recoil: float = MUZZLE_RECOIL_DISTANCE * t
+		var facing: float = 1.0 if owner == 0 else -1.0
+		var rad: float = deg_to_rad(barrel_recoil_angles[owner])
+		var base: Vector2 = _world_to_screen(tank_positions[owner])
+		var full_tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(rad), -CANNON_LENGTH * CAMERA_SCALE * sin(rad))
+		var recoil_tip: Vector2 = base + Vector2(facing * maxf(10.0, CANNON_LENGTH - recoil) * CAMERA_SCALE * cos(rad), -maxf(10.0, CANNON_LENGTH - recoil) * CAMERA_SCALE * sin(rad))
+		draw_line(base, full_tip, Color(0.08, 0.09, 0.10, 0.96), 6.0)
+		draw_line(base, recoil_tip, Color.WHITE, 4.0)
 
 func _draw_muzzle_smoke_puffs() -> void:
 	for puff: Dictionary in muzzle_smoke_puffs:
@@ -734,6 +919,30 @@ func _spawn_realtime_cluster_children(owner: int, pos: Vector2, vel: Vector2) ->
 
 func _has_active_realtime_shell_for_owner(owner: int) -> bool:
 	return ProjectileManager.has_shell_for_owner(rt_projectiles, owner)
+
+func _fire_realtime_projectile(owner: int) -> void:
+	if game_over:
+		return
+	if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES:
+		rt_projectiles.pop_front()
+	var weapon: String = selected_weapon if owner == HUMAN_PLAYER_INDEX else WEAPON_STANDARD
+	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
+	var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
+	var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
+	var shot_power: float = _power_from_percent(shot_power_percent)
+	var rad: float = deg_to_rad(shot_angle)
+	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	var start_pos: Vector2 = tank_positions[owner] + muzzle_offset
+	var start_vel: Vector2 = Vector2(facing * shot_power * cos(rad), -shot_power * sin(rad))
+	rt_projectiles.append({
+		"owner": owner,
+		"weapon": weapon,
+		"split": false,
+		"pos": start_pos,
+		"vel": start_vel
+	})
+	projectile_active = false
+	_trigger_fire_fx(owner, shot_angle)
 
 func _update_projectile(delta: float) -> void:
 	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(projectile_pos, projectile_vel, gravity, wind, delta)
@@ -825,6 +1034,22 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 		if not game_over:
 			_advance_turn()
 
+func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
+	projectile_active = false
+	explosion_pos = pos
+	explosion_timer = EXPLOSION_DURATION
+	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
+	_apply_weapon_crater(pos, weapon)
+	_apply_weapon_damage(pos, weapon)
+	_settle_tanks_on_terrain()
+	if tank_health[0] <= 0 or tank_health[1] <= 0:
+		game_over = true
+		_show_end_popup()
+	elif advance_after:
+		cluster_camera_hold_pos = pos
+		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
+		_advance_turn()
+
 func _update_all_realtime_projectiles(delta: float) -> void:
 	if rt_projectiles.is_empty():
 		return
@@ -877,8 +1102,27 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		cluster_camera_hold_pos = explosion_pos
 		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
 
+func _draw_turn_cluster_projectiles() -> void:
+	for shell: Dictionary in turn_projectiles:
+		var weapon: String = str(shell.get("weapon", WEAPON_CLUSTER_CHILD))
+		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
+		var radius: float = PROJECTILE_RADIUS * CAMERA_SCALE
+		if weapon == WEAPON_CLUSTER_CHILD:
+			radius *= 0.78
+		elif weapon == WEAPON_HEAVY:
+			radius *= 1.45
+		draw_circle(_world_to_screen(pos), radius, Color(1.0, 0.92, 0.20))
+
 func _camera_target_x() -> float:
+	if manual_camera_active and not projectile_active and turn_projectiles.is_empty() and rt_projectiles.is_empty():
+		return camera_x
 	if realtime_cluster_focus_pos != Vector2.INF:
 		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
 		return clampf(realtime_cluster_focus_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+	if turn_cluster_camera_pos != Vector2.INF:
+		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+		return clampf(turn_cluster_camera_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+	if cluster_camera_hold_pos != Vector2.INF and cluster_camera_hold_timer > 0.0:
+		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+		return clampf(cluster_camera_hold_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
 	return super._camera_target_x()
