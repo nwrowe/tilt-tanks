@@ -1,8 +1,8 @@
-extends "res://scripts/MainHybridModes2.gd"
+extends "res://scripts/MainHybridModes.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes3 steam state/drawing has been folded here while preserving
-# the restored realtime hold-to-charge loop.
+# MainHybridModes3 and MainHybridModes2 compatibility pieces have been folded
+# here while preserving the restored realtime hold-to-charge loop.
 
 const WIND_DISPLAY_MAX: float = 10.0
 const WIND_METER_MAX_ACCEL: float = MAX_WIND_ACCEL
@@ -13,9 +13,14 @@ const STEAM_PUFF_DRIFT_SPEED: float = 18.0
 const STEAM_PUFF_START_RADIUS: float = 4.0
 const STEAM_PUFF_END_RADIUS: float = 13.0
 
+const RT_MOVEMENT_EXHAUST_COOLDOWN_MAX: float = 3.0
+const RT_MAX_ACTIVE_PROJECTILES: int = 6
+
 var steam_puffs: Array[Dictionary] = []
 var steam_spawn_timer: float = 0.0
 var movement_was_overheated: bool = false
+var rt_projectiles: Array[Dictionary] = []
+var rt_movement_exhaust_cooldown: float = 0.0
 
 func _on_mobile_fire_pressed() -> void:
 	return
@@ -25,6 +30,9 @@ func _setup_realtime_single_player() -> void:
 	steam_puffs.clear()
 	steam_spawn_timer = 0.0
 	movement_was_overheated = false
+	rt_projectiles.clear()
+	rt_movement_exhaust_cooldown = 0.0
+	projectile_active = false
 
 func reset_match() -> void:
 	super.reset_match()
@@ -32,6 +40,8 @@ func reset_match() -> void:
 	steam_puffs.clear()
 	steam_spawn_timer = 0.0
 	movement_was_overheated = false
+	rt_projectiles.clear()
+	rt_movement_exhaust_cooldown = 0.0
 
 func _process_realtime_single_player(delta: float) -> void:
 	if Input.is_key_pressed(KEY_R):
@@ -60,6 +70,44 @@ func _process_realtime_single_player(delta: float) -> void:
 	queue_redraw()
 
 func _update_realtime_fire_charge(delta: float) -> void:
+	return
+
+func _update_realtime_cooldowns(delta: float) -> void:
+	rt_player_fire_cooldown = maxf(0.0, rt_player_fire_cooldown - delta)
+	rt_ai_fire_cooldown = maxf(0.0, rt_ai_fire_cooldown - delta)
+	rt_ai_move_cooldown = maxf(0.0, rt_ai_move_cooldown - delta)
+	if rt_movement_exhaust_cooldown > 0.0:
+		rt_movement_exhaust_cooldown = maxf(0.0, rt_movement_exhaust_cooldown - delta)
+		movement_was_overheated = true
+		if rt_movement_exhaust_cooldown <= 0.0:
+			rt_movement_energy = maxf(rt_movement_energy, RT_MOVEMENT_ENERGY_MAX * 0.25)
+	else:
+		movement_was_overheated = false
+
+func _update_realtime_ai(delta: float) -> void:
+	if game_over or overlay_open:
+		return
+	if rt_ai_move_cooldown <= 0.0:
+		_choose_realtime_ai_move_target()
+		rt_ai_move_cooldown = rng.randf_range(RT_AI_MOVE_COOLDOWN_MAX * 0.65, RT_AI_MOVE_COOLDOWN_MAX * 1.25)
+	_move_realtime_ai(delta)
+	if rt_ai_fire_cooldown <= 0.0:
+		_prepare_realtime_ai_shot()
+		_fire_realtime_projectile(AI_PLAYER_INDEX)
+		rt_ai_fire_cooldown = rng.randf_range(RT_AI_FIRE_COOLDOWN_MAX * 0.75, RT_AI_FIRE_COOLDOWN_MAX * 1.25)
+
+func _update_all_realtime_projectiles(delta: float) -> void:
+	# Compatibility fallback. MainGame.gd owns the active implementation.
+	return
+
+func _draw_realtime_projectiles() -> void:
+	for shell: Dictionary in rt_projectiles:
+		var owner: int = int(shell.get("owner", HUMAN_PLAYER_INDEX))
+		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
+		var color: Color = Color(1.0, 0.92, 0.2) if owner == HUMAN_PLAYER_INDEX else Color(1.0, 0.38, 0.25)
+		draw_circle(_world_to_screen(pos), PROJECTILE_RADIUS * CAMERA_SCALE, color)
+
+func _draw_realtime_cooldown_widgets() -> void:
 	return
 
 func _update_steam_puffs(delta: float) -> void:
