@@ -1,8 +1,7 @@
-extends "res://scripts/MainHybridModes9.gd"
+extends "res://scripts/MainHybridModes8.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11.gd terrain constants and MainHybridModes10.gd water
-# constants have been folded into this file.
+# MainHybridModes11, 10, and 9 compatibility pieces have been folded here.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
@@ -13,6 +12,9 @@ const VAR_CONTROL_SPACING_MAX: float = 108.0
 const VAR_SLOPE_KICK: float = 150.0
 const VAR_DETAIL_WAVE_AMOUNT: float = 17.0
 
+const WATER_REFLOW_SEARCH_CELLS: int = 85
+const WATER_MIN_VISIBLE_DEPTH: float = 3.0
+const WATER_MAX_SURFACE_ITERATIONS: int = 28
 const WATER_CONNECTED_MARGIN: float = 2.0
 const WATER_DRIVE_SPEED_MULT: float = 0.42
 const WATER_FLOAT_TANK_SUBMERGENCE: float = 0.50
@@ -149,6 +151,134 @@ func _tank_y_for_surface(player: int, x: float) -> float:
 func _movement_speed_mult_at_x(x: float) -> float:
 	return WATER_DRIVE_SPEED_MULT if not _pond_at_x(x).is_empty() else 1.0
 
+func _draw_ponds_under_ground() -> void:
+	for pond: Dictionary in ponds:
+		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
+		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
+		var water_y: float = float(pond.get("water_y", 0.0))
+		if end_i <= start_i:
+			continue
+		var start_x: float = terrain_points[start_i].x
+		var end_x: float = terrain_points[end_i].x
+		var top_left: Vector2 = _world_to_screen(Vector2(start_x, water_y))
+		var bottom_right: Vector2 = _world_to_screen(Vector2(end_x, _bottom_floor_y() + 260.0))
+		draw_rect(Rect2(top_left, bottom_right - top_left), Color(0.035, 0.22, 0.50, 0.95), true)
+
+func _draw_water_surfaces() -> void:
+	for pond: Dictionary in ponds:
+		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
+		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
+		var water_y: float = float(pond.get("water_y", 0.0))
+		var segment_start: int = -1
+		for i: int in range(start_i, end_i + 1):
+			var visible: bool = terrain_points[i].y > water_y + WATER_MIN_VISIBLE_DEPTH
+			if visible and segment_start < 0:
+				segment_start = i
+			elif not visible and segment_start >= 0:
+				_draw_water_surface_segment(segment_start, i - 1, water_y)
+				segment_start = -1
+		if segment_start >= 0:
+			_draw_water_surface_segment(segment_start, end_i, water_y)
+
+func _draw_water_surface_segment(start_i: int, end_i: int, water_y: float) -> void:
+	if end_i <= start_i:
+		return
+	var left: Vector2 = _world_to_screen(Vector2(terrain_points[start_i].x, water_y))
+	var right: Vector2 = _world_to_screen(Vector2(terrain_points[end_i].x, water_y))
+	draw_line(left, right, Color(0.18, 0.66, 1.0, 0.88), 3.0)
+	draw_line(left + Vector2(0, 3), right + Vector2(0, 3), Color(0.72, 0.92, 1.0, 0.28), 1.5)
+
+func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
+	var volume: float = 0.0
+	for i: int in range(start_i, end_i + 1):
+		var depth: float = terrain_points[i].y - water_y
+		if depth > 0.0:
+			volume += depth * TERRAIN_STEP
+	return volume
+
+func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
+	var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
+	var end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
+	var water_y: float = float(pond.get("water_y", 0.0))
+	pond["volume"] = _water_volume_for_range(start_i, end_i, water_y)
+	return pond
+
+func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
+	var highest_y: float = -INF
+	var lowest_y: float = INF
+	for i: int in range(left_i, right_i + 1):
+		highest_y = maxf(highest_y, terrain_points[i].y)
+		lowest_y = minf(lowest_y, terrain_points[i].y)
+	var low_surface: float = lowest_y
+	var high_surface: float = highest_y
+	for iter: int in range(WATER_MAX_SURFACE_ITERATIONS):
+		var mid: float = (low_surface + high_surface) * 0.5
+		var vol: float = _water_volume_for_range(left_i, right_i, mid)
+		if vol > target_volume:
+			low_surface = mid
+		else:
+			high_surface = mid
+	return (low_surface + high_surface) * 0.5
+
+func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
+	var old_start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
+	var old_end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
+	var volume: float = float(pond.get("volume", 0.0))
+	if volume <= 0.0:
+		volume = _water_volume_for_range(old_start_i, old_end_i, float(pond.get("water_y", 0.0)))
+	if volume <= 0.0:
+		return pond
+	var center_x: float = clampf((float(pond.get("start_x", terrain_points[old_start_i].x)) + float(pond.get("end_x", terrain_points[old_end_i].x))) * 0.5, 0.0, active_world_width)
+	if absf(changed_x - center_x) < float(WATER_REFLOW_SEARCH_CELLS * TERRAIN_STEP) * 1.5:
+		center_x = lerpf(center_x, changed_x, 0.55)
+	var center_i: int = clampi(int(round(center_x / TERRAIN_STEP)), 1, terrain_points.size() - 2)
+	var left_limit: int = maxi(0, center_i - WATER_REFLOW_SEARCH_CELLS)
+	var right_limit: int = mini(terrain_points.size() - 1, center_i + WATER_REFLOW_SEARCH_CELLS)
+	var valley_i: int = center_i
+	for i: int in range(left_limit, right_limit + 1):
+		if terrain_points[i].y > terrain_points[valley_i].y:
+			valley_i = i
+	var water_y: float = _solve_water_level_for_volume(left_limit, right_limit, volume)
+	if water_y >= terrain_points[valley_i].y - WATER_MIN_VISIBLE_DEPTH:
+		pond["volume"] = volume
+		return pond
+	var start_i: int = valley_i
+	while start_i > left_limit and terrain_points[start_i].y > water_y:
+		start_i -= 1
+	var end_i: int = valley_i
+	while end_i < right_limit and terrain_points[end_i].y > water_y:
+		end_i += 1
+	if end_i <= start_i:
+		return pond
+	return {
+		"start_i": start_i,
+		"end_i": end_i,
+		"start_x": terrain_points[start_i].x,
+		"end_x": terrain_points[end_i].x,
+		"water_y": water_y,
+		"volume": volume,
+		"score": volume
+	}
+
+func _reflow_water_after_terrain_change(changed_x: float) -> void:
+	if ponds.is_empty() or terrain_points.is_empty():
+		return
+	for i: int in range(ponds.size()):
+		ponds[i] = _reflow_single_pond(ponds[i], changed_x)
+	ponds = ponds.filter(func(p: Dictionary) -> bool:
+		return float(p.get("volume", 0.0)) > 1.0 and int(p.get("end_i", 0)) > int(p.get("start_i", 0))
+	)
+
+func _is_in_pond(pos: Vector2) -> bool:
+	for pond: Dictionary in ponds:
+		var start_x: float = float(pond.get("start_x", 0.0))
+		var end_x: float = float(pond.get("end_x", 0.0))
+		var water_y: float = float(pond.get("water_y", 0.0))
+		if pos.x >= start_x and pos.x <= end_x and pos.y >= water_y:
+			if _ground_y_at_x(pos.x) >= water_y + WATER_MIN_VISIBLE_DEPTH:
+				return true
+	return false
+
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
 	var direction: float = input_direction
 	var speed: float = base_speed
@@ -157,7 +287,6 @@ func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_s
 
 	var slope: float = _terrain_slope_at_x(x)
 	var blocked: bool = false
-	# Positive slope means downhill to the right; negative means downhill to the left.
 	var downhill_direction: float = signf(slope)
 	var moving_uphill: bool = input_direction != 0.0 and signf(input_direction) == -downhill_direction and absf(slope) > SNOW_UPHILL_BLOCK_SLOPE
 	if moving_uphill:
