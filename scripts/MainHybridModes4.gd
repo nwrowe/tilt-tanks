@@ -3,6 +3,11 @@ extends "res://scripts/MainHybridModes3.gd"
 const WIND_DISPLAY_MAX: float = 10.0
 const WIND_METER_MAX_ACCEL: float = MAX_WIND_ACCEL
 
+func _on_mobile_fire_pressed() -> void:
+	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
+	# The active gameplay script handles in-game FIRE behavior before calling super.
+	return
+
 func _randomize_wind() -> void:
 	var display_wind: float = rng.randf_range(-WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
 	wind = display_wind / WIND_DISPLAY_MAX * WIND_METER_MAX_ACCEL
