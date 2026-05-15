@@ -1,17 +1,39 @@
-extends "res://scripts/MainHybridModes3.gd"
+extends "res://scripts/MainHybridModes2.gd"
+
+# Consolidated compatibility layer while flattening the legacy chain.
+# MainHybridModes3 steam state/drawing has been folded here while preserving
+# the restored realtime hold-to-charge loop.
 
 const WIND_DISPLAY_MAX: float = 10.0
 const WIND_METER_MAX_ACCEL: float = MAX_WIND_ACCEL
 
+const STEAM_PUFF_LIFETIME: float = 0.95
+const STEAM_PUFF_RISE_SPEED: float = 34.0
+const STEAM_PUFF_DRIFT_SPEED: float = 18.0
+const STEAM_PUFF_START_RADIUS: float = 4.0
+const STEAM_PUFF_END_RADIUS: float = 13.0
+
+var steam_puffs: Array[Dictionary] = []
+var steam_spawn_timer: float = 0.0
+var movement_was_overheated: bool = false
+
 func _on_mobile_fire_pressed() -> void:
-	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
-	# The active gameplay script handles in-game FIRE behavior before calling super.
 	return
 
+func _setup_realtime_single_player() -> void:
+	super._setup_realtime_single_player()
+	steam_puffs.clear()
+	steam_spawn_timer = 0.0
+	movement_was_overheated = false
+
+func reset_match() -> void:
+	super.reset_match()
+	_randomize_wind()
+	steam_puffs.clear()
+	steam_spawn_timer = 0.0
+	movement_was_overheated = false
+
 func _process_realtime_single_player(delta: float) -> void:
-	# Compatibility override restored from the old MainHybridModes5 behavior.
-	# This prevents the lower legacy realtime loop from firing immediately through
-	# _player_fire_requested() and instead lets the active hold-to-charge path run.
 	if Input.is_key_pressed(KEY_R):
 		reset_match()
 		_setup_realtime_single_player()
@@ -38,19 +60,40 @@ func _process_realtime_single_player(delta: float) -> void:
 	queue_redraw()
 
 func _update_realtime_fire_charge(delta: float) -> void:
-	# Compatibility hook. MainGame.gd owns the active implementation.
 	return
+
+func _update_steam_puffs(delta: float) -> void:
+	if steam_puffs.is_empty():
+		return
+	var remaining: Array[Dictionary] = []
+	for puff: Dictionary in steam_puffs:
+		var age: float = float(puff.get("age", 0.0)) + delta
+		var life: float = float(puff.get("life", STEAM_PUFF_LIFETIME))
+		if age < life:
+			var pos: Vector2 = puff.get("pos", Vector2.ZERO)
+			var drift: float = float(puff.get("drift", 0.0))
+			pos.x += drift * delta
+			pos.y -= STEAM_PUFF_RISE_SPEED * delta
+			puff["age"] = age
+			puff["pos"] = pos
+			remaining.append(puff)
+	steam_puffs = remaining
+
+func _draw_steam_puffs() -> void:
+	for puff: Dictionary in steam_puffs:
+		var age: float = float(puff.get("age", 0.0))
+		var life: float = float(puff.get("life", STEAM_PUFF_LIFETIME))
+		var t: float = clampf(age / life, 0.0, 1.0)
+		var pos: Vector2 = puff.get("pos", Vector2.ZERO)
+		var radius: float = lerpf(STEAM_PUFF_START_RADIUS, STEAM_PUFF_END_RADIUS, t) * CAMERA_SCALE
+		var alpha: float = 0.52 * (1.0 - t)
+		draw_circle(_world_to_screen(pos), radius, Color(0.88, 0.90, 0.86, alpha))
 
 func _randomize_wind() -> void:
 	var display_wind: float = rng.randf_range(-WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
 	wind = display_wind / WIND_DISPLAY_MAX * WIND_METER_MAX_ACCEL
 
-func reset_match() -> void:
-	super.reset_match()
-	_randomize_wind()
-
 func _draw_wind_widget() -> void:
-	# Center-zero wind meter. Left/right fill shows direction; length and color show strength.
 	var box: Rect2 = Rect2(Vector2(18, 132), Vector2(178, 42))
 	draw_rect(box, Color(0.02, 0.03, 0.04, 0.62), true)
 	draw_rect(box, Color(0.85, 0.90, 1.0, 0.30), false, 1.0)
@@ -65,11 +108,9 @@ func _draw_wind_widget() -> void:
 	var fill_width: float = half_width * strength
 	var bar_color: Color = _wind_strength_color(strength)
 
-	# Track and zero marker.
 	draw_line(Vector2(meter_left, meter_y), Vector2(meter_right, meter_y), Color(0.55, 0.65, 0.75, 0.45), 8.0)
 	draw_line(Vector2(meter_center, meter_y - 13.0), Vector2(meter_center, meter_y + 13.0), Color.WHITE, 2.0)
 
-	# Directional fill from center.
 	if display_wind >= 0.0:
 		draw_line(Vector2(meter_center, meter_y), Vector2(meter_center + fill_width, meter_y), bar_color, 8.0)
 		_draw_small_arrow(Vector2(meter_center + fill_width + 4.0, meter_y), 1.0, bar_color)
