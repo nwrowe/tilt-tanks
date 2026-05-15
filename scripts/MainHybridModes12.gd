@@ -1,7 +1,7 @@
-extends "res://scripts/MainHybridModes8.gd"
+extends "res://scripts/MainHybridModes7.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11, 10, and 9 compatibility pieces have been folded here.
+# MainHybridModes11, 10, 9, and 8 compatibility pieces have been folded here.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
@@ -11,6 +11,15 @@ const VAR_CONTROL_SPACING_MIN: float = 58.0
 const VAR_CONTROL_SPACING_MAX: float = 108.0
 const VAR_SLOPE_KICK: float = 150.0
 const VAR_DETAIL_WAVE_AMOUNT: float = 17.0
+
+const POND_CHANCE: float = 0.38
+const POND_ATTEMPTS: int = 10
+const POND_MIN_WIDTH: float = 130.0
+const POND_MAX_WIDTH: float = 430.0
+const POND_MIN_DEPTH: float = 18.0
+const POND_RIM_SEARCH_RADIUS: int = 55
+const POND_SURFACE_DROP: float = 6.0
+const POND_SPAWN_AVOID_RADIUS: float = 140.0
 
 const WATER_REFLOW_SEARCH_CELLS: int = 85
 const WATER_MIN_VISIBLE_DEPTH: float = 3.0
@@ -25,6 +34,8 @@ const SNOW_SLIDE_SLOPE: float = 0.24
 const SNOW_SLIDE_SPEED: float = 70.0
 const SNOW_DRIVE_MULT: float = 0.72
 const SNOW_EDGE_WIDTH: float = 7.0
+
+var ponds: Array[Dictionary] = []
 
 func _ready() -> void:
 	super._ready()
@@ -277,6 +288,19 @@ func _is_in_pond(pos: Vector2) -> bool:
 		if pos.x >= start_x and pos.x <= end_x and pos.y >= water_y:
 			if _ground_y_at_x(pos.x) >= water_y + WATER_MIN_VISIBLE_DEPTH:
 				return true
+	return false
+
+func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
+	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
+	if pos.distance_to(tank_positions[target]) <= TANK_RADIUS + PROJECTILE_RADIUS:
+		return true
+	if _is_in_pond(pos):
+		return true
+	var ground_y: float = _ground_y_at_x(pos.x)
+	if pos.y >= ground_y:
+		return true
+	if pos.x < -100.0 or pos.x > active_world_width + 100.0 or pos.y > _bottom_floor_y() + 180.0:
+		return true
 	return false
 
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
