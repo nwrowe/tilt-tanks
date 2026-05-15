@@ -1,7 +1,7 @@
-extends "res://scripts/MainHybridModes7.gd"
+extends "res://scripts/MainHybridModes6.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11, 10, 9, and 8 compatibility pieces have been folded here.
+# MainHybridModes11, 10, 9, 8, and 7 compatibility pieces have been folded or superseded here.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
