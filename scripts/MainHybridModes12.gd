@@ -1,7 +1,7 @@
-extends "res://scripts/MainHybridModes6.gd"
+extends "res://scripts/MainHybridModes5.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11, 10, 9, 8, and 7 compatibility pieces have been folded or superseded here.
+# MainHybridModes11, 10, 9, 8, 7, and 6 compatibility pieces have been folded or superseded here.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
@@ -36,10 +36,23 @@ const SNOW_DRIVE_MULT: float = 0.72
 const SNOW_EDGE_WIDTH: float = 7.0
 
 var ponds: Array[Dictionary] = []
+var rt_player_shell_active: bool = false
 
 func _ready() -> void:
 	super._ready()
 	_resize_mobile_action_buttons()
+	_update_fire_button_charge_style(0.0)
+
+func _setup_realtime_single_player() -> void:
+	super._setup_realtime_single_player()
+	rt_player_shell_active = false
+	_resize_mobile_action_buttons()
+	_update_fire_button_charge_style(0.0)
+
+func reset_match() -> void:
+	super.reset_match()
+	rt_player_shell_active = false
+	_update_fire_button_charge_style(0.0)
 
 func _resize_mobile_action_buttons() -> void:
 	# Keep left/right enlarged and move FIRE farther right so it is easier to hit.
@@ -302,6 +315,51 @@ func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
 	if pos.x < -100.0 or pos.x > active_world_width + 100.0 or pos.y > _bottom_floor_y() + 180.0:
 		return true
 	return false
+
+func _draw_realtime_cooldown_widgets() -> void:
+	return
+
+func _reset_realtime_charge_state() -> void:
+	rt_fire_charge_time = 0.0
+	rt_fire_charge_percent = 0.0
+	rt_fire_button_held = false
+	rt_keyboard_fire_held = false
+	_update_fire_button_charge_style(0.0)
+
+func _update_fire_button_charge_style(charge_ratio: float) -> void:
+	if mobile_fire_button == null:
+		return
+	var color: Color = _charge_button_color(charge_ratio)
+	_apply_fire_button_style(color, color.darkened(0.35), Color.WHITE)
+
+func _update_fire_button_unavailable_style() -> void:
+	if mobile_fire_button == null:
+		return
+	_apply_fire_button_style(Color(0.18, 0.18, 0.20, 0.86), Color(0.08, 0.08, 0.10, 0.96), Color(0.75, 0.75, 0.78, 1.0))
+
+func _charge_button_color(charge_ratio: float) -> Color:
+	var v: float = clampf(charge_ratio, 0.0, 1.0)
+	if v < 0.5:
+		var t: float = v / 0.5
+		return Color(lerpf(0.10, 1.0, t), 0.80, 0.12, 0.92)
+	var t2: float = (v - 0.5) / 0.5
+	return Color(1.0, lerpf(0.80, 0.12, t2), 0.08, 0.92)
+
+func _apply_fire_button_style(bg: Color, border: Color, font: Color) -> void:
+	if mobile_fire_button == null:
+		return
+	var normal: StyleBoxFlat = StyleBoxFlat.new()
+	normal.bg_color = bg
+	normal.border_color = border
+	normal.set_border_width_all(3)
+	normal.set_corner_radius_all(16)
+	var pressed: StyleBoxFlat = normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = bg.lightened(0.12)
+	for state: String in ["normal", "hover", "focus"]:
+		mobile_fire_button.add_theme_stylebox_override(state, normal)
+	mobile_fire_button.add_theme_stylebox_override("pressed", pressed)
+	for color_name: String in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
+		mobile_fire_button.add_theme_color_override(color_name, font)
 
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
 	var direction: float = input_direction
