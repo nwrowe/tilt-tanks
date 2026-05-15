@@ -8,6 +8,39 @@ func _on_mobile_fire_pressed() -> void:
 	# The active gameplay script handles in-game FIRE behavior before calling super.
 	return
 
+func _process_realtime_single_player(delta: float) -> void:
+	# Compatibility override restored from the old MainHybridModes5 behavior.
+	# This prevents the lower legacy realtime loop from firing immediately through
+	# _player_fire_requested() and instead lets the active hold-to-charge path run.
+	if Input.is_key_pressed(KEY_R):
+		reset_match()
+		_setup_realtime_single_player()
+
+	if not game_over and not overlay_open:
+		current_player = HUMAN_PLAYER_INDEX
+		_update_angle_from_input(delta)
+		_update_realtime_player_movement(delta)
+		_update_realtime_power()
+		_update_realtime_cooldowns(delta)
+		_update_realtime_fire_charge(delta)
+		_update_realtime_ai(delta)
+
+	_update_all_realtime_projectiles(delta)
+
+	if explosion_timer > 0.0:
+		explosion_timer -= delta
+		if explosion_timer <= 0.0:
+			explosion_pos = Vector2.INF
+
+	_update_camera(delta)
+	_update_ui()
+	_update_steam_puffs(delta)
+	queue_redraw()
+
+func _update_realtime_fire_charge(delta: float) -> void:
+	# Compatibility hook. MainGame.gd owns the active implementation.
+	return
+
 func _randomize_wind() -> void:
 	var display_wind: float = rng.randf_range(-WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
 	wind = display_wind / WIND_DISPLAY_MAX * WIND_METER_MAX_ACCEL
