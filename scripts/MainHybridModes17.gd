@@ -1,3 +1,3 @@
-extends "res://scripts/MainHybridModes16.gd"
+extends "res://scripts/MainStableTweaks.gd"
 
-# Legacy compatibility alias. Behavior has been folded into the active consolidated chain.
+# Inactive legacy compatibility alias retained only so old wrapper scripts parse.
