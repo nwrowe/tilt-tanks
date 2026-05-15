@@ -128,6 +128,27 @@ func _terrain_slope_at_x(x: float) -> float:
 	var right_y: float = _ground_y_at_x(clampf(x + dx, 0.0, active_world_width))
 	return (right_y - left_y) / (2.0 * dx)
 
+func _pond_at_x(x: float) -> Dictionary:
+	for pond: Dictionary in ponds:
+		var start_x: float = float(pond.get("start_x", 0.0))
+		var end_x: float = float(pond.get("end_x", 0.0))
+		var water_y: float = float(pond.get("water_y", 0.0))
+		if x >= start_x and x <= end_x and _ground_y_at_x(x) >= water_y + WATER_MIN_VISIBLE_DEPTH:
+			return pond
+	return {}
+
+func _tank_y_for_surface(player: int, x: float) -> float:
+	var ground_y: float = _ground_y_at_x(x) - TANK_RADIUS
+	var pond: Dictionary = _pond_at_x(x)
+	if pond.is_empty():
+		return ground_y
+	var water_y: float = float(pond.get("water_y", 0.0))
+	var float_y: float = water_y + TANK_RADIUS * (1.0 - WATER_FLOAT_TANK_SUBMERGENCE)
+	return minf(ground_y, float_y)
+
+func _movement_speed_mult_at_x(x: float) -> float:
+	return WATER_DRIVE_SPEED_MULT if not _pond_at_x(x).is_empty() else 1.0
+
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
 	var direction: float = input_direction
 	var speed: float = base_speed
