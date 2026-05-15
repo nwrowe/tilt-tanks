@@ -1,7 +1,8 @@
-extends "res://scripts/MainHybridModes10.gd"
+extends "res://scripts/MainHybridModes9.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11.gd terrain constants have been folded into this file.
+# MainHybridModes11.gd terrain constants and MainHybridModes10.gd water
+# constants have been folded into this file.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
@@ -11,6 +12,10 @@ const VAR_CONTROL_SPACING_MIN: float = 58.0
 const VAR_CONTROL_SPACING_MAX: float = 108.0
 const VAR_SLOPE_KICK: float = 150.0
 const VAR_DETAIL_WAVE_AMOUNT: float = 17.0
+
+const WATER_CONNECTED_MARGIN: float = 2.0
+const WATER_DRIVE_SPEED_MULT: float = 0.42
+const WATER_FLOAT_TANK_SUBMERGENCE: float = 0.50
 
 const SNOW_LINE_Y: float = 315.0
 const SNOW_UPHILL_BLOCK_SLOPE: float = 0.58
