@@ -1,11 +1,28 @@
-extends "res://scripts/MainWithAI.gd"
+extends "res://scripts/MainWithMenus2.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes, MainHybridModes3, MainHybridModes2, and MainWithAI2
-# compatibility pieces have been folded here while preserving realtime
-# hold-to-charge and the improved single-player AI planning behavior.
+# MainHybridModes, MainHybridModes3, MainHybridModes2, MainWithAI2, and
+# MainWithAI compatibility pieces have been folded here while preserving
+# realtime hold-to-charge and the improved single-player AI planning behavior.
 
+const GAME_MODE_HOTSEAT: int = 0
+const GAME_MODE_SINGLE_PLAYER_QUICK: int = 1
 const GAME_MODE_SINGLE_PLAYER_REALTIME: int = 2
+
+const AI_PLAYER_INDEX: int = 1
+const HUMAN_PLAYER_INDEX: int = 0
+const AI_THINK_TIME: float = 0.85
+const AI_ANGLE_STEP_DEG: int = 4
+const AI_POWER_STEP_PERCENT: int = 4
+const AI_MIN_ANGLE_DEG: int = 12
+const AI_MAX_ANGLE_DEG: int = 84
+const AI_MIN_POWER_PERCENT: int = 15
+const AI_MAX_POWER_PERCENT: int = 100
+const AI_SIM_DT: float = 0.055
+const AI_SIM_MAX_TIME: float = 5.5
+const AI_RANDOM_ANGLE_ERROR: float = 4.5
+const AI_RANDOM_POWER_ERROR: float = 7.0
+const AI_MAX_SCORE_DISTANCE: float = 999999.0
 
 const WIND_DISPLAY_MAX: float = 10.0
 const WIND_METER_MAX_ACCEL: float = MAX_WIND_ACCEL
@@ -40,6 +57,10 @@ const STEAM_PUFF_DRIFT_SPEED: float = 18.0
 const STEAM_PUFF_START_RADIUS: float = 4.0
 const STEAM_PUFF_END_RADIUS: float = 13.0
 
+var game_mode: int = GAME_MODE_HOTSEAT
+var ai_pending_turn: bool = false
+var ai_think_timer: float = 0.0
+
 var rt_player_fire_cooldown: float = 0.0
 var rt_ai_fire_cooldown: float = 2.2
 var rt_movement_energy: float = RT_MOVEMENT_ENERGY_MAX
@@ -59,6 +80,10 @@ func _on_mobile_fire_pressed() -> void:
 func _on_quick_game_pressed() -> void:
 	game_mode = GAME_MODE_SINGLE_PLAYER_REALTIME
 	_start_game(true)
+
+func _on_hotseat_pressed() -> void:
+	game_mode = GAME_MODE_HOTSEAT
+	_start_game(false)
 
 func _start_game(is_single_player: bool) -> void:
 	super._start_game(is_single_player)
@@ -86,6 +111,8 @@ func _setup_realtime_single_player() -> void:
 
 func reset_match() -> void:
 	super.reset_match()
+	ai_pending_turn = false
+	ai_think_timer = 0.0
 	_randomize_wind()
 	steam_puffs.clear()
 	steam_spawn_timer = 0.0
@@ -108,8 +135,29 @@ func _process(delta: float) -> void:
 		return
 	super._process(delta)
 
+func _is_ai_turn_active() -> bool:
+	return game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and current_player == AI_PLAYER_INDEX and not projectile_active and not game_over and not overlay_open
+
 func _is_ai_turn_waiting_for_explosion() -> bool:
 	return game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and current_player == AI_PLAYER_INDEX and not projectile_active and not game_over and not overlay_open and explosion_timer > 0.0
+
+func _advance_turn() -> void:
+	super._advance_turn()
+	if _is_ai_turn_active():
+		_begin_ai_turn()
+	else:
+		ai_pending_turn = false
+
+func _process_ai_turn(delta: float) -> void:
+	if not ai_pending_turn:
+		_begin_ai_turn()
+	ai_think_timer -= delta
+	_update_camera(delta)
+	_update_ui()
+	queue_redraw()
+	if ai_think_timer <= 0.0:
+		ai_pending_turn = false
+		_take_ai_shot()
 
 func _process_ai_turn_waiting_for_explosion(delta: float) -> void:
 	explosion_timer -= delta
@@ -181,6 +229,9 @@ func _find_ai_plan() -> Dictionary:
 
 	return {"angle": best_angle, "power_percent": best_power_percent, "move_x": best_x, "score": best_score}
 
+func _find_ai_shot() -> Dictionary:
+	return _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
+
 func _find_ai_shot_from_position(shooter_pos: Vector2) -> Dictionary:
 	var best_score: float = AI_MAX_SCORE_DISTANCE
 	var best_angle: float = 45.0
@@ -194,6 +245,9 @@ func _find_ai_shot_from_position(shooter_pos: Vector2) -> Dictionary:
 				best_angle = float(test_angle)
 				best_power_percent = float(test_power_percent)
 	return {"angle": best_angle, "power_percent": best_power_percent, "score": best_score}
+
+func _score_ai_shot(test_angle_deg: float, test_power_percent: float) -> float:
+	return _score_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX], test_angle_deg, test_power_percent)
 
 func _score_ai_shot_from_position(shooter_pos: Vector2, test_angle_deg: float, test_power_percent: float) -> float:
 	var facing: float = -1.0
@@ -366,6 +420,10 @@ func _update_ui() -> void:
 			status_label.text = "Realtime Quick Game   You HP: %d    CPU HP: %d" % [tank_health[HUMAN_PLAYER_INDEX], tank_health[AI_PLAYER_INDEX]]
 		return
 	super._update_ui()
+	if menu_state == MENU_STATE_GAME and game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and current_player == AI_PLAYER_INDEX and not game_over:
+		status_label.text = "Computer thinking...   P1 HP: %d    CPU HP: %d" % [tank_health[0], tank_health[1]]
+	elif menu_state == MENU_STATE_GAME and game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and not game_over:
+		status_label.text = "Your turn   P1 HP: %d    CPU HP: %d" % [tank_health[0], tank_health[1]]
 
 func _update_steam_puffs(delta: float) -> void:
 	if steam_puffs.is_empty():
