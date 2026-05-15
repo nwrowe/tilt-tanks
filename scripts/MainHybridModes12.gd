@@ -1,7 +1,7 @@
-extends "res://scripts/MainHybridModes5.gd"
+extends "res://scripts/MainHybridModes4.gd"
 
 # Consolidated compatibility layer while flattening the legacy chain.
-# MainHybridModes11, 10, 9, 8, 7, and 6 compatibility pieces have been folded or superseded here.
+# MainHybridModes11, 10, 9, 8, 7, 6, and 5 compatibility pieces have been folded or superseded here.
 
 const VAR_TERRAIN_MIN_Y: float = 245.0
 const VAR_TERRAIN_MAX_Y: float = 560.0
@@ -35,24 +35,83 @@ const SNOW_SLIDE_SPEED: float = 70.0
 const SNOW_DRIVE_MULT: float = 0.72
 const SNOW_EDGE_WIDTH: float = 7.0
 
+const RT_CHARGE_TIME_MAX: float = 1.65
+const RT_CHARGE_MIN_PERCENT: float = 10.0
+const RT_CHARGE_MAX_PERCENT: float = 100.0
+
 var ponds: Array[Dictionary] = []
 var rt_player_shell_active: bool = false
+var rt_fire_button_held: bool = false
+var rt_keyboard_fire_held: bool = false
+var rt_fire_charge_time: float = 0.0
+var rt_fire_charge_percent: float = 0.0
 
 func _ready() -> void:
 	super._ready()
 	_resize_mobile_action_buttons()
+	if mobile_fire_button != null:
+		if not mobile_fire_button.button_down.is_connected(_on_realtime_fire_button_down):
+			mobile_fire_button.button_down.connect(_on_realtime_fire_button_down)
+		if not mobile_fire_button.button_up.is_connected(_on_realtime_fire_button_up):
+			mobile_fire_button.button_up.connect(_on_realtime_fire_button_up)
 	_update_fire_button_charge_style(0.0)
 
 func _setup_realtime_single_player() -> void:
 	super._setup_realtime_single_player()
 	rt_player_shell_active = false
+	rt_fire_button_held = false
+	rt_keyboard_fire_held = false
+	rt_fire_charge_time = 0.0
+	rt_fire_charge_percent = 0.0
 	_resize_mobile_action_buttons()
+	_show_realtime_power_ui(false)
 	_update_fire_button_charge_style(0.0)
 
 func reset_match() -> void:
 	super.reset_match()
 	rt_player_shell_active = false
+	rt_fire_button_held = false
+	rt_keyboard_fire_held = false
+	rt_fire_charge_time = 0.0
+	rt_fire_charge_percent = 0.0
 	_update_fire_button_charge_style(0.0)
+
+func _show_game_ui() -> void:
+	super._show_game_ui()
+	_show_realtime_power_ui(game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME)
+
+func _show_realtime_power_ui(show_slider: bool) -> void:
+	if power_slider != null:
+		power_slider.visible = show_slider
+	if power_label != null:
+		power_label.visible = true
+
+func _on_realtime_fire_button_down() -> void:
+	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
+		return
+	if not _player_can_fire() or game_over or overlay_open:
+		return
+	rt_fire_button_held = true
+	rt_fire_charge_time = 0.0
+	rt_fire_charge_percent = RT_CHARGE_MIN_PERCENT
+	if mobile_fire_button != null:
+		mobile_fire_button.release_focus()
+
+func _on_realtime_fire_button_up() -> void:
+	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
+		return
+	if rt_fire_button_held:
+		_release_realtime_charged_shot()
+	rt_fire_button_held = false
+	if mobile_fire_button != null:
+		mobile_fire_button.release_focus()
+
+func _player_can_fire() -> bool:
+	return not rt_player_shell_active and not game_over
+
+func _release_realtime_charged_shot() -> void:
+	# Compatibility stub. MainGame.gd owns the active implementation.
+	return
 
 func _resize_mobile_action_buttons() -> void:
 	# Keep left/right enlarged and move FIRE farther right so it is easier to hit.
