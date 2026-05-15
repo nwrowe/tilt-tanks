@@ -2,25 +2,17 @@
 
 ## Refactor Phase Status
 
-This refactor phase is complete.
-
 The game is working and routes active gameplay through:
 
 ```text
 scenes/Main.tscn -> scripts/core/MainGame.gd
 ```
 
-Current architecture and follow-on rules are documented in:
-
-```text
-docs/CURRENT_ARCHITECTURE.md
-docs/ACTIVE_FACADE.md
-docs/LEGACY_CHAIN.md
-```
+This pass substantially flattened the prototype inheritance chain while preserving gameplay behavior after each tested step.
 
 ## Stable Backup
 
-The working pre-closeout backup branch is:
+The original working pre-cleanup backup branch is:
 
 ```text
 backup/working-mode-facade-2026-05-13
@@ -28,7 +20,7 @@ backup/working-mode-facade-2026-05-13
 
 Use this branch as the rollback point if a later cleanup step breaks gameplay.
 
-## Active Entry Direction
+## Current Active Entry and Chain
 
 The active scene script is:
 
@@ -36,14 +28,36 @@ The active scene script is:
 scripts/core/MainGame.gd
 ```
 
-Rules going forward:
+Current stable active inheritance chain:
+
+```text
+MainGame.gd
+ -> MainHybridModes15.gd
+ -> MainHybridModes12.gd
+ -> MainHybridModes4.gd
+ -> MainWithMenus.gd
+ -> MainStableTweaks.gd
+ -> MainStablePowerPercent.gd
+ -> Main.gd
+```
+
+Current stable boundary:
+
+```text
+MainWithMenus.gd -> MainStableTweaks.gd
+```
+
+Attempts to flatten `MainWithMenus.gd` into `MainHybridModes4.gd`, and later `MainStableTweaks.gd` into `MainWithMenus.gd`, caused active-chain parse failures. Those changes were backed out. Do not retry those boundaries as a bulk move; split them into smaller, separately tested helper extraction steps.
+
+## Rules Going Forward
 
 ```text
 - Do not create additional MainHybridModesXX.gd wrappers.
-- Treat MainHybridModes1..19 as frozen compatibility scaffolding.
-- Put new gameplay glue in MainGame.gd.
+- Keep MainGame.gd as the active gameplay facade.
+- Put new gameplay glue in MainGame.gd only when it must coordinate multiple systems.
 - Put extracted logic in scripts/terrain, scripts/weapons, scripts/modes, scripts/ui, or scripts/effects.
-- Remove the legacy inheritance chain only in a later parity-tested hardening pass.
+- Prefer small commits and gameplay testing after each inheritance-boundary change.
+- Do not flatten MainWithMenus/MainStableTweaks in one pass.
 ```
 
 ## Completed Structure
@@ -96,7 +110,6 @@ scripts/
 - Added and tested temporary MainGameModes.gd mode facade.
 - Folded MainGameModes.gd overrides back into MainGame.gd.
 - Removed inactive temporary MainGameModes.gd facade.
-- Removed stale MainGame.gd UI/terrain/water/snow facade overrides so the newer tested MainHybridModes19.gd helper-routed implementations are no longer shadowed.
 - Routed active mobile/menu button construction and styling through UI helpers.
 - Routed active weapon menu construction through WeaponSelectMenu.gd.
 - Routed active overlay UI construction through MobileControls.gd and EndPopup.gd while keeping callbacks in the active game script.
@@ -106,29 +119,36 @@ scripts/
 - Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
 - Routed hotseat and realtime keyboard charge begin/release decisions through mode helpers.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
-- Documented the frozen legacy chain as compatibility scaffolding.
-- Closed this refactor phase so normal gameplay development can resume.
+- Flattened/skipped many inactive prototype wrappers: MainHybridModes19, 18, 17, 16, 14, 13, 11, 10, 9, 8, 7, 6, 5, 3, 2, MainHybridModes, MainWithAI2, MainWithAI, and MainWithMenus2.
+- Removed inactive parser-only wrapper aliases for MainHybridModes13, 14, 16, 17, and 18.
+- Preserved stable lower menu/terrain boundary after failed bulk flatten attempts.
 ```
 
-## Deferred Future Hardening
+## Remaining Hardening
 
-The legacy inheritance chain still exists and `MainGame.gd` still extends:
+The legacy chain is much shorter, but `MainGame.gd` still does not extend `Node2D` directly.
 
-```gdscript
-extends "res://scripts/MainHybridModes19.gd"
-```
-
-That dependency is intentionally deferred. Removing it is the next hardening pass, not part of this completed refactor phase.
-
-Future legacy-removal pass:
+Remaining active legacy files:
 
 ```text
-1. Create a backup branch.
-2. Inventory remaining inherited state and lifecycle methods required by MainGame.gd.
-3. Move required state into MainGame.gd or dedicated controllers/managers.
-4. Change MainGame.gd to extend Node2D directly.
-5. Test hotseat, realtime, terrain, water, snow, UI, weapons, projectiles, and effects.
-6. Only then archive or delete the old prototype files.
+scripts/MainHybridModes15.gd
+scripts/MainHybridModes12.gd
+scripts/MainHybridModes4.gd
+scripts/MainWithMenus.gd
+scripts/MainStableTweaks.gd
+scripts/MainStablePowerPercent.gd
+scripts/Main.gd
+```
+
+Recommended next hardening pass:
+
+```text
+1. Keep the current working state as the test baseline.
+2. Flatten MainHybridModes15 into MainGame.gd only after inventorying weapon behavior.
+3. Then flatten MainHybridModes12 into MainGame.gd or a dedicated runtime/controller layer.
+4. Treat MainHybridModes4 as the consolidated bridge for mode/menu/AI behavior until the smaller layers above it are gone.
+5. Do not retry MainWithMenus/MainStableTweaks flattening as a bulk move.
+6. Only after behavior parity is confirmed should MainGame.gd extend Node2D directly.
 ```
 
 ## Rule Going Forward
