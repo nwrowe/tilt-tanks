@@ -26,6 +26,11 @@ var turn_projectile_split_done: bool = false
 var turn_projectiles: Array[Dictionary] = []
 var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 
+func _unhandled_input(event: InputEvent) -> void:
+	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
+	# Earlier skipped layers used this virtual hook for mobile camera panning.
+	return
+
 func _ready() -> void:
 	super._ready()
 	_add_main_menu_controls()
