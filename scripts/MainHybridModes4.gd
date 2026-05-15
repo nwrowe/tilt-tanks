@@ -127,6 +127,18 @@ func _update_realtime_power() -> void:
 	player_power_percents[HUMAN_PLAYER_INDEX] = power_percent
 	player_powers[HUMAN_PLAYER_INDEX] = power
 
+func _update_realtime_player_movement(delta: float) -> void:
+	# Compatibility declaration. MainHybridModes12.gd owns the active implementation.
+	return
+
+func _move_realtime_ai(delta: float) -> void:
+	# Compatibility declaration. MainHybridModes12.gd owns the active implementation.
+	return
+
+func _fire_realtime_projectile(owner: int) -> void:
+	# Compatibility declaration. MainGame.gd owns the active implementation.
+	return
+
 func _update_realtime_cooldowns(delta: float) -> void:
 	rt_player_fire_cooldown = maxf(0.0, rt_player_fire_cooldown - delta)
 	rt_ai_fire_cooldown = maxf(0.0, rt_ai_fire_cooldown - delta)
