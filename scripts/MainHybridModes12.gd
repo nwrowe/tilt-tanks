@@ -1,4 +1,8 @@
-extends "res://scripts/MainHybridModes11.gd"
+extends "res://scripts/MainHybridModes9.gd"
+
+# Consolidated compatibility layer while flattening the legacy chain.
+# MainHybridModes11.gd and MainHybridModes10.gd have been folded into this file
+# so the active chain now skips them.
 
 const SNOW_LINE_Y: float = 315.0
 const SNOW_UPHILL_BLOCK_SLOPE: float = 0.58
@@ -6,6 +10,19 @@ const SNOW_SLIDE_SLOPE: float = 0.24
 const SNOW_SLIDE_SPEED: float = 70.0
 const SNOW_DRIVE_MULT: float = 0.72
 const SNOW_EDGE_WIDTH: float = 7.0
+
+const VAR_TERRAIN_MIN_Y: float = 245.0
+const VAR_TERRAIN_MAX_Y: float = 560.0
+const VAR_START_MIN_Y: float = 390.0
+const VAR_START_MAX_Y: float = 500.0
+const VAR_CONTROL_SPACING_MIN: float = 58.0
+const VAR_CONTROL_SPACING_MAX: float = 108.0
+const VAR_SLOPE_KICK: float = 150.0
+const VAR_DETAIL_WAVE_AMOUNT: float = 17.0
+
+const WATER_CONNECTED_MARGIN: float = 2.0
+const WATER_DRIVE_SPEED_MULT: float = 0.42
+const WATER_FLOAT_TANK_SUBMERGENCE: float = 0.50
 
 func _ready() -> void:
 	super._ready()
@@ -119,7 +136,6 @@ func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_s
 
 	var slope: float = _terrain_slope_at_x(x)
 	var blocked: bool = false
-	# Positive slope means downhill to the right; negative means downhill to the left.
 	var downhill_direction: float = signf(slope)
 	var moving_uphill: bool = input_direction != 0.0 and signf(input_direction) == -downhill_direction and absf(slope) > SNOW_UPHILL_BLOCK_SLOPE
 	if moving_uphill:
