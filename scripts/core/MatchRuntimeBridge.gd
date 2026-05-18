@@ -1,10 +1,9 @@
 extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # Transitional bridge for wiring MatchState / MatchController into the active
-# game without changing gameplay ownership all at once. For now this mirrors
-# the existing inherited runtime state into a MatchState object after key
-# lifecycle points. Later passes can move reset/turn/win/projectile ownership
-# from the bridge chain into MatchController one behavior at a time.
+# game without changing gameplay ownership all at once. This bridge now lets
+# MatchController own the simplest transition, turn advancement, while still
+# mirroring the existing inherited runtime state for compatibility.
 
 var match_state: MatchState = MatchState.new()
 var match_controller: MatchController = MatchController.new(match_state)
@@ -14,16 +13,34 @@ func reset_match() -> void:
 	_sync_match_state_from_runtime()
 
 func _advance_turn() -> void:
-	super._advance_turn()
+	_sync_match_state_from_runtime()
+	current_player = match_controller.advance_turn(TURN_TIME_LIMIT)
+	_load_current_player_settings()
+	turn_timer = match_state.turn_timer
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	if mobile_left_button != null:
+		mobile_left_button.release_focus()
+	if mobile_right_button != null:
+		mobile_right_button.release_focus()
 	_sync_match_state_from_runtime()
 
 func _end_turn_without_shot() -> void:
-	super._end_turn_without_shot()
-	_sync_match_state_from_runtime()
+	_save_runtime_current_player_settings()
+	_advance_turn()
 
 func _explode(pos: Vector2) -> void:
 	super._explode(pos)
 	_sync_match_state_from_runtime()
+
+func _save_runtime_current_player_settings() -> void:
+	if current_player < 0 or current_player >= player_angles.size():
+		return
+	player_angles[current_player] = angle_deg
+	player_powers[current_player] = power
+	if "player_power_percents" in self:
+		player_power_percents[current_player] = power_percent
+	match_controller.save_current_player_settings(angle_deg, power, power_percent if "power_percent" in self else 0.0)
 
 func _sync_match_state_from_runtime() -> void:
 	match_state.current_player = current_player
