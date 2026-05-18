@@ -20,6 +20,8 @@ const DESTROYED_SMOKE_DRIFT_SPEED: float = 24.0
 const DESTROYED_SMOKE_START_RADIUS: float = 5.0
 const DESTROYED_SMOKE_END_RADIUS: float = 18.0
 
+const AI_BARREL_AIM_RATE_DEG: float = 75.0
+
 const SNOW_UPHILL_SLOW_MULT: float = 0.28
 const SNOW_FACE_ALPHA: float = 0.86
 const SNOW_FACE_SHADOW_ALPHA: float = 0.24
@@ -37,6 +39,10 @@ var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 var destroyed_smoke_puffs: Array[Dictionary] = []
 var destroyed_smoke_timer: float = 0.0
 var destroyed_tank_index: int = -1
+
+var ai_visual_shot_plan: Dictionary = {}
+var ai_visual_target_angle: float = 45.0
+var ai_visual_target_power_percent: float = 55.0
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
@@ -164,6 +170,7 @@ func _return_to_main_menu() -> void:
 	weapon_menu_open = false
 	destroyed_tank_index = -1
 	destroyed_smoke_puffs.clear()
+	ai_visual_shot_plan.clear()
 	if menu_panel != null:
 		menu_panel.visible = false
 	if end_panel != null:
@@ -180,6 +187,7 @@ func reset_match() -> void:
 	destroyed_smoke_puffs.clear()
 	destroyed_smoke_timer = 0.0
 	destroyed_tank_index = -1
+	ai_visual_shot_plan.clear()
 	super.reset_match()
 	_resize_mobile_action_buttons()
 	_close_weapon_menu()
@@ -202,6 +210,70 @@ func _process(delta: float) -> void:
 		return
 	super._process(delta)
 	_update_destroyed_smoke(delta)
+
+func _begin_ai_turn() -> void:
+	ai_pending_turn = true
+	ai_think_timer = AI_THINK_TIME_SLOWER
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	if power_slider != null:
+		power_slider.release_focus()
+	ai_visual_shot_plan = _make_ai_visual_shot_plan()
+	ai_visual_target_angle = float(ai_visual_shot_plan.get("angle", player_angles[AI_PLAYER_INDEX]))
+	ai_visual_target_power_percent = float(ai_visual_shot_plan.get("power_percent", player_power_percents[AI_PLAYER_INDEX]))
+
+func _make_ai_visual_shot_plan() -> Dictionary:
+	var plan: Dictionary = _find_ai_plan()
+	var final_angle: float = clampf(
+		float(plan.get("angle", 45.0)) + rng.randf_range(-AI_RANDOM_ANGLE_ERROR_EASIER, AI_RANDOM_ANGLE_ERROR_EASIER),
+		MOBILE_MIN_ANGLE,
+		MOBILE_MAX_ANGLE
+	)
+	var final_power_percent: float = clampf(
+		float(plan.get("power_percent", 55.0)) + rng.randf_range(-AI_RANDOM_POWER_ERROR_EASIER, AI_RANDOM_POWER_ERROR_EASIER),
+		0.0,
+		100.0
+	)
+	plan["angle"] = final_angle
+	plan["power_percent"] = final_power_percent
+	return plan
+
+func _process_ai_turn(delta: float) -> void:
+	if not ai_pending_turn:
+		_begin_ai_turn()
+	_update_ai_visual_aim(delta)
+	ai_think_timer -= delta
+	_update_camera(delta)
+	_update_ui()
+	queue_redraw()
+	if ai_think_timer <= 0.0:
+		ai_pending_turn = false
+		_take_ai_shot()
+
+func _update_ai_visual_aim(delta: float) -> void:
+	if player_angles.size() <= AI_PLAYER_INDEX:
+		return
+	var current_angle: float = player_angles[AI_PLAYER_INDEX]
+	player_angles[AI_PLAYER_INDEX] = move_toward(current_angle, ai_visual_target_angle, AI_BARREL_AIM_RATE_DEG * delta)
+	if current_player == AI_PLAYER_INDEX:
+		angle_deg = player_angles[AI_PLAYER_INDEX]
+
+func _take_ai_shot() -> void:
+	if ai_visual_shot_plan.is_empty():
+		ai_visual_shot_plan = _make_ai_visual_shot_plan()
+	var planned_x: float = float(ai_visual_shot_plan.get("move_x", tank_positions[AI_PLAYER_INDEX].x))
+	_apply_ai_move(planned_x)
+
+	angle_deg = clampf(float(ai_visual_shot_plan.get("angle", 45.0)), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
+	power_percent = clampf(float(ai_visual_shot_plan.get("power_percent", 55.0)), 0.0, 100.0)
+	power = _power_from_percent(power_percent)
+	player_angles[current_player] = angle_deg
+	player_power_percents[current_player] = power_percent
+	player_powers[current_player] = power
+	if power_slider != null:
+		power_slider.value = power_percent
+	ai_visual_shot_plan.clear()
+	_on_fire_pressed()
 
 func _on_fire_pressed() -> void:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
@@ -445,6 +517,38 @@ func _spawn_destroyed_smoke_puff() -> void:
 func _draw() -> void:
 	super._draw()
 	_draw_destroyed_smoke_puffs()
+
+func _draw_tank(index: int, color: Color) -> void:
+	var pos: Vector2 = _world_to_screen(tank_positions[index])
+	var facing: float = 1.0 if index == 0 else -1.0
+	var s: float = CAMERA_SCALE
+	var tread_points: PackedVector2Array = PackedVector2Array([
+		pos + Vector2(-25, 8) * s,
+		pos + Vector2(25, 8) * s,
+		pos + Vector2(30, 16) * s,
+		pos + Vector2(22, 22) * s,
+		pos + Vector2(-22, 22) * s,
+		pos + Vector2(-30, 16) * s,
+	])
+	draw_colored_polygon(tread_points, Color(color.r * 0.45, color.g * 0.45, color.b * 0.45))
+	draw_line(pos + Vector2(-24, 15) * s, pos + Vector2(24, 15) * s, Color.BLACK, 3.0)
+	var body_points: PackedVector2Array = PackedVector2Array([
+		pos + Vector2(-22, 5) * s,
+		pos + Vector2(22, 5) * s,
+		pos + Vector2(16, -10) * s,
+		pos + Vector2(-16, -10) * s,
+	])
+	draw_colored_polygon(body_points, color)
+	draw_circle(pos + Vector2(0, -13) * s, 12.0 * s, color)
+	if index != current_player or game_over:
+		var stored_angle: float = angle_deg
+		if index >= 0 and index < player_angles.size():
+			stored_angle = player_angles[index]
+		var barrel_rad: float = deg_to_rad(stored_angle)
+		var barrel_tip: Vector2 = pos + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(barrel_rad), -CANNON_LENGTH * CAMERA_SCALE * sin(barrel_rad))
+		draw_line(pos, barrel_tip, Color.WHITE, 4.0)
+	for wheel_x: float in [-18.0, 0.0, 18.0]:
+		draw_circle(pos + Vector2(wheel_x, 16) * s, 4.0 * s, Color.BLACK)
 
 func _draw_destroyed_smoke_puffs() -> void:
 	for puff: Dictionary in destroyed_smoke_puffs:
