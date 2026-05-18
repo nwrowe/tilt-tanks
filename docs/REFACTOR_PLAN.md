@@ -8,9 +8,9 @@ The game is working and routes active gameplay through:
 scenes/Main.tscn -> scripts/core/MainGame.gd
 ```
 
-This pass substantially flattened the prototype inheritance chain while preserving gameplay behavior after each tested step.
+The numbered `MainHybridModesXX.gd` prototype wrappers have been removed from the active chain. Active behavior now runs through named bridge files in `scripts/modes/` and `scripts/weapons/`.
 
-## Stable Backup
+## Stable Backups
 
 The original working pre-cleanup backup branch is:
 
@@ -18,7 +18,13 @@ The original working pre-cleanup backup branch is:
 backup/working-mode-facade-2026-05-13
 ```
 
-Use this branch as the rollback point if a later cleanup step breaks gameplay.
+A newer backup before the weapon-runtime bridge move is:
+
+```text
+backup/pre-flatten-mainhybrid15-2026-05-15
+```
+
+Use these branches as rollback points if a later cleanup step breaks gameplay.
 
 ## Current Active Entry and Chain
 
@@ -32,22 +38,23 @@ Current stable active inheritance chain:
 
 ```text
 MainGame.gd
- -> MainHybridModes15.gd
- -> MainHybridModes12.gd
- -> MainHybridModes4.gd
+ -> scripts/weapons/WeaponRuntimeBridge.gd
+ -> scripts/modes/RealtimeAIAimingBridge.gd
+ -> scripts/modes/WorldRuntimeBridge.gd
+ -> scripts/modes/ModeRuntimeBridge.gd
  -> MainWithMenus.gd
  -> MainStableTweaks.gd
  -> MainStablePowerPercent.gd
  -> Main.gd
 ```
 
-Current stable boundary:
+Current stable lower boundary:
 
 ```text
 MainWithMenus.gd -> MainStableTweaks.gd
 ```
 
-Attempts to flatten `MainWithMenus.gd` into `MainHybridModes4.gd`, and later `MainStableTweaks.gd` into `MainWithMenus.gd`, caused active-chain parse failures. Those changes were backed out. Do not retry those boundaries as a bulk move; split them into smaller, separately tested helper extraction steps.
+Earlier attempts to bulk-flatten `MainWithMenus.gd` into the mode bridge, and later `MainStableTweaks.gd` into `MainWithMenus.gd`, caused active-chain parse failures and were backed out. Do not retry those boundaries as a bulk move; split them into smaller, separately tested helper extraction steps.
 
 ## Rules Going Forward
 
@@ -60,7 +67,7 @@ Attempts to flatten `MainWithMenus.gd` into `MainHybridModes4.gd`, and later `Ma
 - Do not flatten MainWithMenus/MainStableTweaks in one pass.
 ```
 
-## Completed Structure
+## Current Structure
 
 ```text
 scripts/
@@ -71,6 +78,9 @@ scripts/
     GameMode.gd
     HotseatMode.gd
     RealtimeSinglePlayerMode.gd
+    RealtimeAIAimingBridge.gd
+    WorldRuntimeBridge.gd
+    ModeRuntimeBridge.gd
 
   terrain/
     TerrainManager.gd
@@ -82,6 +92,7 @@ scripts/
     WeaponCatalog.gd
     ProjectileFactory.gd
     ProjectileManager.gd
+    WeaponRuntimeBridge.gd
 
   effects/
     EffectsManager.gd
@@ -119,8 +130,11 @@ scripts/
 - Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
 - Routed hotseat and realtime keyboard charge begin/release decisions through mode helpers.
 - Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
-- Flattened/skipped many inactive prototype wrappers: MainHybridModes19, 18, 17, 16, 14, 13, 11, 10, 9, 8, 7, 6, 5, 3, 2, MainHybridModes, MainWithAI2, MainWithAI, and MainWithMenus2.
-- Removed inactive parser-only wrapper aliases for MainHybridModes13, 14, 16, 17, and 18.
+- Moved active weapon runtime behavior into scripts/weapons/WeaponRuntimeBridge.gd.
+- Added realtime AI turret smoothing in scripts/modes/RealtimeAIAimingBridge.gd.
+- Moved active world/runtime behavior into scripts/modes/WorldRuntimeBridge.gd.
+- Moved active mode/runtime behavior into scripts/modes/ModeRuntimeBridge.gd.
+- Removed obsolete numbered MainHybridModes wrappers from the active chain.
 - Preserved stable lower menu/terrain boundary after failed bulk flatten attempts.
 ```
 
@@ -128,12 +142,9 @@ scripts/
 
 The legacy chain is much shorter, but `MainGame.gd` still does not extend `Node2D` directly.
 
-Remaining active legacy files:
+Remaining active legacy/base files:
 
 ```text
-scripts/MainHybridModes15.gd
-scripts/MainHybridModes12.gd
-scripts/MainHybridModes4.gd
 scripts/MainWithMenus.gd
 scripts/MainStableTweaks.gd
 scripts/MainStablePowerPercent.gd
@@ -144,11 +155,10 @@ Recommended next hardening pass:
 
 ```text
 1. Keep the current working state as the test baseline.
-2. Flatten MainHybridModes15 into MainGame.gd only after inventorying weapon behavior.
-3. Then flatten MainHybridModes12 into MainGame.gd or a dedicated runtime/controller layer.
-4. Treat MainHybridModes4 as the consolidated bridge for mode/menu/AI behavior until the smaller layers above it are gone.
-5. Do not retry MainWithMenus/MainStableTweaks flattening as a bulk move.
-6. Only after behavior parity is confirmed should MainGame.gd extend Node2D directly.
+2. Treat MainWithMenus.gd as the next rename/move candidate, but do not bulk-flatten it.
+3. Prefer introducing a named UI/Menu bridge first, then rerouting inheritance, then moving body after testing.
+4. Treat MainStableTweaks/MainStablePowerPercent/Main.gd as fragile lower base layers until behavior parity is confirmed.
+5. Only after behavior parity is confirmed should MainGame.gd extend Node2D directly.
 ```
 
 ## Rule Going Forward
