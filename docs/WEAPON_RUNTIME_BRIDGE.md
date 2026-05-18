@@ -1,40 +1,49 @@
 # Weapon Runtime Bridge
 
-The active weapon runtime behavior has been moved out of the legacy `scripts/MainHybridModes15.gd` file and into:
+The active weapon runtime behavior now lives in:
 
 ```text
 scripts/weapons/WeaponRuntimeBridge.gd
 ```
 
-`MainHybridModes15.gd` is now only a compatibility alias:
-
-```gdscript
-extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
-```
+`MainHybridModes15.gd` has been removed from the active chain and deleted.
 
 Current active chain around weapons:
 
 ```text
 scripts/core/MainGame.gd
- -> scripts/MainHybridModes15.gd          # alias only
  -> scripts/weapons/WeaponRuntimeBridge.gd
+ -> scripts/modes/RealtimeAIAimingBridge.gd
  -> scripts/MainHybridModes12.gd
 ```
 
 The game has been tested successfully after this move.
 
-Next safe cleanup, using a patch-capable edit:
+Weapon runtime responsibilities currently include:
 
 ```text
-1. Change the first line of scripts/core/MainGame.gd from:
-   extends "res://scripts/MainHybridModes15.gd"
+- weapon state declarations
+- weapon menu open/close/build hooks
+- turn projectile and cluster runtime
+- realtime projectile and cluster runtime
+- weapon explosion/damage/crater hooks
+- destroyed tank smoke hooks
+```
 
-   to:
-   extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
+The weapon bridge delegates data/utility work to:
 
-2. Test startup, weapon menu, Standard, Heavy, Cluster, hotseat firing, realtime firing, cluster camera follow, and destroyed-tank smoke.
+```text
+- scripts/weapons/WeaponCatalog.gd
+- scripts/weapons/ProjectileFactory.gd
+- scripts/weapons/ProjectileManager.gd
+- scripts/ui/WeaponSelectMenu.gd
+- scripts/effects/EffectsManager.gd
+```
 
-3. Delete scripts/MainHybridModes15.gd after the direct parent change is verified.
+Realtime AI turret smoothing now lives in:
+
+```text
+scripts/modes/RealtimeAIAimingBridge.gd
 ```
 
 Do not add new `MainHybridModesXX.gd` files. New weapon behavior should go in `scripts/weapons/`.
