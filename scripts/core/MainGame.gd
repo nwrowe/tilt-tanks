@@ -1,4 +1,4 @@
-extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
+extends "res://scripts/core/MatchRuntimeBridge.gd"
 
 # CLEAN ACTIVE ENTRY POINT
 # ------------------------
