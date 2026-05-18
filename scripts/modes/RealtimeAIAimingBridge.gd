@@ -1,4 +1,4 @@
-extends "res://scripts/MainHybridModes12.gd"
+extends "res://scripts/modes/WorldRuntimeBridge.gd"
 
 # Smooths realtime single-player AI turret motion.
 # The realtime AI used to choose its firing angle only at the instant it fired,
