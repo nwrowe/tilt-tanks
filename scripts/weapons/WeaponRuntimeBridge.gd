@@ -20,7 +20,7 @@ const DESTROYED_SMOKE_DRIFT_SPEED: float = 24.0
 const DESTROYED_SMOKE_START_RADIUS: float = 5.0
 const DESTROYED_SMOKE_END_RADIUS: float = 18.0
 
-const AI_BARREL_AIM_RATE_DEG: float = 75.0
+const AI_BARREL_AIM_RATE_DEG: float = 32.0
 
 const SNOW_UPHILL_SLOW_MULT: float = 0.28
 const SNOW_FACE_ALPHA: float = 0.86
