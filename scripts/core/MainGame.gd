@@ -1,4 +1,4 @@
-extends "res://scripts/MainHybridModes15.gd"
+extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # CLEAN ACTIVE ENTRY POINT
 # ------------------------
