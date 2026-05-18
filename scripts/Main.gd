@@ -617,6 +617,12 @@ func _draw_tank(index: int, color: Color) -> void:
 	draw_colored_polygon(body_points, color)
 	draw_circle(pos + Vector2(0, -13) * s, 12.0 * s, color)
 	if index != current_player or game_over:
-		draw_line(pos + Vector2(facing * 6.0, -15.0) * s, pos + Vector2(facing * 38.0, -21.0) * s, Color.WHITE, 3.0)
+		var stored_angle: float = angle_deg
+		if index >= 0 and index < player_angles.size():
+			stored_angle = player_angles[index]
+		var barrel_rad: float = deg_to_rad(stored_angle)
+		var barrel_base: Vector2 = pos + Vector2(facing * 6.0, -15.0) * s
+		var barrel_tip: Vector2 = barrel_base + Vector2(facing * CANNON_LENGTH * cos(barrel_rad), -CANNON_LENGTH * sin(barrel_rad)) * s
+		draw_line(barrel_base, barrel_tip, Color.WHITE, 3.0)
 	for wheel_x: float in [-18.0, 0.0, 18.0]:
 		draw_circle(pos + Vector2(wheel_x, 16) * s, 4.0 * s, Color.BLACK)
