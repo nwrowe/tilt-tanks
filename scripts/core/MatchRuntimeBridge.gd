@@ -1,9 +1,9 @@
 extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # Transitional bridge for wiring MatchState / MatchController into the active
-# game without changing gameplay ownership all at once. This bridge now lets
-# MatchController own the simplest transition, turn advancement, while still
-# mirroring the existing inherited runtime state for compatibility.
+# game without changing gameplay ownership all at once. MatchController now owns
+# simple turn advancement and mirrors active projectile/explosion state for the
+# current runtime.
 
 var match_state: MatchState = MatchState.new()
 var match_controller: MatchController = MatchController.new(match_state)
@@ -29,6 +29,10 @@ func _end_turn_without_shot() -> void:
 	_save_runtime_current_player_settings()
 	_advance_turn()
 
+func _update_projectile(delta: float) -> void:
+	super._update_projectile(delta)
+	_sync_projectile_state_to_match_controller()
+
 func _explode(pos: Vector2) -> void:
 	super._explode(pos)
 	_sync_match_state_from_runtime()
@@ -41,6 +45,16 @@ func _save_runtime_current_player_settings() -> void:
 	if "player_power_percents" in self:
 		player_power_percents[current_player] = power_percent
 	match_controller.save_current_player_settings(angle_deg, power, power_percent if "power_percent" in self else 0.0)
+
+func _sync_projectile_state_to_match_controller() -> void:
+	if projectile_active:
+		match_controller.set_projectile(projectile_pos, projectile_vel)
+	else:
+		match_controller.clear_projectile()
+	if explosion_pos != Vector2.INF and explosion_timer > 0.0:
+		match_controller.set_explosion(explosion_pos, explosion_timer)
+	elif explosion_timer <= 0.0:
+		match_controller.clear_explosion()
 
 func _sync_match_state_from_runtime() -> void:
 	match_state.current_player = current_player
@@ -55,11 +69,7 @@ func _sync_match_state_from_runtime() -> void:
 	match_state.game_over = game_over
 	match_state.game_mode = game_mode if "game_mode" in self else 0
 	match_state.active_world_width = active_world_width if "active_world_width" in self else WORLD_WIDTH
-	match_state.projectile_active = projectile_active
-	match_state.projectile_pos = projectile_pos
-	match_state.projectile_vel = projectile_vel
-	match_state.explosion_pos = explosion_pos
-	match_state.explosion_timer = explosion_timer
+	_sync_projectile_state_to_match_controller()
 	_update_match_state_winner_from_runtime()
 
 func _update_match_state_winner_from_runtime() -> void:
