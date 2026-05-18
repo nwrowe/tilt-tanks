@@ -1,4 +1,4 @@
-extends "res://scripts/MainHybridModes4.gd"
+extends "res://scripts/modes/ModeRuntimeBridge.gd"
 
 # Consolidated world/runtime bridge while flattening the legacy chain.
 # This body was moved from MainHybridModes12.gd and owns terrain/water/snow
