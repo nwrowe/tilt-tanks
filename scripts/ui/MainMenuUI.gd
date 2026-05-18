@@ -20,7 +20,7 @@ static func load_texture_if_exists(path: String) -> Texture2D:
 static func anchored_position(viewport_size: Vector2, anchor: Vector2, size: Vector2) -> Vector2:
 	return Vector2(viewport_size.x * anchor.x - size.x * 0.5, viewport_size.y * anchor.y - size.y * 0.5)
 
-static func make_text_label(layer: CanvasLayer, buttons: Array[Control], viewport_size: Vector2, text: String, anchor: Vector2, size: Vector2, font_size: int) -> Label:
+static func make_text_label(layer: CanvasLayer, buttons: Array, viewport_size: Vector2, text: String, anchor: Vector2, size: Vector2, font_size: int) -> Label:
 	var label: Label = Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -36,7 +36,7 @@ static func make_text_label(layer: CanvasLayer, buttons: Array[Control], viewpor
 	buttons.append(label)
 	return label
 
-static func make_menu_button(layer: CanvasLayer, buttons: Array[Control], viewport_size: Vector2, text: String, texture_path: String, anchor: Vector2, size: Vector2, callback: Callable) -> Control:
+static func make_menu_button(layer: CanvasLayer, buttons: Array, viewport_size: Vector2, text: String, texture_path: String, anchor: Vector2, size: Vector2, callback: Callable) -> Control:
 	var texture: Texture2D = load_texture_if_exists(texture_path)
 	if texture != null:
 		var texture_button: TextureButton = TextureButton.new()
