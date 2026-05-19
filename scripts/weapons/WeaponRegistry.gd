@@ -10,13 +10,21 @@ const SPLIT_CLUSTER: String = "cluster"
 
 static func build_default_definitions() -> Dictionary:
 	var definitions: Dictionary = {}
-	_register_from_catalog(definitions, WeaponCatalog.STANDARD, SPLIT_NONE, "", 0)
-	_register_from_catalog(definitions, WeaponCatalog.HEAVY, SPLIT_NONE, "", 0)
-	_register_from_catalog(definitions, WeaponCatalog.CLUSTER, SPLIT_CLUSTER, WeaponCatalog.CLUSTER_CHILD, 3)
-	_register_from_catalog(definitions, WeaponCatalog.CLUSTER_CHILD, SPLIT_NONE, "", 0)
+	_register_from_catalog(definitions, WeaponCatalog.STANDARD, SPLIT_NONE, "", 0, true, 10)
+	_register_from_catalog(definitions, WeaponCatalog.HEAVY, SPLIT_NONE, "", 0, true, 20)
+	_register_from_catalog(definitions, WeaponCatalog.CLUSTER, SPLIT_CLUSTER, WeaponCatalog.CLUSTER_CHILD, 3, true, 30)
+	_register_from_catalog(definitions, WeaponCatalog.CLUSTER_CHILD, SPLIT_NONE, "", 0, false, 999)
 	return definitions
 
-static func _register_from_catalog(definitions: Dictionary, weapon_id: String, split_behavior: String, child_weapon_id: String, child_count: int) -> void:
+static func _register_from_catalog(
+	definitions: Dictionary,
+	weapon_id: String,
+	split_behavior: String,
+	child_weapon_id: String,
+	child_count: int,
+	player_selectable: bool,
+	menu_order: int
+) -> void:
 	definitions[weapon_id] = WeaponDefinition.new({
 		"id": weapon_id,
 		"display_name": WeaponCatalog.display_name(weapon_id),
@@ -29,7 +37,9 @@ static func _register_from_catalog(definitions: Dictionary, weapon_id: String, s
 		"projectile_scale": WeaponCatalog.value(weapon_id, "projectile_scale", 1.0),
 		"split_behavior": split_behavior,
 		"child_weapon_id": child_weapon_id,
-		"child_count": child_count
+		"child_count": child_count,
+		"player_selectable": player_selectable,
+		"menu_order": menu_order
 	})
 
 static func get_definition(definitions: Dictionary, weapon_id: String) -> WeaponDefinition:
@@ -48,6 +58,11 @@ static func all_player_selectable_ids(definitions: Dictionary) -> Array[String]:
 	var ids: Array[String] = []
 	for weapon_id: String in definitions.keys():
 		var definition: WeaponDefinition = definitions[weapon_id] as WeaponDefinition
-		if definition != null and weapon_id != WeaponCatalog.CLUSTER_CHILD:
+		if definition != null and definition.player_selectable:
 			ids.append(weapon_id)
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		var da: WeaponDefinition = get_definition(definitions, a)
+		var db: WeaponDefinition = get_definition(definitions, b)
+		return da.menu_order < db.menu_order
+	)
 	return ids
