@@ -19,9 +19,9 @@ func _process(delta: float) -> void:
 
 func _advance_turn() -> void:
 	_sync_match_state_from_runtime()
-	current_player = match_controller.advance_turn(TURN_TIME_LIMIT)
+	match_controller.advance_turn(TURN_TIME_LIMIT)
+	_apply_match_state_to_runtime_basics()
 	_load_current_player_settings()
-	turn_timer = match_state.turn_timer
 	mobile_left_pressed = false
 	mobile_right_pressed = false
 	if mobile_left_button != null:
