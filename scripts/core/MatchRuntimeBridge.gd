@@ -31,8 +31,18 @@ func _advance_turn() -> void:
 	_sync_match_state_from_runtime()
 
 func _end_turn_without_shot() -> void:
+	_sync_match_state_from_runtime()
 	_save_runtime_current_player_settings()
-	_advance_turn()
+	match_controller.end_turn_without_shot(TURN_TIME_LIMIT)
+	_apply_match_state_to_runtime_basics()
+	_load_current_player_settings()
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	if mobile_left_button != null:
+		mobile_left_button.release_focus()
+	if mobile_right_button != null:
+		mobile_right_button.release_focus()
+	_sync_match_state_from_runtime()
 
 func _update_projectile(delta: float) -> void:
 	super._update_projectile(delta)
