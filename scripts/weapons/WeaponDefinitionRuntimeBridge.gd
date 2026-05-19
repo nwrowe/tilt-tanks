@@ -2,9 +2,14 @@ extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # Transitional bridge for Phase B weapon-definition migration.
 # This keeps the existing weapon runtime intact while routing weapon stat,
-# display, and menu lookups through WeaponRegistry / WeaponDefinition.
+# display, menu, and loadout lookups through WeaponRegistry / WeaponDefinition.
 
 var weapon_definitions: Dictionary = WeaponRegistry.build_default_definitions()
+var active_weapon_loadout: WeaponLoadout = WeaponLoadout.from_registry(weapon_definitions, WeaponCatalog.STANDARD)
+
+func reset_match() -> void:
+	selected_weapon = _safe_selected_weapon(selected_weapon)
+	super.reset_match()
 
 func _build_weapon_ui() -> void:
 	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
@@ -14,16 +19,30 @@ func _build_weapon_ui() -> void:
 	WeaponSelectMenu.add_title(weapon_panel)
 
 	var y: float = 66.0
-	for weapon_id: String in WeaponRegistry.all_player_selectable_ids(weapon_definitions):
+	for weapon_id: String in active_weapon_loadout.weapon_ids:
 		var option_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, _weapon_display_name(weapon_id), Vector2(42, y))
 		option_button.pressed.connect(func(id: String = weapon_id) -> void:
-			selected_weapon = id
+			selected_weapon = _safe_selected_weapon(id)
 			_close_weapon_menu()
 		)
 		y += 54.0
 
 	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, y + 4.0))
 	close_button.pressed.connect(_close_weapon_menu)
+
+func _set_active_weapon_loadout(loadout: WeaponLoadout) -> void:
+	if loadout == null:
+		return
+	active_weapon_loadout = loadout
+	selected_weapon = _safe_selected_weapon(selected_weapon)
+
+func _reset_default_weapon_loadout() -> void:
+	_set_active_weapon_loadout(WeaponLoadout.from_registry(weapon_definitions, WeaponCatalog.STANDARD))
+
+func _safe_selected_weapon(weapon: String) -> String:
+	if active_weapon_loadout == null:
+		return weapon
+	return active_weapon_loadout.safe_weapon(weapon)
 
 func _weapon_definition(weapon: String) -> WeaponDefinition:
 	return WeaponRegistry.get_definition(weapon_definitions, weapon)
