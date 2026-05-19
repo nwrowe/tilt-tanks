@@ -10,6 +10,7 @@ var match_controller: MatchController = MatchController.new(match_state)
 
 func reset_match() -> void:
 	super.reset_match()
+	_initialize_match_controller_from_runtime_reset()
 	_sync_match_state_from_runtime()
 
 func _advance_turn() -> void:
@@ -44,6 +45,26 @@ func _apply_explosion_damage(pos: Vector2) -> void:
 func _apply_weapon_damage(pos: Vector2, weapon: String) -> void:
 	super._apply_weapon_damage(pos, weapon)
 	_sync_health_state_to_match_controller()
+
+func _initialize_match_controller_from_runtime_reset() -> void:
+	var default_angle: float = angle_deg
+	var default_power: float = power
+	var default_power_percent: float = power_percent if "power_percent" in self else 50.0
+	var mode: int = game_mode if "game_mode" in self else 0
+	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	var left_start: Vector2 = tank_positions[0] if tank_positions.size() > 0 else Vector2.ZERO
+	var right_start: Vector2 = tank_positions[1] if tank_positions.size() > 1 else Vector2.ZERO
+	match_controller.start_match(
+		mode,
+		world_width,
+		TURN_TIME_LIMIT,
+		default_angle,
+		default_power,
+		default_power_percent,
+		left_start,
+		right_start,
+		wind
+	)
 
 func _save_runtime_current_player_settings() -> void:
 	if current_player < 0 or current_player >= player_angles.size():
