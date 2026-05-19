@@ -29,9 +29,41 @@ func _initialize_mode_controllers() -> void:
 	) as RealtimeSinglePlayerModeController
 	_sync_active_mode_from_runtime()
 
+func _select_runtime_mode(mode_name: String) -> void:
+	# Compatibility layer: keep the legacy game_mode integer in sync while new
+	# code can reason about explicit controller names.
+	match mode_name:
+		ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER:
+			game_mode = GAME_MODE_SINGLE_PLAYER_REALTIME
+		ModeControllerRegistry.MODE_HOTSEAT:
+			game_mode = GAME_MODE_HOTSEAT
+		ModeControllerRegistry.MODE_CAMPAIGN:
+			game_mode = GAME_MODE_SINGLE_PLAYER_QUICK
+		ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER:
+			game_mode = GAME_MODE_HOTSEAT
+		_:
+			game_mode = GAME_MODE_HOTSEAT
+	active_mode_state.set_mode(mode_name, mode_controllers)
+
+func _select_hotseat_mode() -> void:
+	_select_runtime_mode(ModeControllerRegistry.MODE_HOTSEAT)
+
+func _select_realtime_single_player_mode() -> void:
+	_select_runtime_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER)
+
+func _select_campaign_mode() -> void:
+	_select_runtime_mode(ModeControllerRegistry.MODE_CAMPAIGN)
+
+func _select_network_multiplayer_mode() -> void:
+	_select_runtime_mode(ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER)
+
 func _sync_active_mode_from_runtime() -> void:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 		active_mode_state.set_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER, mode_controllers)
+	elif active_mode_state.is_mode(ModeControllerRegistry.MODE_CAMPAIGN) or active_mode_state.is_mode(ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER):
+		# Preserve explicit future-mode selections that currently map onto legacy
+		# compatibility game_mode values.
+		active_mode_state.set_mode(active_mode_state.current_mode_name, mode_controllers)
 	else:
 		active_mode_state.set_mode(ModeControllerRegistry.MODE_HOTSEAT, mode_controllers)
 
