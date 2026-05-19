@@ -13,9 +13,7 @@ func _make_split_children(owner: int, weapon: String, pos: Vector2, vel: Vector2
 	var count: int = _weapon_child_count(weapon)
 	if child_id == "" or count <= 0:
 		return []
-	# Existing gameplay currently uses three cluster children with fixed spread.
-	# Keep the same factory call while definitions take over parent/child metadata.
-	return ProjectileFactory.make_cluster_children(owner, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y, child_id)
+	return ProjectileFactory.make_split_children(owner, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y, child_id, count)
 
 func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
 	projectile_active = false
