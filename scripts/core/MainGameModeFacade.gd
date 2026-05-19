@@ -4,12 +4,18 @@ extends "res://scripts/core/MainGameDefinitionFacade.gd"
 # ModeController objects while preserving the existing gameplay implementation.
 
 var mode_controllers: Dictionary = {}
+var active_mode_state: ActiveModeState = ActiveModeState.new()
 var hotseat_mode_controller: HotseatModeController = HotseatModeController.new()
 var realtime_mode_controller: RealtimeSinglePlayerModeController = RealtimeSinglePlayerModeController.new()
 
 func _ready() -> void:
 	_initialize_mode_controllers()
 	super._ready()
+
+func reset_match() -> void:
+	_sync_active_mode_from_runtime()
+	super.reset_match()
+	_sync_active_mode_from_runtime()
 
 func _initialize_mode_controllers() -> void:
 	mode_controllers = ModeControllerRegistry.build_default_controllers(self, match_controller)
@@ -21,6 +27,17 @@ func _initialize_mode_controllers() -> void:
 		mode_controllers,
 		ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER
 	) as RealtimeSinglePlayerModeController
+	_sync_active_mode_from_runtime()
+
+func _sync_active_mode_from_runtime() -> void:
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
+		active_mode_state.set_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER, mode_controllers)
+	else:
+		active_mode_state.set_mode(ModeControllerRegistry.MODE_HOTSEAT, mode_controllers)
+
+func _is_active_mode(mode_name: String) -> bool:
+	_sync_active_mode_from_runtime()
+	return active_mode_state.is_mode(mode_name)
 
 func _is_hotseat_game_active() -> bool:
 	return hotseat_mode_controller.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_SINGLE_PLAYER_REALTIME)
@@ -31,7 +48,7 @@ func _hotseat_can_begin_charge() -> bool:
 func _draw_turn_widget() -> void:
 	if game_over:
 		return
-	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME:
+	if _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) and menu_state == MENU_STATE_GAME:
 		return
 
 	var box: Rect2 = Rect2(Vector2(VIEW_SIZE.x - 232.0, 64.0), Vector2(156.0, 44.0))
@@ -85,7 +102,7 @@ func _player_can_fire() -> bool:
 	return realtime_mode_controller.player_can_fire(rt_player_shell_active, game_over)
 
 func _update_realtime_fire_charge(delta: float) -> void:
-	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
+	if not _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) or menu_state != MENU_STATE_GAME:
 		return
 
 	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
@@ -125,7 +142,7 @@ func _update_ui() -> void:
 			power_label.text = "Charge: %.0f%%" % hotseat_charge_percent
 		else:
 			power_label.text = "Hold FIRE"
-	elif game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME and not game_over:
+	elif _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) and menu_state == MENU_STATE_GAME and not game_over:
 		power_label.text = realtime_mode_controller.shell_status_label(
 			rt_player_shell_active,
 			rt_fire_button_held or rt_keyboard_fire_held,
