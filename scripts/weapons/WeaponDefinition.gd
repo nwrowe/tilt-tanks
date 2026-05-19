@@ -17,6 +17,8 @@ var projectile_scale: float = 1.0
 var split_behavior: String = "none"
 var child_weapon_id: String = ""
 var child_count: int = 0
+var player_selectable: bool = true
+var menu_order: int = 0
 
 func _init(data: Dictionary = {}) -> void:
 	id = str(data.get("id", id))
@@ -31,6 +33,11 @@ func _init(data: Dictionary = {}) -> void:
 	split_behavior = str(data.get("split_behavior", split_behavior))
 	child_weapon_id = str(data.get("child_weapon_id", child_weapon_id))
 	child_count = int(data.get("child_count", child_count))
+	player_selectable = bool(data.get("player_selectable", player_selectable))
+	menu_order = int(data.get("menu_order", menu_order))
+
+func has_split_behavior() -> bool:
+	return split_behavior != "" and split_behavior != "none" and child_count > 0 and child_weapon_id != ""
 
 func to_dictionary() -> Dictionary:
 	return {
@@ -45,5 +52,7 @@ func to_dictionary() -> Dictionary:
 		"projectile_scale": projectile_scale,
 		"split_behavior": split_behavior,
 		"child_weapon_id": child_weapon_id,
-		"child_count": child_count
+		"child_count": child_count,
+		"player_selectable": player_selectable,
+		"menu_order": menu_order
 	}
