@@ -50,3 +50,17 @@ offset_bottom = 100.0
 min_value = 0.0
 max_value = 100.0
 value = 50.0
+
+[node name="FireButton" type="Button" parent="UI/Panel"]
+offset_left = 376.0
+offset_top = 66.0
+offset_right = 472.0
+offset_bottom = 102.0
+text = "Fire"
+
+[node name="ResetButton" type="Button" parent="UI/Panel"]
+offset_left = 484.0
+offset_top = 66.0
+offset_right = 596.0
+offset_bottom = 102.0
+text = "Reset"
