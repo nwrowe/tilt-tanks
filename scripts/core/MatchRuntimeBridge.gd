@@ -89,13 +89,13 @@ func _save_runtime_current_player_settings() -> void:
 
 func _sync_projectile_state_to_match_controller() -> void:
 	if projectile_active:
-		match_controller.set_projectile(projectile_pos, projectile_vel)
+		match_controller.begin_projectile(projectile_pos, projectile_vel)
+	elif explosion_pos != Vector2.INF and explosion_timer > 0.0:
+		match_controller.finish_projectile_with_explosion(explosion_pos, explosion_timer)
 	else:
-		match_controller.clear_projectile()
-	if explosion_pos != Vector2.INF and explosion_timer > 0.0:
-		match_controller.set_explosion(explosion_pos, explosion_timer)
-	elif explosion_timer <= 0.0:
-		match_controller.clear_explosion()
+		match_controller.finish_projectile()
+		if explosion_timer <= 0.0:
+			match_controller.clear_explosion()
 
 func _sync_health_state_to_match_controller() -> void:
 	for player: int in range(tank_health.size()):
