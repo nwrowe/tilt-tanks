@@ -9,15 +9,19 @@ var player_power_percents: Array[float] = [POWER_PERCENT_DEFAULT, POWER_PERCENT_
 
 func _ready() -> void:
 	rng.randomize()
-	terrain.visible = false
-	reset_button.visible = false
-	fire_button.visible = false
-	power_slider.min_value = 0.0
-	power_slider.max_value = 100.0
-	power_slider.step = 1.0
-	power_slider.focus_mode = Control.FOCUS_NONE
-	fire_button.focus_mode = Control.FOCUS_NONE
-	reset_button.focus_mode = Control.FOCUS_NONE
+	if terrain != null:
+		terrain.visible = false
+	if reset_button != null:
+		reset_button.visible = false
+		reset_button.focus_mode = Control.FOCUS_NONE
+	if fire_button != null:
+		fire_button.visible = false
+		fire_button.focus_mode = Control.FOCUS_NONE
+	if power_slider != null:
+		power_slider.min_value = 0.0
+		power_slider.max_value = 100.0
+		power_slider.step = 1.0
+		power_slider.focus_mode = Control.FOCUS_NONE
 	_build_overlay_ui()
 	reset_match()
 
@@ -31,7 +35,7 @@ func _process(delta: float) -> void:
 	if not projectile_active and not game_over and not overlay_open:
 		_update_angle_from_input(delta)
 		_update_tank_movement(delta)
-		power_percent = float(power_slider.value)
+		power_percent = float(power_slider.value) if power_slider != null else power_percent
 		power = _power_from_percent(power_percent)
 		player_angles[current_player] = angle_deg
 		player_power_percents[current_player] = power_percent
@@ -58,7 +62,8 @@ func _power_from_percent(percent: float) -> float:
 func _on_fire_pressed() -> void:
 	if projectile_active or game_over or overlay_open:
 		return
-	power_slider.release_focus()
+	if power_slider != null:
+		power_slider.release_focus()
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
@@ -79,8 +84,9 @@ func _load_current_player_settings() -> void:
 	angle_deg = player_angles[current_player]
 	power_percent = player_power_percents[current_player]
 	power = _power_from_percent(power_percent)
-	power_slider.value = power_percent
-	power_slider.release_focus()
+	if power_slider != null:
+		power_slider.value = power_percent
+		power_slider.release_focus()
 
 func reset_match() -> void:
 	_hide_overlays()
@@ -91,8 +97,9 @@ func reset_match() -> void:
 	angle_deg = 45.0
 	power_percent = POWER_PERCENT_DEFAULT
 	power = _power_from_percent(power_percent)
-	power_slider.value = power_percent
-	power_slider.release_focus()
+	if power_slider != null:
+		power_slider.value = power_percent
+		power_slider.release_focus()
 	turn_timer = TURN_TIME_LIMIT
 	wind = rng.randf_range(-MAX_WIND_ACCEL, MAX_WIND_ACCEL)
 	tank_health = [100, 100]
@@ -109,8 +116,12 @@ func reset_match() -> void:
 	camera_x = _camera_target_x()
 
 func _update_ui() -> void:
-	angle_label.text = "Angle: %.1f" % angle_deg
-	power_label.text = "Power: %.0f%%" % power_percent
+	if angle_label != null:
+		angle_label.text = "Angle: %.1f" % angle_deg
+	if power_label != null:
+		power_label.text = "Power: %.0f%%" % power_percent
+	if status_label == null:
+		return
 	if game_over:
 		var winner: int = 1 if tank_health[0] <= 0 else 0
 		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
