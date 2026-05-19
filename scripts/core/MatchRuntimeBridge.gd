@@ -2,8 +2,8 @@ extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # Transitional bridge for wiring MatchState / MatchController into the active
 # game without changing gameplay ownership all at once. MatchController now owns
-# simple turn advancement and mirrors active projectile/explosion state for the
-# current runtime.
+# simple turn advancement and mirrors active projectile, explosion, health, and
+# winner state for the current runtime.
 
 var match_state: MatchState = MatchState.new()
 var match_controller: MatchController = MatchController.new(match_state)
@@ -37,6 +37,14 @@ func _explode(pos: Vector2) -> void:
 	super._explode(pos)
 	_sync_match_state_from_runtime()
 
+func _apply_explosion_damage(pos: Vector2) -> void:
+	super._apply_explosion_damage(pos)
+	_sync_health_state_to_match_controller()
+
+func _apply_weapon_damage(pos: Vector2, weapon: String) -> void:
+	super._apply_weapon_damage(pos, weapon)
+	_sync_health_state_to_match_controller()
+
 func _save_runtime_current_player_settings() -> void:
 	if current_player < 0 or current_player >= player_angles.size():
 		return
@@ -55,6 +63,11 @@ func _sync_projectile_state_to_match_controller() -> void:
 		match_controller.set_explosion(explosion_pos, explosion_timer)
 	elif explosion_timer <= 0.0:
 		match_controller.clear_explosion()
+
+func _sync_health_state_to_match_controller() -> void:
+	for player: int in range(tank_health.size()):
+		match_controller.set_health(player, int(tank_health[player]))
+	game_over = match_state.game_over
 
 func _sync_match_state_from_runtime() -> void:
 	match_state.current_player = current_player
