@@ -13,6 +13,10 @@ func reset_match() -> void:
 	_initialize_match_controller_from_runtime_reset()
 	_sync_match_state_from_runtime()
 
+func _process(delta: float) -> void:
+	super._process(delta)
+	_sync_match_state_from_runtime()
+
 func _advance_turn() -> void:
 	_sync_match_state_from_runtime()
 	current_player = match_controller.advance_turn(TURN_TIME_LIMIT)
