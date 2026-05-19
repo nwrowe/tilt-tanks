@@ -44,6 +44,17 @@ func save_current_player_settings(angle: float, power: float, power_percent: flo
 	state.player_powers[player] = power
 	state.player_power_percents[player] = power_percent
 
+func begin_projectile(pos: Vector2, vel: Vector2) -> void:
+	set_projectile(pos, vel)
+	clear_explosion()
+
+func finish_projectile() -> void:
+	clear_projectile()
+
+func finish_projectile_with_explosion(pos: Vector2, duration: float) -> void:
+	clear_projectile()
+	set_explosion(pos, duration)
+
 func set_projectile(pos: Vector2, vel: Vector2) -> void:
 	state.projectile_pos = pos
 	state.projectile_vel = vel
