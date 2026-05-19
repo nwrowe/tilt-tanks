@@ -88,7 +88,13 @@ func _sync_projectile_state_to_match_controller() -> void:
 func _sync_health_state_to_match_controller() -> void:
 	for player: int in range(tank_health.size()):
 		match_controller.set_health(player, int(tank_health[player]))
+	_sync_game_over_state_from_match_controller()
+
+func _sync_game_over_state_from_match_controller() -> void:
 	game_over = match_state.game_over
+	# Keep the runtime health array as the rendering/UI source during transition.
+	# The controller owns winner detection, while the existing UI still reads
+	# game_over and tank_health directly.
 
 func _sync_match_state_from_runtime() -> void:
 	match_state.current_player = current_player
@@ -104,20 +110,9 @@ func _sync_match_state_from_runtime() -> void:
 	match_state.game_mode = game_mode if "game_mode" in self else 0
 	match_state.active_world_width = active_world_width if "active_world_width" in self else WORLD_WIDTH
 	_sync_projectile_state_to_match_controller()
-	_update_match_state_winner_from_runtime()
+	_recompute_match_winner_from_runtime_health()
+	_sync_game_over_state_from_match_controller()
 
-func _update_match_state_winner_from_runtime() -> void:
-	if tank_health.size() < 2:
-		match_state.winner_index = -1
-		return
-	if tank_health[0] <= 0 and tank_health[1] <= 0:
-		match_state.winner_index = -1
-		match_state.game_over = true
-	elif tank_health[0] <= 0:
-		match_state.winner_index = 1
-		match_state.game_over = true
-	elif tank_health[1] <= 0:
-		match_state.winner_index = 0
-		match_state.game_over = true
-	else:
-		match_state.winner_index = -1
+func _recompute_match_winner_from_runtime_health() -> void:
+	for player: int in range(tank_health.size()):
+		match_controller.set_health(player, int(tank_health[player]))
