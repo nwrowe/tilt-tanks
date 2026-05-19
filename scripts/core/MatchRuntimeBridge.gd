@@ -1,4 +1,4 @@
-extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
+extends "res://scripts/weapons/WeaponDefinitionRuntimeBridge.gd"
 
 # Transitional bridge for wiring MatchState / MatchController into the active
 # game without changing gameplay ownership all at once. MatchController now owns
