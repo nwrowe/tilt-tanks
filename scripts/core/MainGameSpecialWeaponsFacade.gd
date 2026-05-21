@@ -18,9 +18,11 @@ var machine_gun_interval: float = 0.1
 var machine_gun_angle: float = 45.0
 var machine_gun_power_percent: float = 50.0
 var machine_gun_realtime: bool = false
+var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
 	_clear_machine_gun_burst()
+	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
 func _process(delta: float) -> void:
@@ -44,6 +46,8 @@ func _on_fire_pressed() -> void:
 		return
 
 	super._on_fire_pressed()
+	if selected_weapon == SPECIAL_BOUNCER:
+		turn_bouncer_bounce_count = 0
 
 func _release_realtime_charged_shot() -> void:
 	if selected_weapon == SPECIAL_LASER:
@@ -88,7 +92,7 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		var split_done: bool = bool(stepped.get("split", false))
 
 		if weapon == SPECIAL_BOUNCER:
-			var bounce_result: Dictionary = _step_bouncer_shell(stepped, owner, true)
+			var bounce_result: Dictionary = _step_bouncer_shell(stepped, owner)
 			if bool(bounce_result.get("explode", false)):
 				_explode_realtime_weapon(pos, weapon)
 			else:
@@ -188,21 +192,15 @@ func _update_bouncing_turn_projectile(delta: float) -> void:
 		return
 	var ground_y: float = _ground_y_at_x(projectile_pos.x)
 	if projectile_pos.y >= ground_y:
-		var bounce_count: int = int(stepped.get("bounces", 0))
-		if bounce_count >= int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3)):
+		if turn_bouncer_bounce_count >= int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3)):
 			_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
 			return
 		projectile_pos.y = ground_y - PROJECTILE_RADIUS
 		projectile_vel.x *= float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_x", 0.78))
-		projectile_vel.y = -absf(projectile_vel.y) * float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_y", 0.66))
-		projectile_vel.y = minf(projectile_vel.y, -120.0)
-		# Store count in split flag adjacent state by changing weapon only in turn path.
-		turn_projectile_split_done = false
-		projectile_bounce_counts[current_player] = bounce_count + 1
+		projectile_vel.y = minf(-absf(projectile_vel.y) * float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_y", 0.66)), -120.0)
+		turn_bouncer_bounce_count += 1
 
-var projectile_bounce_counts: Array[int] = [0, 0]
-
-func _step_bouncer_shell(shell: Dictionary, owner: int, realtime: bool) -> Dictionary:
+func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 	var pos: Vector2 = shell.get("pos", Vector2.ZERO)
 	var vel: Vector2 = shell.get("vel", Vector2.ZERO)
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
