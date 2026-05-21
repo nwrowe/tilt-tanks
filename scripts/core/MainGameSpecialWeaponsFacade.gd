@@ -18,6 +18,7 @@ var machine_gun_interval: float = 0.1
 var machine_gun_angle: float = 45.0
 var machine_gun_power_percent: float = 50.0
 var machine_gun_realtime: bool = false
+var machine_gun_turn_waiting_for_shells: bool = false
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
@@ -28,12 +29,22 @@ func reset_match() -> void:
 func _process(delta: float) -> void:
 	_update_machine_gun_burst(delta)
 	super._process(delta)
+	_maybe_finish_machine_gun_turn()
+
+func _hotseat_can_begin_charge() -> bool:
+	if machine_gun_active or machine_gun_turn_waiting_for_shells:
+		return false
+	return super._hotseat_can_begin_charge()
 
 func _on_fire_pressed() -> void:
+	# Preserve hotseat hold-to-charge behavior. The actual shot should begin only
+	# when the charge is released and MainGame sets hotseat_release_in_progress.
+	if _is_hotseat_game_active() and not hotseat_release_in_progress:
+		return
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 		super._on_fire_pressed()
 		return
-	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active:
+	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells:
 		return
 
 	if selected_weapon == SPECIAL_LASER:
@@ -77,6 +88,26 @@ func _update_projectile(delta: float) -> void:
 		_update_bouncing_turn_projectile(delta)
 		return
 	super._update_projectile(delta)
+
+func _update_turn_weapon_projectiles(delta: float) -> void:
+	if not machine_gun_turn_waiting_for_shells and not _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND):
+		super._update_turn_weapon_projectiles(delta)
+		return
+
+	var remaining: Array[Dictionary] = []
+	for shell: Dictionary in turn_projectiles:
+		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
+		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
+		var owner: int = int(stepped.get("owner", current_player))
+		var weapon: String = str(stepped.get("weapon", WEAPON_CLUSTER_CHILD))
+		if _turn_shell_should_explode(owner, pos):
+			_explode_turn_weapon(pos, weapon, false)
+			cluster_camera_hold_pos = pos
+			cluster_camera_hold_timer = GLOBAL_EXPLOSION_CAMERA_HOLD_TIME
+		else:
+			remaining.append(stepped)
+	turn_projectiles = remaining
+	_maybe_finish_machine_gun_turn()
 
 func _update_all_realtime_projectiles(delta: float) -> void:
 	if rt_projectiles.is_empty():
@@ -153,7 +184,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		_show_end_popup()
 	elif advance_after:
 		cluster_camera_hold_pos = pos
-		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
+		cluster_camera_hold_timer = GLOBAL_EXPLOSION_CAMERA_HOLD_TIME
 		_advance_turn()
 
 func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
@@ -221,6 +252,7 @@ func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 
 func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	machine_gun_active = true
+	machine_gun_turn_waiting_for_shells = not realtime
 	machine_gun_owner = owner
 	machine_gun_remaining = int(_weapon_value(SPECIAL_MACHINE_GUN, "burst_count", 10))
 	machine_gun_interval = float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_interval", 0.1))
@@ -256,13 +288,30 @@ func _finish_machine_gun_burst() -> void:
 	machine_gun_active = false
 	if was_realtime:
 		rt_player_shell_active = ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX)
-	elif not game_over:
-		_advance_turn()
+
+func _maybe_finish_machine_gun_turn() -> void:
+	if not machine_gun_turn_waiting_for_shells:
+		return
+	if machine_gun_active or game_over:
+		return
+	if not turn_projectiles.is_empty():
+		return
+	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+		return
+	machine_gun_turn_waiting_for_shells = false
+	_advance_turn()
 
 func _clear_machine_gun_burst() -> void:
 	machine_gun_active = false
 	machine_gun_remaining = 0
 	machine_gun_timer = 0.0
+	machine_gun_turn_waiting_for_shells = false
+
+func _turn_projectiles_include_weapon(weapon: String) -> bool:
+	for shell: Dictionary in turn_projectiles:
+		if str(shell.get("weapon", "")) == weapon:
+			return true
+	return false
 
 func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
