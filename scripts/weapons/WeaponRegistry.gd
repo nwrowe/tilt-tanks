@@ -82,12 +82,12 @@ static func build_default_definitions() -> Dictionary:
 		"direct_damage": 12,
 		"splash_damage": 8,
 		"crater_radius": 68.0,
-		"crater_depth": -87.0,
+		"crater_depth": -174.0,
 		"projectile_scale": 1.05,
 		"player_selectable": true,
 		"menu_order": 70,
 		"behavior": "add_ground",
-		"ground_raise_amount": 87.0
+		"ground_raise_amount": 174.0
 	})
 
 	_register_custom(definitions, {
