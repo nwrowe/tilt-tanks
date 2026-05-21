@@ -2,11 +2,19 @@ extends RefCounted
 class_name WeaponRegistry
 
 # Compatibility registry for data-driven weapon definitions.
-# Initially this wraps the existing WeaponCatalog values so active gameplay can
-# migrate gradually without changing weapon balance or behavior.
+# Active gameplay now uses these definitions as the source of truth for weapon
+# stats/menu metadata, while special behaviors are implemented in runtime
+# facades only when data alone is insufficient.
 
 const SPLIT_NONE: String = "none"
 const SPLIT_CLUSTER: String = "cluster"
+
+const WEAPON_LASER: String = "laser"
+const WEAPON_TACTICAL_NUKE: String = "tactical_nuke"
+const WEAPON_BOUNCER: String = "bouncer"
+const WEAPON_GROUND_BOMB: String = "ground_bomb"
+const WEAPON_MACHINE_GUN: String = "machine_gun"
+const WEAPON_MACHINE_GUN_ROUND: String = "machine_gun_round"
 
 static func build_default_definitions() -> Dictionary:
 	var definitions: Dictionary = {}
@@ -14,6 +22,109 @@ static func build_default_definitions() -> Dictionary:
 	_register_from_catalog(definitions, WeaponCatalog.HEAVY, SPLIT_NONE, "", 0, true, 20)
 	_register_from_catalog(definitions, WeaponCatalog.CLUSTER, SPLIT_CLUSTER, WeaponCatalog.CLUSTER_CHILD, 3, true, 30)
 	_register_from_catalog(definitions, WeaponCatalog.CLUSTER_CHILD, SPLIT_NONE, "", 0, false, 999)
+
+	_register_custom(definitions, {
+		"id": WEAPON_LASER,
+		"display_name": "Laser Drill",
+		"explosion_radius": 18.0,
+		"direct_radius": 14.0,
+		"direct_damage": 18,
+		"splash_damage": 6,
+		"crater_radius": 16.0,
+		"crater_depth": 130.0,
+		"projectile_scale": 0.65,
+		"player_selectable": true,
+		"menu_order": 40,
+		"behavior": "laser_cut",
+		"laser_cut_width": 18.0,
+		"laser_cut_depth": 180.0
+	})
+
+	_register_custom(definitions, {
+		"id": WEAPON_TACTICAL_NUKE,
+		"display_name": "Tactical Nuke",
+		"explosion_radius": 170.0,
+		"direct_radius": 52.0,
+		"direct_damage": 125,
+		"splash_damage": 110,
+		"crater_radius": 155.0,
+		"crater_depth": 118.0,
+		"projectile_scale": 1.85,
+		"player_selectable": true,
+		"menu_order": 50,
+		"behavior": "slow_large_explosion",
+		"explosion_duration": 1.45
+	})
+
+	_register_custom(definitions, {
+		"id": WEAPON_BOUNCER,
+		"display_name": "Bouncing Bomb",
+		"explosion_radius": 58.0,
+		"direct_radius": 22.0,
+		"direct_damage": 68,
+		"splash_damage": 54,
+		"crater_radius": 54.0,
+		"crater_depth": 42.0,
+		"projectile_scale": 0.95,
+		"player_selectable": true,
+		"menu_order": 60,
+		"behavior": "bounce",
+		"max_bounces": 3,
+		"bounce_damping_x": 0.78,
+		"bounce_damping_y": 0.66
+	})
+
+	_register_custom(definitions, {
+		"id": WEAPON_GROUND_BOMB,
+		"display_name": "Ground Bomb",
+		"explosion_radius": 54.0,
+		"direct_radius": 18.0,
+		"direct_damage": 12,
+		"splash_damage": 8,
+		"crater_radius": 68.0,
+		"crater_depth": -58.0,
+		"projectile_scale": 1.05,
+		"player_selectable": true,
+		"menu_order": 70,
+		"behavior": "add_ground",
+		"ground_raise_amount": 58.0
+	})
+
+	_register_custom(definitions, {
+		"id": WEAPON_MACHINE_GUN,
+		"display_name": "Machine Gun",
+		"explosion_radius": 18.0,
+		"direct_radius": 12.0,
+		"direct_damage": 12,
+		"splash_damage": 6,
+		"crater_radius": 13.0,
+		"crater_depth": 8.0,
+		"projectile_scale": 0.42,
+		"player_selectable": true,
+		"menu_order": 80,
+		"behavior": "machine_gun",
+		"burst_count": 10,
+		"burst_interval": 0.1,
+		"burst_angle_jitter": 3.0,
+		"burst_power_jitter": 7.0,
+		"child_weapon_id": WEAPON_MACHINE_GUN_ROUND
+	})
+
+	_register_custom(definitions, {
+		"id": WEAPON_MACHINE_GUN_ROUND,
+		"display_name": "Machine Gun Round",
+		"explosion_radius": 18.0,
+		"direct_radius": 12.0,
+		"direct_damage": 12,
+		"splash_damage": 6,
+		"crater_radius": 13.0,
+		"crater_depth": 8.0,
+		"projectile_scale": 0.38,
+		"player_selectable": false,
+		"menu_order": 1000,
+		"behavior": "standard"
+	})
+
 	return definitions
 
 static func _register_from_catalog(
@@ -25,7 +136,7 @@ static func _register_from_catalog(
 	player_selectable: bool,
 	menu_order: int
 ) -> void:
-	definitions[weapon_id] = WeaponDefinition.new({
+	_register_custom(definitions, {
 		"id": weapon_id,
 		"display_name": WeaponCatalog.display_name(weapon_id),
 		"explosion_radius": WeaponCatalog.value(weapon_id, "explosion_radius", 64.0),
@@ -39,8 +150,12 @@ static func _register_from_catalog(
 		"child_weapon_id": child_weapon_id,
 		"child_count": child_count,
 		"player_selectable": player_selectable,
-		"menu_order": menu_order
+		"menu_order": menu_order,
+		"behavior": "standard"
 	})
+
+static func _register_custom(definitions: Dictionary, data: Dictionary) -> void:
+	definitions[str(data.get("id", WeaponCatalog.STANDARD))] = WeaponDefinition.new(data)
 
 static func get_definition(definitions: Dictionary, weapon_id: String) -> WeaponDefinition:
 	if definitions.has(weapon_id):
