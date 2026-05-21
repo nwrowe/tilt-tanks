@@ -1,9 +1,8 @@
 extends RefCounted
 class_name WeaponDefinition
 
-# Data object for one weapon type. This is intentionally passive so weapon data
-# can be migrated out of hardcoded dictionaries and bridge scripts without
-# changing runtime behavior all at once.
+# Data object for one weapon type. Known fields are broken out for convenience,
+# while extra_fields preserves behavior-specific data for special weapons.
 
 var id: String = ""
 var display_name: String = ""
@@ -19,8 +18,10 @@ var child_weapon_id: String = ""
 var child_count: int = 0
 var player_selectable: bool = true
 var menu_order: int = 0
+var extra_fields: Dictionary = {}
 
 func _init(data: Dictionary = {}) -> void:
+	extra_fields = data.duplicate(true)
 	id = str(data.get("id", id))
 	display_name = str(data.get("display_name", display_name))
 	explosion_radius = float(data.get("explosion_radius", explosion_radius))
@@ -40,19 +41,19 @@ func has_split_behavior() -> bool:
 	return split_behavior != "" and split_behavior != "none" and child_count > 0 and child_weapon_id != ""
 
 func to_dictionary() -> Dictionary:
-	return {
-		"id": id,
-		"display_name": display_name,
-		"explosion_radius": explosion_radius,
-		"direct_radius": direct_radius,
-		"direct_damage": direct_damage,
-		"splash_damage": splash_damage,
-		"crater_radius": crater_radius,
-		"crater_depth": crater_depth,
-		"projectile_scale": projectile_scale,
-		"split_behavior": split_behavior,
-		"child_weapon_id": child_weapon_id,
-		"child_count": child_count,
-		"player_selectable": player_selectable,
-		"menu_order": menu_order
-	}
+	var data: Dictionary = extra_fields.duplicate(true)
+	data["id"] = id
+	data["display_name"] = display_name
+	data["explosion_radius"] = explosion_radius
+	data["direct_radius"] = direct_radius
+	data["direct_damage"] = direct_damage
+	data["splash_damage"] = splash_damage
+	data["crater_radius"] = crater_radius
+	data["crater_depth"] = crater_depth
+	data["projectile_scale"] = projectile_scale
+	data["split_behavior"] = split_behavior
+	data["child_weapon_id"] = child_weapon_id
+	data["child_count"] = child_count
+	data["player_selectable"] = player_selectable
+	data["menu_order"] = menu_order
+	return data
