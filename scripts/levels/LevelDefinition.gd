@@ -8,14 +8,14 @@ class_name LevelDefinition
 var id: String = "default"
 var display_name: String = "Default Hills"
 var world_width_min: float = 1500.0
-var world_width_max: float = 1500.0
-var terrain_min_y: float = 255.0
-var terrain_max_y: float = 500.0
-var start_min_y: float = 285.0
-var start_max_y: float = 390.0
+var world_width_max: float = 2600.0
+var terrain_min_y: float = 245.0
+var terrain_max_y: float = 560.0
+var start_min_y: float = 390.0
+var start_max_y: float = 500.0
 var wind_max_accel: float = 85.0
-var pond_chance: float = 0.0
-var snow_line_y: float = -999999.0
+var pond_chance: float = 0.38
+var snow_line_y: float = 315.0
 var default_weapon_ids: Array[String] = []
 var background_id: String = "default"
 
