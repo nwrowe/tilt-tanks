@@ -33,7 +33,7 @@ static func build_default_definitions() -> Dictionary:
 		"crater_radius": 16.0,
 		"crater_depth": 130.0,
 		"projectile_scale": 0.65,
-		"player_selectable": true,
+		"player_selectable": false,
 		"menu_order": 40,
 		"behavior": "laser_cut",
 		"laser_cut_width": 18.0,
@@ -82,12 +82,12 @@ static func build_default_definitions() -> Dictionary:
 		"direct_damage": 12,
 		"splash_damage": 8,
 		"crater_radius": 68.0,
-		"crater_depth": -58.0,
+		"crater_depth": -87.0,
 		"projectile_scale": 1.05,
 		"player_selectable": true,
 		"menu_order": 70,
 		"behavior": "add_ground",
-		"ground_raise_amount": 58.0
+		"ground_raise_amount": 87.0
 	})
 
 	_register_custom(definitions, {
