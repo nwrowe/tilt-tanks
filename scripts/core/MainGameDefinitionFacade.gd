@@ -10,17 +10,16 @@ func _build_weapon_ui() -> void:
 
 	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
 	WeaponSelectMenu.add_title(weapon_panel)
+	var weapon_list: VBoxContainer = WeaponSelectMenu.make_scroll_area(weapon_panel)
 
-	var y: float = 66.0
 	for weapon_id: String in active_weapon_loadout.weapon_ids:
-		var option_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, _weapon_display_name(weapon_id), Vector2(42, y))
+		var option_button: Button = WeaponSelectMenu.make_list_option_button(weapon_list, _weapon_display_name(weapon_id))
 		option_button.pressed.connect(func(id: String = weapon_id) -> void:
 			selected_weapon = _safe_selected_weapon(id)
 			_close_weapon_menu()
 		)
-		y += 54.0
 
-	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, y + 4.0))
+	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 334))
 	close_button.pressed.connect(_close_weapon_menu)
 
 func _weapon_definition(weapon: String) -> WeaponDefinition:
