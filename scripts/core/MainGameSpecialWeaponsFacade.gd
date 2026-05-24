@@ -362,7 +362,6 @@ func _maybe_advance_after_explosion_hold() -> void:
 		return
 	pending_advance_after_explosion_hold = false
 	_advance_turn()
-	_snap_camera_to_turn_target_if_needed()
 
 func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if not quickgame_player_shot_hide_trajectory:
@@ -375,13 +374,6 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
 	quickgame_player_shot_hide_trajectory = false
-
-func _snap_camera_to_turn_target_if_needed() -> void:
-	if game_mode != GAME_MODE_HOTSEAT:
-		return
-	var target_x: float = _camera_target_x()
-	if absf(camera_x - target_x) <= 85.0:
-		camera_x = target_x
 
 func _clear_machine_gun_burst() -> void:
 	machine_gun_active = false
