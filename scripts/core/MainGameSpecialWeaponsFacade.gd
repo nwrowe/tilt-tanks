@@ -128,7 +128,7 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		if weapon == SPECIAL_BOUNCER:
 			var bounce_result: Dictionary = _step_bouncer_shell(stepped, owner)
 			if bool(bounce_result.get("explode", false)):
-				_explode_realtime_weapon(pos, weapon)
+				_explode_realtime_weapon(pos, weapon, owner)
 			else:
 				remaining.append(bounce_result.get("shell", stepped))
 				if owner == HUMAN_PLAYER_INDEX:
@@ -139,7 +139,7 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 				realtime_cluster_focus_pos = pos
 				realtime_cluster_focus_count = _weapon_child_count(weapon)
 		elif _realtime_projectile_should_explode(owner, pos):
-			_explode_realtime_weapon(pos, weapon)
+			_explode_realtime_weapon(pos, weapon, owner)
 			if owner == HUMAN_PLAYER_INDEX and weapon == SPECIAL_MACHINE_GUN_ROUND:
 				_start_global_explosion_camera_hold(pos)
 		else:
@@ -191,14 +191,15 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	elif advance_after:
 		_advance_turn()
 
-func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
+func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = HUMAN_PLAYER_INDEX) -> void:
 	explosion_pos = pos
 	explosion_timer = _weapon_explosion_duration(weapon)
 	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	_start_global_explosion_camera_hold(pos)
+	if owner == HUMAN_PLAYER_INDEX:
+		_start_global_explosion_camera_hold(pos)
 	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
 		game_over = true
 		_show_end_popup()
