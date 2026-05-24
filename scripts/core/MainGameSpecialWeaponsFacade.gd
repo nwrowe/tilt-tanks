@@ -11,6 +11,8 @@ const SPECIAL_MACHINE_GUN: String = WeaponRegistry.WEAPON_MACHINE_GUN
 const SPECIAL_MACHINE_GUN_ROUND: String = WeaponRegistry.WEAPON_MACHINE_GUN_ROUND
 
 const NO_CAMERA_OWNER: int = -1
+const HOTSEAT_CAMERA_READY_MARGIN: float = 90.0
+const HOTSEAT_CAMERA_ALREADY_TARGET_EPS: float = 2.0
 
 var machine_gun_active: bool = false
 var machine_gun_owner: int = 0
@@ -24,6 +26,7 @@ var machine_gun_turn_waiting_for_shells: bool = false
 var pending_advance_after_explosion_hold: bool = false
 var quickgame_player_shot_hide_trajectory: bool = false
 var realtime_explosion_camera_owner: int = NO_CAMERA_OWNER
+var hotseat_camera_already_valid: bool = false
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
@@ -31,6 +34,7 @@ func reset_match() -> void:
 	pending_advance_after_explosion_hold = false
 	quickgame_player_shot_hide_trajectory = false
 	realtime_explosion_camera_owner = NO_CAMERA_OWNER
+	hotseat_camera_already_valid = false
 	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
@@ -42,6 +46,8 @@ func _process(delta: float) -> void:
 	_maybe_show_quickgame_trajectory_after_shot()
 
 func _camera_target_x() -> float:
+	if _should_hold_hotseat_camera_at_current_position():
+		return camera_x
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and explosion_timer > 0.0 and realtime_explosion_camera_owner != HUMAN_PLAYER_INDEX:
 		var saved_explosion_pos: Vector2 = explosion_pos
 		var saved_explosion_timer: float = explosion_timer
@@ -52,6 +58,9 @@ func _camera_target_x() -> float:
 		explosion_timer = saved_explosion_timer
 		return target_x
 	return super._camera_target_x()
+
+func _should_hold_hotseat_camera_at_current_position() -> bool:
+	return hotseat_camera_already_valid and game_mode == GAME_MODE_HOTSEAT and not projectile_active and turn_projectiles.is_empty() and not machine_gun_active and not machine_gun_turn_waiting_for_shells and not pending_advance_after_explosion_hold
 
 func _draw_trajectory_preview() -> void:
 	# Hide immediately after a human shot in both hotseat and quick game. In quick
@@ -77,6 +86,8 @@ func _on_fire_pressed() -> void:
 		return
 	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells or pending_advance_after_explosion_hold:
 		return
+
+	hotseat_camera_already_valid = false
 
 	if selected_weapon == SPECIAL_LASER:
 		_fire_laser(current_player, angle_deg, power_percent, false)
@@ -362,6 +373,29 @@ func _maybe_advance_after_explosion_hold() -> void:
 		return
 	pending_advance_after_explosion_hold = false
 	_advance_turn()
+	_hold_hotseat_camera_if_current_view_is_valid()
+
+func _hold_hotseat_camera_if_current_view_is_valid() -> void:
+	hotseat_camera_already_valid = false
+	if game_mode != GAME_MODE_HOTSEAT:
+		return
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	var max_camera_x: float = maxf(0.0, active_world_width - camera_world_width)
+	var target_x: float = super._camera_target_x()
+	if absf(camera_x - target_x) <= HOTSEAT_CAMERA_ALREADY_TARGET_EPS:
+		hotseat_camera_already_valid = true
+		return
+	var next_tank_x: float = tank_positions[current_player].x
+	var visible_left: float = camera_x + HOTSEAT_CAMERA_READY_MARGIN
+	var visible_right: float = camera_x + camera_world_width - HOTSEAT_CAMERA_READY_MARGIN
+	if next_tank_x >= visible_left and next_tank_x <= visible_right:
+		hotseat_camera_already_valid = true
+		return
+	if camera_x <= HOTSEAT_CAMERA_ALREADY_TARGET_EPS and target_x <= HOTSEAT_CAMERA_ALREADY_TARGET_EPS:
+		hotseat_camera_already_valid = true
+		return
+	if camera_x >= max_camera_x - HOTSEAT_CAMERA_ALREADY_TARGET_EPS and target_x >= max_camera_x - HOTSEAT_CAMERA_ALREADY_TARGET_EPS:
+		hotseat_camera_already_valid = true
 
 func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if not quickgame_player_shot_hide_trajectory:
