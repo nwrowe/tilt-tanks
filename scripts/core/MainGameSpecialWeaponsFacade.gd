@@ -19,10 +19,12 @@ var machine_gun_angle: float = 45.0
 var machine_gun_power_percent: float = 50.0
 var machine_gun_realtime: bool = false
 var machine_gun_turn_waiting_for_shells: bool = false
+var pending_advance_after_explosion_hold: bool = false
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
 	_clear_machine_gun_burst()
+	pending_advance_after_explosion_hold = false
 	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
@@ -30,9 +32,15 @@ func _process(delta: float) -> void:
 	_update_machine_gun_burst(delta)
 	super._process(delta)
 	_maybe_finish_machine_gun_turn()
+	_maybe_advance_after_explosion_hold()
+
+func _draw_trajectory_preview() -> void:
+	if pending_advance_after_explosion_hold or explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+		return
+	super._draw_trajectory_preview()
 
 func _hotseat_can_begin_charge() -> bool:
-	if machine_gun_active or machine_gun_turn_waiting_for_shells:
+	if pending_advance_after_explosion_hold or machine_gun_active or machine_gun_turn_waiting_for_shells:
 		return false
 	return super._hotseat_can_begin_charge()
 
@@ -44,13 +52,13 @@ func _on_fire_pressed() -> void:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 		super._on_fire_pressed()
 		return
-	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells:
+	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells or pending_advance_after_explosion_hold:
 		return
 
 	if selected_weapon == SPECIAL_LASER:
 		_fire_laser(current_player, angle_deg, power_percent, false)
 		if not game_over:
-			_advance_turn()
+			pending_advance_after_explosion_hold = true
 		return
 	if selected_weapon == SPECIAL_MACHINE_GUN:
 		_begin_machine_gun_burst(current_player, angle_deg, power_percent, false)
@@ -113,6 +121,12 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 	_maybe_finish_machine_gun_turn()
 
 func _update_all_realtime_projectiles(delta: float) -> void:
+	# Let the older, working realtime Cluster/Burst camera path handle normal
+	# projectiles. This override is only for special projectile behaviors.
+	if not _realtime_special_projectiles_active():
+		super._update_all_realtime_projectiles(delta)
+		return
+
 	if rt_projectiles.is_empty():
 		return
 	var remaining: Array[Dictionary] = []
@@ -189,7 +203,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		game_over = true
 		_show_end_popup()
 	elif advance_after:
-		_advance_turn()
+		pending_advance_after_explosion_hold = true
 
 func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = HUMAN_PLAYER_INDEX) -> void:
 	explosion_pos = pos
@@ -305,6 +319,16 @@ func _maybe_finish_machine_gun_turn() -> void:
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
 	machine_gun_turn_waiting_for_shells = false
+	pending_advance_after_explosion_hold = true
+
+func _maybe_advance_after_explosion_hold() -> void:
+	if not pending_advance_after_explosion_hold:
+		return
+	if game_over or projectile_active or not turn_projectiles.is_empty() or machine_gun_active or machine_gun_turn_waiting_for_shells:
+		return
+	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+		return
+	pending_advance_after_explosion_hold = false
 	_advance_turn()
 
 func _clear_machine_gun_burst() -> void:
@@ -316,6 +340,15 @@ func _clear_machine_gun_burst() -> void:
 func _turn_projectiles_include_weapon(weapon: String) -> bool:
 	for shell: Dictionary in turn_projectiles:
 		if str(shell.get("weapon", "")) == weapon:
+			return true
+	return false
+
+func _realtime_special_projectiles_active() -> bool:
+	if machine_gun_active:
+		return true
+	for shell: Dictionary in rt_projectiles:
+		var weapon: String = str(shell.get("weapon", ""))
+		if weapon == SPECIAL_BOUNCER or weapon == SPECIAL_MACHINE_GUN_ROUND:
 			return true
 	return false
 
@@ -348,6 +381,7 @@ func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realt
 	last_explosion_visual_radius = 20.0
 	_settle_tanks_on_terrain()
 	_trigger_fire_fx(owner, shot_angle)
+	_start_global_explosion_camera_hold(end_pos)
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
 		_show_end_popup()
