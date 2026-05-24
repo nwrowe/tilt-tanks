@@ -10,6 +10,8 @@ const SPECIAL_GROUND_BOMB: String = WeaponRegistry.WEAPON_GROUND_BOMB
 const SPECIAL_MACHINE_GUN: String = WeaponRegistry.WEAPON_MACHINE_GUN
 const SPECIAL_MACHINE_GUN_ROUND: String = WeaponRegistry.WEAPON_MACHINE_GUN_ROUND
 
+const NO_CAMERA_OWNER: int = -1
+
 var machine_gun_active: bool = false
 var machine_gun_owner: int = 0
 var machine_gun_remaining: int = 0
@@ -218,14 +220,21 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	elif advance_after:
 		pending_advance_after_explosion_hold = true
 
-func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = HUMAN_PLAYER_INDEX) -> void:
-	explosion_pos = pos
-	explosion_timer = _weapon_explosion_duration(weapon)
+func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = NO_CAMERA_OWNER) -> void:
+	var is_human_explosion: bool = owner == HUMAN_PLAYER_INDEX
+	if is_human_explosion:
+		explosion_pos = pos
+		explosion_timer = _weapon_explosion_duration(weapon)
+	else:
+		# AI explosions should still draw/damage/crater, but must not drive the
+		# camera through the generic explosion focus path.
+		explosion_pos = Vector2.INF
+		explosion_timer = 0.0
 	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if owner == HUMAN_PLAYER_INDEX:
+	if is_human_explosion:
 		_start_global_explosion_camera_hold(pos)
 	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
 		game_over = true
@@ -345,6 +354,7 @@ func _maybe_advance_after_explosion_hold() -> void:
 		return
 	pending_advance_after_explosion_hold = false
 	_advance_turn()
+	_snap_camera_to_turn_target_if_already_close()
 
 func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if not quickgame_player_shot_hide_trajectory:
@@ -357,6 +367,13 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
 	quickgame_player_shot_hide_trajectory = false
+
+func _snap_camera_to_turn_target_if_already_close() -> void:
+	if game_mode != GAME_MODE_HOTSEAT:
+		return
+	var target_x: float = _camera_target_x()
+	if absf(camera_x - target_x) <= 85.0:
+		camera_x = target_x
 
 func _clear_machine_gun_burst() -> void:
 	machine_gun_active = false
