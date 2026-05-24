@@ -379,12 +379,6 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 func _snap_camera_to_turn_target_if_needed() -> void:
 	if game_mode != GAME_MODE_HOTSEAT:
 		return
-	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-	var next_tank_x: float = tank_positions[current_player].x
-	var visible_left: float = camera_x + 90.0
-	var visible_right: float = camera_x + camera_world_width - 90.0
-	if next_tank_x >= visible_left and next_tank_x <= visible_right:
-		return
 	var target_x: float = _camera_target_x()
 	if absf(camera_x - target_x) <= 85.0:
 		camera_x = target_x
