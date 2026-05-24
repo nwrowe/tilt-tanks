@@ -35,7 +35,8 @@ func _process(delta: float) -> void:
 	if not projectile_active and not game_over and not overlay_open:
 		_update_angle_from_input(delta)
 		_update_tank_movement(delta)
-		power_percent = float(power_slider.value) if power_slider != null else power_percent
+		if power_slider != null:
+			power_percent = float(power_slider.value)
 		power = _power_from_percent(power_percent)
 		player_angles[current_player] = angle_deg
 		player_power_percents[current_player] = power_percent
@@ -67,7 +68,9 @@ func _on_fire_pressed() -> void:
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
-	var facing: float = 1.0 if current_player == 0 else -1.0
+	var facing: float = 1.0
+	if current_player != 0:
+		facing = -1.0
 	var rad: float = deg_to_rad(angle_deg)
 	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
 	projectile_pos = tank_positions[current_player] + muzzle_offset
@@ -123,7 +126,9 @@ func _update_ui() -> void:
 	if status_label == null:
 		return
 	if game_over:
-		var winner: int = 1 if tank_health[0] <= 0 else 0
+		var winner: int = 0
+		if tank_health[0] <= 0:
+			winner = 1
 		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
 	else:
 		status_label.text = "P1 HP: %d    P2 HP: %d" % [tank_health[0], tank_health[1]]
