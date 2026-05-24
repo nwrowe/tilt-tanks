@@ -20,11 +20,13 @@ var machine_gun_power_percent: float = 50.0
 var machine_gun_realtime: bool = false
 var machine_gun_turn_waiting_for_shells: bool = false
 var pending_advance_after_explosion_hold: bool = false
+var quickgame_player_shot_hide_trajectory: bool = false
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
 	_clear_machine_gun_burst()
 	pending_advance_after_explosion_hold = false
+	quickgame_player_shot_hide_trajectory = false
 	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
@@ -33,12 +35,12 @@ func _process(delta: float) -> void:
 	super._process(delta)
 	_maybe_finish_machine_gun_turn()
 	_maybe_advance_after_explosion_hold()
+	_maybe_show_quickgame_trajectory_after_shot()
 
 func _draw_trajectory_preview() -> void:
-	# Only hide the trajectory while hotseat is intentionally waiting to switch
-	# turns after the explosion hold. Realtime AI explosions should not hide the
-	# human player's aiming preview.
-	if pending_advance_after_explosion_hold:
+	# Hide immediately after a human shot in both hotseat and quick game. In quick
+	# game, AI explosions alone should not hide the player's aiming preview.
+	if pending_advance_after_explosion_hold or quickgame_player_shot_hide_trajectory:
 		return
 	super._draw_trajectory_preview()
 
@@ -54,6 +56,8 @@ func _on_fire_pressed() -> void:
 		return
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 		super._on_fire_pressed()
+		if ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active:
+			quickgame_player_shot_hide_trajectory = true
 		return
 	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells or pending_advance_after_explosion_hold:
 		return
@@ -80,6 +84,7 @@ func _release_realtime_charged_shot() -> void:
 		power = _power_from_percent(power_percent)
 		_fire_laser(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true)
 		rt_player_shell_active = false
+		quickgame_player_shot_hide_trajectory = true
 		_reset_realtime_charge_state()
 		return
 	if selected_weapon == SPECIAL_MACHINE_GUN:
@@ -90,9 +95,12 @@ func _release_realtime_charged_shot() -> void:
 		power = _power_from_percent(power_percent)
 		_begin_machine_gun_burst(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true)
 		rt_player_shell_active = true
+		quickgame_player_shot_hide_trajectory = true
 		_reset_realtime_charge_state()
 		return
 	super._release_realtime_charged_shot()
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and (ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active):
+		quickgame_player_shot_hide_trajectory = true
 
 func _update_projectile(delta: float) -> void:
 	if turn_projectile_weapon == SPECIAL_BOUNCER:
@@ -192,6 +200,8 @@ func _fire_realtime_projectile(owner: int) -> void:
 	rt_projectiles.append(ProjectileFactory.make_shell(owner, weapon, start_pos, start_vel, false))
 	projectile_active = false
 	_trigger_fire_fx(owner, shot_angle_default)
+	if owner == HUMAN_PLAYER_INDEX:
+		quickgame_player_shot_hide_trajectory = true
 
 func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
 	projectile_active = false
@@ -283,6 +293,8 @@ func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent:
 	machine_gun_angle = shot_angle
 	machine_gun_power_percent = shot_power_percent
 	machine_gun_realtime = realtime
+	if owner == HUMAN_PLAYER_INDEX:
+		quickgame_player_shot_hide_trajectory = realtime
 	_fire_next_machine_gun_round()
 
 func _update_machine_gun_burst(delta: float) -> void:
@@ -333,6 +345,18 @@ func _maybe_advance_after_explosion_hold() -> void:
 		return
 	pending_advance_after_explosion_hold = false
 	_advance_turn()
+
+func _maybe_show_quickgame_trajectory_after_shot() -> void:
+	if not quickgame_player_shot_hide_trajectory:
+		return
+	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME:
+		quickgame_player_shot_hide_trajectory = false
+		return
+	if ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active or machine_gun_active:
+		return
+	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+		return
+	quickgame_player_shot_hide_trajectory = false
 
 func _clear_machine_gun_burst() -> void:
 	machine_gun_active = false
