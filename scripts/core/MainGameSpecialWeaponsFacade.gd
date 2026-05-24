@@ -35,7 +35,10 @@ func _process(delta: float) -> void:
 	_maybe_advance_after_explosion_hold()
 
 func _draw_trajectory_preview() -> void:
-	if pending_advance_after_explosion_hold or explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+	# Only hide the trajectory while hotseat is intentionally waiting to switch
+	# turns after the explosion hold. Realtime AI explosions should not hide the
+	# human player's aiming preview.
+	if pending_advance_after_explosion_hold:
 		return
 	super._draw_trajectory_preview()
 
@@ -424,4 +427,3 @@ func _apply_ground_bomb(pos: Vector2, weapon: String) -> void:
 			point.y = clampf(point.y - raise_amount * mound, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
 			terrain_points[i] = point
 	_refresh_terrain_line()
-	_reflow_water_after_terrain_change(pos.x)
