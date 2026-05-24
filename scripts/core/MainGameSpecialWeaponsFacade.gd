@@ -23,12 +23,14 @@ var machine_gun_realtime: bool = false
 var machine_gun_turn_waiting_for_shells: bool = false
 var pending_advance_after_explosion_hold: bool = false
 var quickgame_player_shot_hide_trajectory: bool = false
+var realtime_explosion_camera_owner: int = NO_CAMERA_OWNER
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
 	_clear_machine_gun_burst()
 	pending_advance_after_explosion_hold = false
 	quickgame_player_shot_hide_trajectory = false
+	realtime_explosion_camera_owner = NO_CAMERA_OWNER
 	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
@@ -38,6 +40,18 @@ func _process(delta: float) -> void:
 	_maybe_finish_machine_gun_turn()
 	_maybe_advance_after_explosion_hold()
 	_maybe_show_quickgame_trajectory_after_shot()
+
+func _camera_target_x() -> float:
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and explosion_timer > 0.0 and realtime_explosion_camera_owner != HUMAN_PLAYER_INDEX:
+		var saved_explosion_pos: Vector2 = explosion_pos
+		var saved_explosion_timer: float = explosion_timer
+		explosion_pos = Vector2.INF
+		explosion_timer = 0.0
+		var target_x: float = super._camera_target_x()
+		explosion_pos = saved_explosion_pos
+		explosion_timer = saved_explosion_timer
+		return target_x
+	return super._camera_target_x()
 
 func _draw_trajectory_preview() -> void:
 	# Hide immediately after a human shot in both hotseat and quick game. In quick
@@ -221,20 +235,14 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		pending_advance_after_explosion_hold = true
 
 func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = NO_CAMERA_OWNER) -> void:
-	var is_human_explosion: bool = owner == HUMAN_PLAYER_INDEX
-	if is_human_explosion:
-		explosion_pos = pos
-		explosion_timer = _weapon_explosion_duration(weapon)
-	else:
-		# AI explosions should still draw/damage/crater, but must not drive the
-		# camera through the generic explosion focus path.
-		explosion_pos = Vector2.INF
-		explosion_timer = 0.0
+	realtime_explosion_camera_owner = owner
+	explosion_pos = pos
+	explosion_timer = _weapon_explosion_duration(weapon)
 	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if is_human_explosion:
+	if owner == HUMAN_PLAYER_INDEX:
 		_start_global_explosion_camera_hold(pos)
 	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
 		game_over = true
@@ -354,7 +362,7 @@ func _maybe_advance_after_explosion_hold() -> void:
 		return
 	pending_advance_after_explosion_hold = false
 	_advance_turn()
-	_snap_camera_to_turn_target_if_already_close()
+	_snap_camera_to_turn_target_if_needed()
 
 func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if not quickgame_player_shot_hide_trajectory:
@@ -368,8 +376,14 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 		return
 	quickgame_player_shot_hide_trajectory = false
 
-func _snap_camera_to_turn_target_if_already_close() -> void:
+func _snap_camera_to_turn_target_if_needed() -> void:
 	if game_mode != GAME_MODE_HOTSEAT:
+		return
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	var next_tank_x: float = tank_positions[current_player].x
+	var visible_left: float = camera_x + 90.0
+	var visible_right: float = camera_x + camera_world_width - 90.0
+	if next_tank_x >= visible_left and next_tank_x <= visible_right:
 		return
 	var target_x: float = _camera_target_x()
 	if absf(camera_x - target_x) <= 85.0:
@@ -420,12 +434,14 @@ func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realt
 	var end_pos: Vector2 = start_pos + dir * active_world_width * 1.2
 	_cut_laser_path(start_pos, end_pos)
 	_apply_laser_damage(owner, start_pos, end_pos)
+	realtime_explosion_camera_owner = owner if realtime else NO_CAMERA_OWNER
 	explosion_pos = end_pos
 	explosion_timer = 0.18
 	last_explosion_visual_radius = 20.0
 	_settle_tanks_on_terrain()
 	_trigger_fire_fx(owner, shot_angle)
-	_start_global_explosion_camera_hold(end_pos)
+	if not realtime or owner == HUMAN_PLAYER_INDEX:
+		_start_global_explosion_camera_hold(end_pos)
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
 		_show_end_popup()
