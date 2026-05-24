@@ -46,6 +46,12 @@ func _process(delta: float) -> void:
 	_maybe_show_quickgame_trajectory_after_shot()
 
 func _camera_target_x() -> float:
+	# MainGame updates the camera before this facade gets to advance the delayed
+	# hotseat turn. On the exact frame the explosion hold expires, keep the camera
+	# fixed so it does not briefly lerp back toward the old player before the turn
+	# switch occurs.
+	if _should_freeze_camera_until_pending_hotseat_advance_runs():
+		return camera_x
 	if _should_hold_hotseat_camera_at_current_position():
 		return camera_x
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and explosion_timer > 0.0 and realtime_explosion_camera_owner != HUMAN_PLAYER_INDEX:
@@ -58,6 +64,9 @@ func _camera_target_x() -> float:
 		explosion_timer = saved_explosion_timer
 		return target_x
 	return super._camera_target_x()
+
+func _should_freeze_camera_until_pending_hotseat_advance_runs() -> bool:
+	return pending_advance_after_explosion_hold and game_mode == GAME_MODE_HOTSEAT and not game_over and not projectile_active and turn_projectiles.is_empty() and not machine_gun_active and not machine_gun_turn_waiting_for_shells and explosion_timer <= 0.0 and cluster_camera_hold_timer <= 0.0
 
 func _should_hold_hotseat_camera_at_current_position() -> bool:
 	return hotseat_camera_already_valid and game_mode == GAME_MODE_HOTSEAT and not projectile_active and turn_projectiles.is_empty() and not machine_gun_active and not machine_gun_turn_waiting_for_shells and not pending_advance_after_explosion_hold
