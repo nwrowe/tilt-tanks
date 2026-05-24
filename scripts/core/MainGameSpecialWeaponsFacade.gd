@@ -19,8 +19,6 @@ var machine_gun_angle: float = 45.0
 var machine_gun_power_percent: float = 50.0
 var machine_gun_realtime: bool = false
 var machine_gun_turn_waiting_for_shells: bool = false
-var machine_gun_camera_locked: bool = false
-var machine_gun_camera_pos: Vector2 = Vector2.INF
 var turn_bouncer_bounce_count: int = 0
 
 func reset_match() -> void:
@@ -30,16 +28,8 @@ func reset_match() -> void:
 
 func _process(delta: float) -> void:
 	_update_machine_gun_burst(delta)
-	_update_machine_gun_camera_focus()
 	super._process(delta)
-	_update_machine_gun_camera_focus()
 	_maybe_finish_machine_gun_turn()
-
-func _camera_target_x() -> float:
-	if _machine_gun_camera_should_lock() and machine_gun_camera_pos != Vector2.INF:
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(machine_gun_camera_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
-	return super._camera_target_x()
 
 func _hotseat_can_begin_charge() -> bool:
 	if machine_gun_active or machine_gun_turn_waiting_for_shells:
@@ -58,7 +48,6 @@ func _on_fire_pressed() -> void:
 		return
 
 	if selected_weapon == SPECIAL_LASER:
-		_release_machine_gun_camera_lock()
 		_fire_laser(current_player, angle_deg, power_percent, false)
 		if not game_over:
 			_advance_turn()
@@ -67,7 +56,6 @@ func _on_fire_pressed() -> void:
 		_begin_machine_gun_burst(current_player, angle_deg, power_percent, false)
 		return
 
-	_release_machine_gun_camera_lock()
 	super._on_fire_pressed()
 	if selected_weapon == SPECIAL_BOUNCER:
 		turn_bouncer_bounce_count = 0
@@ -77,7 +65,6 @@ func _release_realtime_charged_shot() -> void:
 		if not _player_can_fire() or game_over or overlay_open:
 			_reset_realtime_charge_state()
 			return
-		_release_machine_gun_camera_lock()
 		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
 		power = _power_from_percent(power_percent)
 		_fire_laser(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true)
@@ -94,7 +81,6 @@ func _release_realtime_charged_shot() -> void:
 		rt_player_shell_active = true
 		_reset_realtime_charge_state()
 		return
-	_release_machine_gun_camera_lock()
 	super._release_realtime_charged_shot()
 
 func _update_projectile(delta: float) -> void:
@@ -104,12 +90,14 @@ func _update_projectile(delta: float) -> void:
 	super._update_projectile(delta)
 
 func _update_turn_weapon_projectiles(delta: float) -> void:
+	# Only take over the turn-projectile loop while machine-gun rounds are active.
+	# Otherwise defer to the base implementation so Cluster/Burst camera behavior
+	# remains unchanged.
 	if not machine_gun_turn_waiting_for_shells and not _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND):
 		super._update_turn_weapon_projectiles(delta)
 		return
 
 	var remaining: Array[Dictionary] = []
-	var first_live_machine_gun_round: Vector2 = Vector2.INF
 	for shell: Dictionary in turn_projectiles:
 		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
 		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
@@ -118,16 +106,10 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 		if _turn_shell_should_explode(owner, pos):
 			_explode_turn_weapon(pos, weapon, false)
 			if weapon == SPECIAL_MACHINE_GUN_ROUND:
-				cluster_camera_hold_pos = pos
-				cluster_camera_hold_timer = GLOBAL_EXPLOSION_CAMERA_HOLD_TIME
-				machine_gun_camera_pos = pos
+				_start_global_explosion_camera_hold(pos)
 		else:
 			remaining.append(stepped)
-			if weapon == SPECIAL_MACHINE_GUN_ROUND and first_live_machine_gun_round == Vector2.INF:
-				first_live_machine_gun_round = pos
 	turn_projectiles = remaining
-	if first_live_machine_gun_round != Vector2.INF:
-		machine_gun_camera_pos = first_live_machine_gun_round
 	_maybe_finish_machine_gun_turn()
 
 func _update_all_realtime_projectiles(delta: float) -> void:
@@ -135,7 +117,6 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		return
 	var remaining: Array[Dictionary] = []
 	var human_shell_alive: bool = false
-	var first_live_machine_gun_round: Vector2 = Vector2.INF
 	for shell: Dictionary in rt_projectiles:
 		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
 		var owner: int = int(stepped.get("owner", HUMAN_PLAYER_INDEX))
@@ -160,19 +141,13 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		elif _realtime_projectile_should_explode(owner, pos):
 			_explode_realtime_weapon(pos, weapon)
 			if owner == HUMAN_PLAYER_INDEX and weapon == SPECIAL_MACHINE_GUN_ROUND:
-				machine_gun_camera_pos = pos
+				_start_global_explosion_camera_hold(pos)
 		else:
 			remaining.append(stepped)
 			if owner == HUMAN_PLAYER_INDEX:
 				human_shell_alive = true
-			if owner == HUMAN_PLAYER_INDEX and weapon == SPECIAL_MACHINE_GUN_ROUND and first_live_machine_gun_round == Vector2.INF:
-				first_live_machine_gun_round = pos
 	rt_projectiles = remaining
-	if first_live_machine_gun_round != Vector2.INF:
-		machine_gun_camera_pos = first_live_machine_gun_round
 	rt_player_shell_active = human_shell_alive or machine_gun_active
-	if machine_gun_camera_locked and not machine_gun_active and not _has_active_realtime_machine_gun_rounds() and cluster_camera_hold_timer <= 0.0:
-		_release_machine_gun_camera_lock()
 
 func _fire_realtime_projectile(owner: int) -> void:
 	if game_over:
@@ -209,12 +184,11 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
+	_start_global_explosion_camera_hold(pos)
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
 		_show_end_popup()
 	elif advance_after:
-		cluster_camera_hold_pos = pos
-		cluster_camera_hold_timer = GLOBAL_EXPLOSION_CAMERA_HOLD_TIME
 		_advance_turn()
 
 func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
@@ -224,6 +198,7 @@ func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
+	_start_global_explosion_camera_hold(pos)
 	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
 		game_over = true
 		_show_end_popup()
@@ -290,8 +265,6 @@ func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent:
 	machine_gun_angle = shot_angle
 	machine_gun_power_percent = shot_power_percent
 	machine_gun_realtime = realtime
-	machine_gun_camera_locked = true
-	machine_gun_camera_pos = Vector2.INF
 	_fire_next_machine_gun_round()
 
 func _update_machine_gun_burst(delta: float) -> void:
@@ -331,7 +304,6 @@ func _maybe_finish_machine_gun_turn() -> void:
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
 	machine_gun_turn_waiting_for_shells = false
-	_release_machine_gun_camera_lock()
 	_advance_turn()
 
 func _clear_machine_gun_burst() -> void:
@@ -339,40 +311,10 @@ func _clear_machine_gun_burst() -> void:
 	machine_gun_remaining = 0
 	machine_gun_timer = 0.0
 	machine_gun_turn_waiting_for_shells = false
-	_release_machine_gun_camera_lock()
-
-func _release_machine_gun_camera_lock() -> void:
-	machine_gun_camera_locked = false
-	machine_gun_camera_pos = Vector2.INF
-
-func _machine_gun_camera_should_lock() -> bool:
-	return machine_gun_camera_locked and (machine_gun_active or machine_gun_turn_waiting_for_shells or _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND) or _has_active_realtime_machine_gun_rounds())
-
-func _update_machine_gun_camera_focus() -> void:
-	if not machine_gun_camera_locked:
-		return
-	var focus: Vector2 = _first_live_machine_gun_round_pos()
-	if focus != Vector2.INF:
-		machine_gun_camera_pos = focus
-
-func _first_live_machine_gun_round_pos() -> Vector2:
-	for shell: Dictionary in turn_projectiles:
-		if str(shell.get("weapon", "")) == SPECIAL_MACHINE_GUN_ROUND:
-			return shell.get("pos", Vector2.INF)
-	for shell: Dictionary in rt_projectiles:
-		if str(shell.get("weapon", "")) == SPECIAL_MACHINE_GUN_ROUND and int(shell.get("owner", HUMAN_PLAYER_INDEX)) == HUMAN_PLAYER_INDEX:
-			return shell.get("pos", Vector2.INF)
-	return Vector2.INF
 
 func _turn_projectiles_include_weapon(weapon: String) -> bool:
 	for shell: Dictionary in turn_projectiles:
 		if str(shell.get("weapon", "")) == weapon:
-			return true
-	return false
-
-func _has_active_realtime_machine_gun_rounds() -> bool:
-	for shell: Dictionary in rt_projectiles:
-		if str(shell.get("weapon", "")) == SPECIAL_MACHINE_GUN_ROUND and int(shell.get("owner", HUMAN_PLAYER_INDEX)) == HUMAN_PLAYER_INDEX:
 			return true
 	return false
 
@@ -390,10 +332,6 @@ func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_po
 		rt_player_shell_active = owner == HUMAN_PLAYER_INDEX
 	else:
 		turn_projectiles.append(shell)
-	if weapon == SPECIAL_MACHINE_GUN_ROUND and owner == HUMAN_PLAYER_INDEX:
-		machine_gun_camera_locked = true
-		if machine_gun_camera_pos == Vector2.INF:
-			machine_gun_camera_pos = start_pos
 	_trigger_fire_fx(owner, shot_angle)
 
 func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
