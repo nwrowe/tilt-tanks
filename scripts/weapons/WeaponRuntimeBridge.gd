@@ -193,6 +193,9 @@ func reset_match() -> void:
 	_close_weapon_menu()
 
 func _process(delta: float) -> void:
+	if game_over and menu_state == MENU_STATE_GAME:
+		_process_game_over_visuals(delta)
+		return
 	if weapon_menu_open and menu_state == MENU_STATE_GAME:
 		_update_destroyed_smoke(delta)
 		queue_redraw()
@@ -210,6 +213,21 @@ func _process(delta: float) -> void:
 		return
 	super._process(delta)
 	_update_destroyed_smoke(delta)
+
+func _process_game_over_visuals(delta: float) -> void:
+	if explosion_timer > 0.0:
+		explosion_timer = maxf(0.0, explosion_timer - delta)
+		if explosion_timer <= 0.0:
+			explosion_pos = Vector2.INF
+	if cluster_camera_hold_timer > 0.0:
+		cluster_camera_hold_timer = maxf(0.0, cluster_camera_hold_timer - delta)
+		if cluster_camera_hold_timer <= 0.0:
+			cluster_camera_hold_pos = Vector2.INF
+	_update_camera(delta)
+	_update_ui()
+	_update_destroyed_smoke(delta)
+	_update_steam_puffs(delta)
+	queue_redraw()
 
 func _begin_ai_turn() -> void:
 	ai_pending_turn = true
