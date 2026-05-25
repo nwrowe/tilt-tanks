@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bsvad2rn5hrwq"
-path="res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"
+uid="uid://bldodmngww3w6"
+path="res://.godot/imported/button_hotseat.png-598b67f298a25ba482b5a2f6101999a7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/menu/button_quick_game.png"
-dest_files=["res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"]
+source_file="res://assets/menu/button_hotseat.png"
+dest_files=["res://.godot/imported/button_hotseat.png-598b67f298a25ba482b5a2f6101999a7.ctex"]
 
 [params]
 

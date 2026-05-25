@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bsvad2rn5hrwq"
-path="res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"
+uid="uid://bcmwi22w3iwk1"
+path="res://.godot/imported/button_bluetooth.png-203769934a4f4bbcabcdbfcfcf19ba8f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/menu/button_quick_game.png"
-dest_files=["res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"]
+source_file="res://assets/menu/button_bluetooth.png"
+dest_files=["res://.godot/imported/button_bluetooth.png-203769934a4f4bbcabcdbfcfcf19ba8f.ctex"]
 
 [params]
 

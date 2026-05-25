@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bsvad2rn5hrwq"
-path="res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"
+uid="uid://bl4earhlg8mmx"
+path="res://.godot/imported/button_multiplayer.png-6a3c0866528880b6b51625252661ad47.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/menu/button_quick_game.png"
-dest_files=["res://.godot/imported/button_quick_game.png-0150ffcfebcbf78e461da745df366cd9.ctex"]
+source_file="res://assets/menu/button_multiplayer.png"
+dest_files=["res://.godot/imported/button_multiplayer.png-6a3c0866528880b6b51625252661ad47.ctex"]
 
 [params]
 
