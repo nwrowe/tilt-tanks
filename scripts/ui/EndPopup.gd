@@ -18,9 +18,9 @@ const REMATCH_TEXT: String = "Rematch"
 const REMATCH_POS: Vector2 = Vector2(36, 96)
 const REMATCH_SIZE: Vector2 = Vector2(130, 46)
 
-const QUIT_TEXT: String = "Quit"
-const QUIT_POS: Vector2 = Vector2(194, 96)
-const QUIT_SIZE: Vector2 = Vector2(130, 46)
+const MAIN_MENU_TEXT: String = "Main Menu"
+const MAIN_MENU_POS: Vector2 = Vector2(194, 96)
+const MAIN_MENU_SIZE: Vector2 = Vector2(130, 46)
 
 static func make_panel(ui_layer: CanvasLayer) -> Panel:
 	var panel: Panel = Panel.new()
@@ -44,5 +44,5 @@ static func make_label(panel: Panel) -> Label:
 static func make_rematch_button(panel: Panel) -> Button:
 	return MobileControls.make_button(REMATCH_TEXT, REMATCH_POS, REMATCH_SIZE, panel)
 
-static func make_quit_button(panel: Panel) -> Button:
-	return MobileControls.make_button(QUIT_TEXT, QUIT_POS, QUIT_SIZE, panel)
+static func make_main_menu_button(panel: Panel) -> Button:
+	return MobileControls.make_button(MAIN_MENU_TEXT, MAIN_MENU_POS, MAIN_MENU_SIZE, panel)
