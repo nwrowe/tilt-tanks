@@ -1,10 +1,117 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="22" fill="#111827"/>
-  <path d="M12 90 C28 62 44 72 58 52 C75 28 96 44 116 20 L116 128 L12 128 Z" fill="#23551f"/>
-  <path d="M12 90 C28 62 44 72 58 52 C75 28 96 44 116 20" fill="none" stroke="#55dd66" stroke-width="6" stroke-linecap="round"/>
-  <path d="M34 80 L72 80 L80 90 L26 90 Z" fill="#34d058"/>
-  <circle cx="40" cy="91" r="5" fill="#050505"/>
-  <circle cx="62" cy="91" r="5" fill="#050505"/>
-  <path d="M56 70 L94 54" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="98" cy="52" r="7" fill="#ffd54a"/>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Tilt Tanks Icon</title>
+  <desc id="desc">A stylized tank climbing a tilted battlefield with motion arcs, designed as a game icon.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="168" y1="120" x2="856" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#33D6FF"/>
+      <stop offset="0.48" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+
+    <linearGradient id="ground" x1="154" y1="730" x2="870" y2="516" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1F2937"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+
+    <linearGradient id="tankBody" x1="350" y1="425" x2="755" y2="690" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B8FF5C"/>
+      <stop offset="0.55" stop-color="#55D62D"/>
+      <stop offset="1" stop-color="#168B35"/>
+    </linearGradient>
+
+    <linearGradient id="tankShadow" x1="333" y1="589" x2="712" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F5130"/>
+      <stop offset="1" stop-color="#052E1B"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#020617" flood-opacity="0.38"/>
+    </filter>
+
+    <filter id="smallShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+
+    <clipPath id="roundedSquircle">
+      <path d="M512 40C242.8 40 40 242.8 40 512s202.8 472 472 472 472-202.8 472-472S781.2 40 512 40Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#roundedSquircle)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+
+    <!-- subtle sunburst -->
+    <g opacity="0.12" fill="#FFFFFF">
+      <path d="M512 502 494 40h36l-18 462Z"/>
+      <path d="M512 502 783 127l28 22-299 353Z"/>
+      <path d="M512 502 984 494v36l-472-28Z"/>
+      <path d="M512 502 884 782l-24 27-348-307Z"/>
+      <path d="M512 502 236 886l-28-22 304-362Z"/>
+      <path d="M512 502 40 530v-36l472 8Z"/>
+      <path d="M512 502 140 226l24-27 348 303Z"/>
+    </g>
+
+    <!-- tilt motion arcs -->
+    <g fill="none" stroke="#FFFFFF" stroke-linecap="round" opacity="0.82" filter="url(#smallShadow)">
+      <path d="M234 286c86-76 209-107 322-78" stroke-width="30"/>
+      <path d="M291 358c54-45 131-64 206-48" stroke-width="20" opacity="0.75"/>
+      <path d="M807 717c-93 78-230 105-353 63" stroke-width="28"/>
+      <path d="M750 643c-60 47-145 61-222 37" stroke-width="18" opacity="0.75"/>
+    </g>
+
+    <!-- angled ground -->
+    <path d="M-46 790 1054 432v592H-46Z" fill="url(#ground)"/>
+    <path d="M-26 764 1050 415" stroke="#FACC15" stroke-width="24" stroke-linecap="round" opacity="0.95"/>
+    <path d="M-26 805 1050 456" stroke="#020617" stroke-width="16" stroke-linecap="round" opacity="0.2"/>
+
+    <!-- tank group follows slope -->
+    <g transform="translate(505 560) rotate(-18) translate(-505 -560)" filter="url(#softShadow)">
+      <!-- cannon -->
+      <path d="M603 437h248c22 0 40 18 40 40s-18 40-40 40H603Z" fill="#102A23"/>
+      <path d="M612 449h230c15 0 28 13 28 28s-13 28-28 28H612Z" fill="#1F4D36"/>
+      <circle cx="858" cy="477" r="31" fill="#0B1220"/>
+      <circle cx="858" cy="477" r="17" fill="#FACC15"/>
+
+      <!-- turret -->
+      <path d="M410 358h199c65 0 118 53 118 118v48H334v-48c0-65 53-118 118-118Z" fill="url(#tankBody)"/>
+      <path d="M461 390h105c54 0 98 43 98 97v12H363v-12c0-54 44-97 98-97Z" fill="#D9FF80" opacity="0.32"/>
+      <path d="M380 526h321c33 0 64 16 83 43l42 60H256l42-60c19-27 50-43 82-43Z" fill="url(#tankBody)"/>
+      <path d="M310 588h464c51 0 92 41 92 92s-41 92-92 92H310c-51 0-92-41-92-92s41-92 92-92Z" fill="url(#tankShadow)"/>
+      <path d="M315 613h451c36 0 66 30 66 66s-30 66-66 66H315c-36 0-66-30-66-66s30-66 66-66Z" fill="#111827"/>
+
+      <!-- treads -->
+      <g fill="#F8FAFC" opacity="0.95">
+        <circle cx="324" cy="679" r="42"/>
+        <circle cx="436" cy="679" r="42"/>
+        <circle cx="548" cy="679" r="42"/>
+        <circle cx="660" cy="679" r="42"/>
+        <circle cx="760" cy="679" r="42"/>
+      </g>
+      <g fill="#0B1220">
+        <circle cx="324" cy="679" r="20"/>
+        <circle cx="436" cy="679" r="20"/>
+        <circle cx="548" cy="679" r="20"/>
+        <circle cx="660" cy="679" r="20"/>
+        <circle cx="760" cy="679" r="20"/>
+      </g>
+
+      <!-- highlight and bolts -->
+      <path d="M337 552h345c49 0 93 27 116 70H286c13-42 32-70 51-70Z" fill="#FFFFFF" opacity="0.18"/>
+      <g fill="#052E1B" opacity="0.85">
+        <circle cx="426" cy="480" r="14"/>
+        <circle cx="495" cy="480" r="14"/>
+        <circle cx="564" cy="480" r="14"/>
+      </g>
+    </g>
+
+    <!-- projectile spark -->
+    <g transform="translate(892 455)" filter="url(#smallShadow)">
+      <path d="M0-73 20-19 75-22 31 12 49 66 0 34-49 66-31 12-75-22-20-19Z" fill="#FACC15"/>
+      <path d="M0-42 11-11 43-13 18 7 28 38 0 20-28 38-18 7-43-13-11-11Z" fill="#FFFFFF" opacity="0.85"/>
+    </g>
+
+    <!-- vignette -->
+    <rect width="1024" height="1024" fill="none" stroke="#020617" stroke-width="80" opacity="0.18"/>
+  </g>
 </svg>
