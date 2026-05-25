@@ -180,14 +180,13 @@ func _draw_trajectory_preview() -> void:
 		draw_circle(_world_to_screen(pos), TRAJECTORY_DOT_RADIUS, Color(1.0, 1.0, 1.0, alpha))
 
 func _draw_distant_mountains() -> void:
-	var offset: float = camera_x * 0.18
 	var points: PackedVector2Array = PackedVector2Array()
-	points.append(Vector2(-60.0, VIEW_SIZE.y))
-	for i: int in range(9):
-		var x: float = float(i) * 150.0 - fmod(offset, 150.0) - 60.0
+	points.append(Vector2(-120.0, VIEW_SIZE.y))
+	for i: int in range(10):
+		var x: float = float(i) * 150.0 - 120.0
 		var y: float = 295.0 + 48.0 * sin(float(i) * 1.7)
 		points.append(Vector2(x, y))
-	points.append(Vector2(VIEW_SIZE.x + 60.0, VIEW_SIZE.y))
+	points.append(Vector2(VIEW_SIZE.x + 120.0, VIEW_SIZE.y))
 	draw_colored_polygon(points, Color(0.08, 0.10, 0.13))
 
 func _draw_wind_widget() -> void:
