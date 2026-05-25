@@ -514,6 +514,17 @@ func _spawn_destroyed_smoke_puff() -> void:
 		rng.randf_range(-DESTROYED_SMOKE_DRIFT_SPEED, DESTROYED_SMOKE_DRIFT_SPEED)
 	))
 
+func _camera_target_x() -> float:
+	if game_over and destroyed_tank_index >= 0 and destroyed_tank_index < tank_positions.size():
+		var focus_x: float = tank_positions[destroyed_tank_index].x
+		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+		return clampf(
+			focus_x - camera_world_width * 0.5,
+			0.0,
+			maxf(0.0, active_world_width - camera_world_width)
+		)
+	return super._camera_target_x()
+
 func _draw() -> void:
 	super._draw()
 	_draw_destroyed_smoke_puffs()
