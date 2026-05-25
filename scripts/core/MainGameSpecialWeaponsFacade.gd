@@ -45,6 +45,10 @@ func reset_match() -> void:
 	super.reset_match()
 
 func _process(delta: float) -> void:
+	if game_over and menu_state == MENU_STATE_GAME:
+		_process_game_over_visuals(delta)
+		return
+
 	_update_machine_gun_burst(delta)
 	super._process(delta)
 	_maybe_finish_machine_gun_turn()
