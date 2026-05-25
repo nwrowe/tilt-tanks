@@ -219,10 +219,6 @@ func _process_game_over_visuals(delta: float) -> void:
 		explosion_timer = maxf(0.0, explosion_timer - delta)
 		if explosion_timer <= 0.0:
 			explosion_pos = Vector2.INF
-	if cluster_camera_hold_timer > 0.0:
-		cluster_camera_hold_timer = maxf(0.0, cluster_camera_hold_timer - delta)
-		if cluster_camera_hold_timer <= 0.0:
-			cluster_camera_hold_pos = Vector2.INF
 	_update_camera(delta)
 	_update_ui()
 	_update_destroyed_smoke(delta)
