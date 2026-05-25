@@ -167,10 +167,8 @@ func _build_overlay_ui() -> void:
 	var end_rematch_button: Button = EndPopup.make_rematch_button(end_panel)
 	end_rematch_button.pressed.connect(reset_match)
 
-	var end_quit_button: Button = EndPopup.make_quit_button(end_panel)
-	end_quit_button.pressed.connect(func() -> void:
-		get_tree().quit()
-	)
+	var end_main_menu_button: Button = EndPopup.make_main_menu_button(end_panel)
+	end_main_menu_button.pressed.connect(_return_to_main_menu)
 
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
