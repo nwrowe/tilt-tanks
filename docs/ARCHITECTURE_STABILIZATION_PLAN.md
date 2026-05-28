@@ -9,13 +9,14 @@ This document remains as a roadmap, but the remaining architecture work should n
 ## Current Active Entry
 
 ```text
-scenes/Main.tscn -> scripts/core/MainGameLevelFacade.gd
+scenes/Main.tscn -> scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
 ## Current Active Facade Chain
 
 ```text
-MainGameLevelFacade.gd
+MainGameSpecialWeaponsFacade.gd
+ -> MainGameLevelFacade.gd
  -> MainGameModeFacade.gd
  -> MainGameDefinitionFacade.gd
  -> MainGameCameraHold.gd
@@ -34,6 +35,8 @@ MainGameLevelFacade.gd
 ```
 
 This is still a long inheritance chain, but it now has clear named layers instead of numbered prototype files. The next goal is not to keep splitting forever; the next goal is to use these seams to add game content safely.
+
+`MainGameSpecialWeaponsFacade.gd` is the current top runtime facade. It contains special weapon behavior and camera/turn glue added after the data-driven weapon pass. It should not become another general dumping ground; new feature work should prefer the organized module seams below.
 
 ## Completed Stabilization Work
 
@@ -187,6 +190,7 @@ Added:
 
 ```text
 scripts/core/MainGameCameraHold.gd
+scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
 Current status:
@@ -194,6 +198,7 @@ Current status:
 ```text
 - Camera holds briefly after player-relevant explosions.
 - Realtime AI explosions do not pull the camera away from the human player.
+- Special weapon behaviors are integrated above the stabilized level/mode/weapon facade chain.
 ```
 
 ## Recommendation Going Forward
@@ -208,6 +213,7 @@ New level type     -> LevelDefinition / LevelRegistry first.
 Campaign feature   -> CampaignModeController + LevelDefinition + WeaponLoadout.
 Multiplayer work   -> NetworkCommand / CommandBuffer / NetworkMultiplayerModeController.
 Mode behavior      -> ModeController facade first, not MainGame.gd.
+Special weapon     -> WeaponDefinition first, then the smallest behavior hook needed in the active facade or a dedicated weapon behavior helper.
 ```
 
 ## Short-Term Feature Roadmap
@@ -215,11 +221,12 @@ Mode behavior      -> ModeController facade first, not MainGame.gd.
 Recommended next gameplay work:
 
 ```text
-1. Add one new weapon using WeaponDefinition.
-2. Add a level-select menu with the placeholder level IDs.
-3. Add campaign level 1 as a simple scripted level/loadout.
-4. Add more visual polish: explosion effects, tank hit feedback, UI sounds.
-5. Only after local gameplay feels strong, begin network multiplayer prototype.
+1. Preserve the current baseline with a tag or release branch.
+2. Add one new weapon using WeaponDefinition.
+3. Add a level-select menu with the placeholder level IDs.
+4. Add campaign level 1 as a simple scripted level/loadout.
+5. Add more visual polish: explosion effects, tank hit feedback, UI sounds.
+6. Only after local gameplay feels strong, begin network multiplayer prototype.
 ```
 
 ## Stability Checklist
@@ -234,6 +241,11 @@ After each feature commit, test:
 - Standard weapon fires
 - Heavy weapon fires
 - Cluster weapon splits
+- Laser weapon resolves
+- Tactical Nuke resolves
+- Bouncer weapon resolves
+- Ground Bomb resolves
+- Machine Gun burst resolves
 - player explosion camera hold works
 - realtime AI explosions do not steal camera
 - water collision works
@@ -241,4 +253,5 @@ After each feature commit, test:
 - pause/menu overlay works
 - rematch works
 - return to main menu works
+- Android export still completes
 ```
