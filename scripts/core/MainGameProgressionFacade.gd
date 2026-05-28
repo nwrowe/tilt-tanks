@@ -6,8 +6,8 @@ extends "res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 
 const TANK_PANEL_SIZE: Vector2 = Vector2(330.0, 318.0)
 const TANK_PANEL_POS: Vector2 = Vector2(548.0, 58.0)
-const TANK_SETUP_BUTTON_POS: Vector2 = Vector2(704.0, 14.0)
-const TANK_SETUP_BUTTON_SIZE: Vector2 = Vector2(132.0, 36.0)
+const TANK_SETUP_BUTTON_POS: Vector2 = Vector2(698.0, 12.0)
+const TANK_SETUP_BUTTON_SIZE: Vector2 = Vector2(76.0, 38.0)
 
 var tank_classes: Dictionary = {}
 var tank_upgrades: Dictionary = {}
