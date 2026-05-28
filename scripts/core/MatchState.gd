@@ -16,7 +16,7 @@ var player_power_percents: Array[float] = [50.0, 50.0]
 
 var wind: float = 0.0
 var turn_timer: float = 0.0
-game_over: bool = false
+var game_over: bool = false
 var winner_index: int = -1
 
 var game_mode: int = 0
