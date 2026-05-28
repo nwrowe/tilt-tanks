@@ -2,13 +2,15 @@
 
 ## Refactor Phase Status
 
-The game is working and routes active gameplay through:
+The game is working and now routes active gameplay through:
 
 ```text
-scenes/Main.tscn -> scripts/core/MainGame.gd
+scenes/Main.tscn -> scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
-The numbered `MainHybridModesXX.gd` prototype wrappers have been removed from the active chain. Active behavior now runs through named bridge files in `scripts/modes/` and `scripts/weapons/`.
+The numbered `MainHybridModesXX.gd` prototype wrappers have been removed from the active top-level workflow. Active behavior now runs through named bridge/facade files and organized modules under `scripts/`.
+
+This refactor phase is complete enough for gameplay work to continue. Remaining architecture cleanup should be treated as future hardening, not a prerequisite for every new feature.
 
 ## Stable Backups
 
@@ -24,24 +26,38 @@ A newer backup before the weapon-runtime bridge move is:
 backup/pre-flatten-mainhybrid15-2026-05-15
 ```
 
-Use these branches as rollback points if a later cleanup step breaks gameplay.
+The current demonstrator should also be preserved with a new tag or release branch before larger feature work resumes.
+
+Recommended tag name:
+
+```text
+stable-demonstrator-2026-05-28
+```
 
 ## Current Active Entry and Chain
 
 The active scene script is:
 
 ```text
-scripts/core/MainGame.gd
+scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
 Current stable active inheritance chain:
 
 ```text
-MainGame.gd
- -> scripts/weapons/WeaponRuntimeBridge.gd
- -> scripts/modes/RealtimeAIAimingBridge.gd
- -> scripts/modes/WorldRuntimeBridge.gd
- -> scripts/modes/ModeRuntimeBridge.gd
+MainGameSpecialWeaponsFacade.gd
+ -> MainGameLevelFacade.gd
+ -> MainGameModeFacade.gd
+ -> MainGameDefinitionFacade.gd
+ -> MainGameCameraHold.gd
+ -> MainGame.gd
+ -> MatchRuntimeBridge.gd
+ -> WeaponSplitRuntimeBridge.gd
+ -> WeaponDefinitionRuntimeBridge.gd
+ -> WeaponRuntimeBridge.gd
+ -> RealtimeAIAimingBridge.gd
+ -> WorldRuntimeBridge.gd
+ -> ModeRuntimeBridge.gd
  -> MainWithMenus.gd
  -> MainStableTweaks.gd
  -> MainStablePowerPercent.gd
@@ -60,9 +76,10 @@ Earlier attempts to bulk-flatten `MainWithMenus.gd` into the mode bridge, and la
 
 ```text
 - Do not create additional MainHybridModesXX.gd wrappers.
-- Keep MainGame.gd as the active gameplay facade.
-- Put new gameplay glue in MainGame.gd only when it must coordinate multiple systems.
-- Put extracted logic in scripts/terrain, scripts/weapons, scripts/modes, scripts/ui, or scripts/effects.
+- Treat MainGameSpecialWeaponsFacade.gd as the active gameplay facade.
+- Do not add broad new feature logic to the frozen legacy chain.
+- Put new gameplay glue in the active facade only when it must coordinate multiple systems.
+- Put extracted logic in scripts/core, scripts/terrain, scripts/weapons, scripts/levels, scripts/modes, scripts/ui, scripts/effects, or scripts/network.
 - Prefer small commits and gameplay testing after each inheritance-boundary change.
 - Do not flatten MainWithMenus/MainStableTweaks in one pass.
 ```
@@ -72,15 +89,32 @@ Earlier attempts to bulk-flatten `MainWithMenus.gd` into the mode bridge, and la
 ```text
 scripts/
   core/
+    MainGameSpecialWeaponsFacade.gd
+    MainGameLevelFacade.gd
+    MainGameModeFacade.gd
+    MainGameDefinitionFacade.gd
+    MainGameCameraHold.gd
     MainGame.gd
+    MatchController.gd
+    MatchState.gd
+    MatchRuntimeBridge.gd
 
   modes/
-    GameMode.gd
-    HotseatMode.gd
-    RealtimeSinglePlayerMode.gd
+    ModeController.gd
+    HotseatModeController.gd
+    RealtimeSinglePlayerModeController.gd
+    RealtimeAIController.gd
+    ActiveModeState.gd
+    ModeControllerRegistry.gd
+    CampaignModeController.gd
+    NetworkMultiplayerModeController.gd
     RealtimeAIAimingBridge.gd
     WorldRuntimeBridge.gd
     ModeRuntimeBridge.gd
+
+  levels/
+    LevelDefinition.gd
+    LevelRegistry.gd
 
   terrain/
     TerrainManager.gd
@@ -89,10 +123,15 @@ scripts/
     SnowManager.gd
 
   weapons/
+    WeaponDefinition.gd
+    WeaponRegistry.gd
+    WeaponLoadout.gd
     WeaponCatalog.gd
     ProjectileFactory.gd
     ProjectileManager.gd
     WeaponRuntimeBridge.gd
+    WeaponDefinitionRuntimeBridge.gd
+    WeaponSplitRuntimeBridge.gd
 
   effects/
     EffectsManager.gd
@@ -103,64 +142,26 @@ scripts/
     WeaponSelectMenu.gd
     MobileControls.gd
     EndPopup.gd
+
+  network/
+    NetworkCommand.gd
+    CommandBuffer.gd
 ```
 
 ## Completed Work
 
 ```text
-- Created clean core entry direction with MainGame.gd.
-- Verified Main.tscn points to res://scripts/core/MainGame.gd.
-- Added CURRENT_ARCHITECTURE.md to describe the post-refactor structure.
+- Created clean core entry direction with named facades.
+- Verified Main.tscn points to res://scripts/core/MainGameSpecialWeaponsFacade.gd.
+- Added CURRENT_ARCHITECTURE.md to describe the current stable demonstrator structure.
 - Added ACTIVE_FACADE.md to document the active facade boundary and frozen legacy-chain rules.
+- Added STABLE_BASELINE.md to mark the stable demonstrator checkpoint.
 - Added LEGACY_CHAIN.md to document the frozen legacy chain, where new work goes, and how to remove the chain later.
-- Added WeaponCatalog, ProjectileFactory, and ProjectileManager.
+- Added WeaponCatalog, WeaponDefinition, WeaponRegistry, WeaponLoadout, ProjectileFactory, and ProjectileManager.
 - Added TerrainMath, TerrainManager, WaterManager, and SnowManager.
 - Added UIManager, MobileControls, WeaponSelectMenu, PauseMenu, and EndPopup helpers.
 - Added EffectsManager.
-- Added HotseatMode and RealtimeSinglePlayerMode helpers.
-- Added and tested temporary MainGameModes.gd mode facade.
-- Folded MainGameModes.gd overrides back into MainGame.gd.
-- Removed inactive temporary MainGameModes.gd facade.
-- Routed active mobile/menu button construction and styling through UI helpers.
-- Routed active weapon menu construction through WeaponSelectMenu.gd.
-- Routed active overlay UI construction through MobileControls.gd and EndPopup.gd while keeping callbacks in the active game script.
-- Routed active terrain utility methods, terrain generation, render geometry, and crater deformation through TerrainManager/TerrainMath.
-- Routed active pond generation, pond reflow, water query helpers, water draw geometry, tank floating height, and water movement speed through WaterManager.gd.
-- Routed active snow detection, slope, movement adjustment, and filled snow cap geometry through SnowManager.gd.
-- Restored the newer filled-face snow visuals and uphill-slow snow behavior after a regression during extraction.
-- Routed hotseat and realtime keyboard charge begin/release decisions through mode helpers.
-- Fixed top-level crater deformation to explicitly reflow ponds after terrain changes.
-- Moved active weapon runtime behavior into scripts/weapons/WeaponRuntimeBridge.gd.
-- Added realtime AI turret smoothing in scripts/modes/RealtimeAIAimingBridge.gd.
-- Moved active world/runtime behavior into scripts/modes/WorldRuntimeBridge.gd.
-- Moved active mode/runtime behavior into scripts/modes/ModeRuntimeBridge.gd.
-- Removed obsolete numbered MainHybridModes wrappers from the active chain.
-- Preserved stable lower menu/terrain boundary after failed bulk flatten attempts.
+- Added mode controllers and passive network/campaign seams.
+- Added level definitions and level registry.
+- Added special weapon behavior through the active special-weapons facade.
 ```
-
-## Remaining Hardening
-
-The legacy chain is much shorter, but `MainGame.gd` still does not extend `Node2D` directly.
-
-Remaining active legacy/base files:
-
-```text
-scripts/MainWithMenus.gd
-scripts/MainStableTweaks.gd
-scripts/MainStablePowerPercent.gd
-scripts/Main.gd
-```
-
-Recommended next hardening pass:
-
-```text
-1. Keep the current working state as the test baseline.
-2. Treat MainWithMenus.gd as the next rename/move candidate, but do not bulk-flatten it.
-3. Prefer introducing a named UI/Menu bridge first, then rerouting inheritance, then moving body after testing.
-4. Treat MainStableTweaks/MainStablePowerPercent/Main.gd as fragile lower base layers until behavior parity is confirmed.
-5. Only after behavior parity is confirmed should MainGame.gd extend Node2D directly.
-```
-
-## Rule Going Forward
-
-Do not add another `MainHybridModes20.gd`. New work should happen in organized modules or through `MainGame.gd` as the active facade.
