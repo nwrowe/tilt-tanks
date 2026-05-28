@@ -9,13 +9,14 @@ class_name MatchState
 var current_player: int = 0
 var tank_positions: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var tank_health: Array[int] = [100, 100]
+var tank_builds: Array[TankBuildState] = [TankProgressionRegistry.default_player_build(0), TankProgressionRegistry.default_player_build(1)]
 var player_angles: Array[float] = [45.0, 45.0]
 var player_powers: Array[float] = [800.0, 800.0]
 var player_power_percents: Array[float] = [50.0, 50.0]
 
 var wind: float = 0.0
 var turn_timer: float = 0.0
-var game_over: bool = false
+game_over: bool = false
 var winner_index: int = -1
 
 var game_mode: int = 0
@@ -37,6 +38,7 @@ func reset_players(
 	current_player = 0
 	tank_positions = [left_start, right_start]
 	tank_health = [100, 100]
+	tank_builds = [TankProgressionRegistry.default_player_build(0), TankProgressionRegistry.default_player_build(1)]
 	player_angles = [default_angle, default_angle]
 	player_powers = [default_power, default_power]
 	player_power_percents = [default_power_percent, default_power_percent]
@@ -53,6 +55,18 @@ func reset_projectile_state() -> void:
 func mark_winner(index: int) -> void:
 	winner_index = index
 	game_over = index >= 0
+
+func tank_build_for_player(player_index: int) -> TankBuildState:
+	if player_index >= 0 and player_index < tank_builds.size():
+		return tank_builds[player_index]
+	return TankProgressionRegistry.default_player_build(player_index)
+
+func set_tank_build_for_player(player_index: int, build: TankBuildState) -> void:
+	if player_index < 0:
+		return
+	while tank_builds.size() <= player_index:
+		tank_builds.append(TankProgressionRegistry.default_player_build(tank_builds.size()))
+	tank_builds[player_index] = build
 
 func active_player_angle() -> float:
 	return float(player_angles[current_player])
