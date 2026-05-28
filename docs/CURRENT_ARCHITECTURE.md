@@ -1,28 +1,52 @@
 # Current Architecture
 
-This document captures the post-refactor working architecture for Tilt Tanks.
+This document captures the current stable demonstrator architecture for Tilt Tanks.
 
 ## Active scene and script
 
-The active scene is:
+The project config points Godot at:
 
 ```text
-scenes/Main.tscn
+res://scenes/Main.tscn
 ```
 
-It should point to:
+The active scene attaches:
 
 ```text
-res://scripts/core/MainGame.gd
+res://scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
-`MainGame.gd` is the active gameplay facade. It currently extends the frozen compatibility chain:
+Current runtime entry:
 
-```gdscript
-extends "res://scripts/MainHybridModes19.gd"
+```text
+project.godot
+ -> scenes/Main.tscn
+ -> scripts/core/MainGameSpecialWeaponsFacade.gd
 ```
 
-That inheritance is intentionally preserved until the later legacy-chain removal pass.
+## Active facade chain
+
+```text
+MainGameSpecialWeaponsFacade.gd
+ -> MainGameLevelFacade.gd
+ -> MainGameModeFacade.gd
+ -> MainGameDefinitionFacade.gd
+ -> MainGameCameraHold.gd
+ -> MainGame.gd
+ -> MatchRuntimeBridge.gd
+ -> WeaponSplitRuntimeBridge.gd
+ -> WeaponDefinitionRuntimeBridge.gd
+ -> WeaponRuntimeBridge.gd
+ -> RealtimeAIAimingBridge.gd
+ -> WorldRuntimeBridge.gd
+ -> ModeRuntimeBridge.gd
+ -> MainWithMenus.gd
+ -> MainStableTweaks.gd
+ -> MainStablePowerPercent.gd
+ -> Main.gd
+```
+
+This inheritance chain is transitional but stable for the current demonstrator. The goal is not to keep adding facade layers. The goal is to use the existing seams for feature work while preserving the working gameplay baseline.
 
 ## Development rule
 
@@ -36,23 +60,17 @@ MainHybridModes21.gd
 ...
 ```
 
-New work should go into `MainGame.gd` or one of the organized helper/manager modules.
+Also avoid creating another top-level facade unless there is a clear, temporary compatibility reason. Prefer the organized modules below.
 
-## MainGame.gd responsibilities
+## Active facade responsibilities
 
-`MainGame.gd` is responsible for active gameplay glue that still needs direct access to game state:
+`MainGameSpecialWeaponsFacade.gd` is the current top gameplay facade. It owns special weapon behavior and camera/turn glue that still needs direct runtime access.
 
-- hotseat charge/release coordination
-- realtime single-player charge/release coordination
-- bridge methods into weapon/projectile helpers
-- bridge methods into effect helpers
-- active overrides that intentionally replace legacy behavior
-
-It should remain relatively thin. Large logic blocks should be extracted into managers/helpers.
+It should remain relatively thin. Large logic blocks should be extracted into managers/helpers, and new feature work should start from the narrowest existing seam.
 
 ## Terrain stack
 
-Terrain-related logic is now split across:
+Terrain-related logic is split across:
 
 ```text
 scripts/terrain/TerrainMath.gd
@@ -75,6 +93,9 @@ The active game still owns terrain/water/snow state for now, but most calculatio
 Weapon and projectile logic is routed through:
 
 ```text
+scripts/weapons/WeaponDefinition.gd
+scripts/weapons/WeaponRegistry.gd
+scripts/weapons/WeaponLoadout.gd
 scripts/weapons/WeaponCatalog.gd
 scripts/weapons/ProjectileFactory.gd
 scripts/weapons/ProjectileManager.gd
@@ -82,31 +103,73 @@ scripts/weapons/ProjectileManager.gd
 
 Responsibilities:
 
-- `WeaponCatalog.gd`: weapon stats and lookup values
+- `WeaponDefinition.gd`: data model for weapon stats and behavior flags
+- `WeaponRegistry.gd`: canonical weapon IDs and default definitions
+- `WeaponLoadout.gd`: active loadout and default weapon selection
+- `WeaponCatalog.gd`: compatibility lookup values for older paths
 - `ProjectileFactory.gd`: projectile dictionary creation, especially cluster children
 - `ProjectileManager.gd`: projectile stepping, hit/out-of-world helpers, shell ownership checks
 
-`MainGame.gd` still coordinates side effects such as explosions, camera focus, turn advancement, and game-over behavior.
+Add weapon data first. Add special behavior code only when the weapon cannot be represented through definitions and existing projectile helpers.
 
 ## Mode stack
 
 Mode decisions are routed through:
 
 ```text
-scripts/modes/HotseatMode.gd
-scripts/modes/RealtimeSinglePlayerMode.gd
+scripts/modes/ModeController.gd
+scripts/modes/HotseatModeController.gd
+scripts/modes/RealtimeSinglePlayerModeController.gd
+scripts/modes/RealtimeAIController.gd
+scripts/modes/ActiveModeState.gd
+scripts/modes/ModeControllerRegistry.gd
+scripts/modes/CampaignModeController.gd
+scripts/modes/NetworkMultiplayerModeController.gd
 ```
 
 Responsibilities:
 
-- hotseat active checks
-- hotseat charge begin/release decisions
-- hotseat charge percent and turn label helpers
-- realtime fire availability
-- realtime charge begin/release decisions
-- realtime charge status label helpers
+- hotseat active checks and charge/release policy
+- realtime single-player fire and charge/release policy
+- realtime AI aim/cooldown policy
+- active mode naming/state
+- placeholder seams for campaign and network multiplayer
 
 Full mode-loop ownership is still a future hardening target.
+
+## Level stack
+
+Level/world data is routed through:
+
+```text
+scripts/levels/LevelDefinition.gd
+scripts/levels/LevelRegistry.gd
+scripts/core/MainGameLevelFacade.gd
+```
+
+Responsibilities:
+
+- level IDs and definitions
+- world width ranges
+- terrain height ranges
+- tank start height ranges
+- wind limits
+- pond chance
+- snow line
+- optional weapon loadout restrictions
+
+Level selection UI and campaign progression are still future work.
+
+## Network readiness
+
+Network/replay readiness is represented by:
+
+```text
+scripts/network/NetworkCommand.gd
+scripts/network/CommandBuffer.gd
+```
+
+These are passive command objects/buffers. They are not an active multiplayer implementation yet.
 
 ## UI stack
 
@@ -120,7 +183,7 @@ scripts/ui/EndPopup.gd
 scripts/ui/UIManager.gd
 ```
 
-These helpers construct and style controls. `MainGame.gd` / the active facade still owns callbacks and gameplay side effects.
+These helpers construct and style controls. The active facade still owns callbacks and gameplay side effects.
 
 ## Effects stack
 
@@ -149,10 +212,10 @@ Do not modify the legacy chain for normal gameplay work. Do not add a new wrappe
 The next architecture step, when ready, is to eliminate the legacy inheritance chain entirely:
 
 1. Create a backup branch.
-2. Inventory remaining inherited state and methods required by `MainGame.gd`.
-3. Move required state into `MainGame.gd` or dedicated controllers/managers.
-4. Change `MainGame.gd` to extend `Node2D` directly.
-5. Test hotseat, realtime, terrain, water, snow, UI, weapons, and effects.
+2. Inventory remaining inherited state and methods required by the active facade chain.
+3. Move required state into `scripts/core` or dedicated controllers/managers.
+4. Reduce the active facade chain, ideally toward a direct `Node2D` runtime root.
+5. Test hotseat, realtime, terrain, water, snow, UI, weapons, effects, and Android export.
 6. Archive or delete legacy scripts only after parity is confirmed.
 
-Until then, this refactor phase is complete and gameplay work can continue in the new structure.
+Until then, this refactor phase is complete and gameplay work can continue through the new structure.
