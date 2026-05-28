@@ -6,7 +6,8 @@ extends "res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 
 const TANK_PANEL_SIZE: Vector2 = Vector2(330.0, 318.0)
 const TANK_PANEL_POS: Vector2 = Vector2(548.0, 58.0)
-const TANK_LINE_HEIGHT: float = 22.0
+const TANK_SETUP_BUTTON_POS: Vector2 = Vector2(704.0, 14.0)
+const TANK_SETUP_BUTTON_SIZE: Vector2 = Vector2(132.0, 36.0)
 
 var tank_classes: Dictionary = {}
 var tank_upgrades: Dictionary = {}
@@ -14,17 +15,19 @@ var tank_crew: Dictionary = {}
 var player_tank_builds: Array[TankBuildState] = []
 var tank_panel: Panel = null
 var tank_summary_label: Label = null
+var tank_setup_button: Button = null
 var tank_panel_player_index: int = 0
 
 func _ready() -> void:
 	_initialize_progression_state()
 	super._ready()
-	_ensure_tank_summary_button()
+	_update_tank_setup_button_visibility()
 
 func reset_match() -> void:
 	_initialize_player_tank_builds()
 	super.reset_match()
 	_sync_match_state_tank_builds()
+	_update_tank_setup_button_visibility()
 	_refresh_tank_summary_panel()
 
 func _initialize_progression_state() -> void:
@@ -51,40 +54,28 @@ func _sync_match_state_tank_builds() -> void:
 
 func _build_overlay_ui() -> void:
 	super._build_overlay_ui()
+	_build_tank_setup_button()
 	_build_tank_summary_panel()
+	_update_tank_setup_button_visibility()
 
-func _add_true_quit_button() -> void:
-	super._add_true_quit_button()
-	_ensure_tank_summary_button()
+func _show_game_ui() -> void:
+	super._show_game_ui()
+	_update_tank_setup_button_visibility()
 
-func _ensure_tank_summary_button() -> void:
-	if menu_panel == null:
+func _return_to_main_menu() -> void:
+	_close_tank_summary_panel()
+	super._return_to_main_menu()
+	_update_tank_setup_button_visibility()
+
+func _build_tank_setup_button() -> void:
+	if ui_layer == null or tank_setup_button != null:
 		return
-	for child: Node in menu_panel.get_children():
-		if child is Button and (child as Button).text == "Tank Setup":
-			return
-	var tank_button: Button = MobileControls.make_button("Tank Setup", Vector2(MENU_PANEL_BUTTON_X, MENU_PANEL_START_Y), Vector2(MENU_PANEL_BUTTON_W, MENU_PANEL_BUTTON_H), menu_panel)
-	tank_button.pressed.connect(_toggle_tank_summary_panel)
-	_relayout_three_line_menu()
+	tank_setup_button = MobileControls.make_button("Tank", TANK_SETUP_BUTTON_POS, TANK_SETUP_BUTTON_SIZE, ui_layer)
+	tank_setup_button.pressed.connect(_toggle_tank_summary_panel)
 
-func _relayout_three_line_menu() -> void:
-	if menu_panel == null:
-		return
-	var buttons_by_label: Dictionary = {}
-	for child: Node in menu_panel.get_children():
-		if child is Button:
-			var button: Button = child as Button
-			if button.text in ["Tank Setup", "Rematch", "Main Menu", "Quit"] and not buttons_by_label.has(button.text):
-				buttons_by_label[button.text] = button
-	var desired_order: Array[String] = ["Tank Setup", "Rematch", "Main Menu", "Quit"]
-	var y: float = MENU_PANEL_START_Y
-	for label: String in desired_order:
-		if buttons_by_label.has(label):
-			var button: Button = buttons_by_label[label] as Button
-			button.position = Vector2(MENU_PANEL_BUTTON_X, y)
-			button.size = Vector2(MENU_PANEL_BUTTON_W, MENU_PANEL_BUTTON_H)
-			y += MENU_PANEL_GAP_Y
-	menu_panel.size = Vector2(230.0, y + 12.0)
+func _update_tank_setup_button_visibility() -> void:
+	if tank_setup_button != null:
+		tank_setup_button.visible = menu_state == MENU_STATE_GAME and not game_over
 
 func _build_tank_summary_panel() -> void:
 	if ui_layer == null or tank_panel != null:
@@ -114,8 +105,14 @@ func _build_tank_summary_panel() -> void:
 	close_button.pressed.connect(_close_tank_summary_panel)
 
 func _toggle_tank_summary_panel() -> void:
+	if tank_setup_button != null:
+		tank_setup_button.release_focus()
 	if tank_panel == null:
 		return
+	if weapon_menu_open:
+		_close_weapon_menu()
+	if menu_panel != null and menu_panel.visible:
+		menu_panel.visible = false
 	tank_panel_player_index = clampi(current_player, 0, 1)
 	tank_panel.visible = not tank_panel.visible
 	if tank_panel.visible:
@@ -196,6 +193,11 @@ func _toggle_weapon_menu() -> void:
 	super._toggle_weapon_menu()
 	overlay_open = _any_overlay_open()
 
+func _show_end_popup() -> void:
+	_close_tank_summary_panel()
+	super._show_end_popup()
+	_update_tank_setup_button_visibility()
+
 func _handle_outside_menu_tap(event: InputEvent) -> bool:
 	var handled: bool = super._handle_outside_menu_tap(event)
 	if handled:
@@ -214,7 +216,7 @@ func _handle_outside_menu_tap(event: InputEvent) -> bool:
 		click_pos = mb.position
 	if not is_press:
 		return false
-	if not _point_inside_control(tank_panel, click_pos) and not _point_inside_control(menu_button, click_pos):
+	if not _point_inside_control(tank_panel, click_pos) and not _point_inside_control(tank_setup_button, click_pos):
 		tank_panel.visible = false
 		overlay_open = _any_overlay_open()
 		return true
