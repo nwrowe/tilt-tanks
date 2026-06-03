@@ -67,6 +67,124 @@ func _return_to_main_menu() -> void:
 	super._return_to_main_menu()
 	_update_tank_setup_button_visibility()
 
+func _on_campaign_pressed() -> void:
+	_show_campaign_hub_menu()
+
+func _show_campaign_hub_menu() -> void:
+	menu_state = MENU_STATE_SINGLE_PLAYER
+	single_player_mode = true
+	_hide_game_ui()
+	_close_tank_summary_panel()
+	_clear_menu_controls()
+	_add_text_label("Campaign", Vector2(0.5, 0.31), Vector2(460, 58), 32)
+	_add_multiline_menu_label(
+		"Choose a campaign level, then visit the garage between levels to upgrade your tank.",
+		Vector2(0.5, 0.40),
+		Vector2(560, 58),
+		18
+	)
+	_add_plain_menu_button("Level 1: Training Grounds", Vector2(0.35, 0.57), Vector2(285, 58), func() -> void:
+		_start_campaign_level(1)
+	)
+	_add_disabled_menu_button("Level 2: Ridge Ambush  (Locked)", Vector2(0.35, 0.68), Vector2(285, 58))
+	_add_plain_menu_button("Tank Garage", Vector2(0.66, 0.57), Vector2(250, 58), _show_tank_garage_menu)
+	_add_plain_menu_button("Back", Vector2(0.5, 0.82), Vector2(210, 58), _show_single_player_menu)
+	queue_redraw()
+
+func _show_tank_garage_menu() -> void:
+	menu_state = MENU_STATE_SINGLE_PLAYER
+	single_player_mode = true
+	_hide_game_ui()
+	_close_tank_summary_panel()
+	_clear_menu_controls()
+	_add_text_label("Tank Garage", Vector2(0.5, 0.25), Vector2(520, 58), 32)
+	_add_multiline_menu_label(_garage_summary_text(0), Vector2(0.33, 0.55), Vector2(360, 260), 17)
+	_add_text_label("Available Upgrades", Vector2(0.70, 0.40), Vector2(310, 36), 22)
+	_add_upgrade_preview_buttons()
+	_add_plain_menu_button("Back", Vector2(0.5, 0.86), Vector2(210, 58), _show_campaign_hub_menu)
+	queue_redraw()
+
+func _start_campaign_level(level_index: int) -> void:
+	_select_campaign_mode()
+	_start_game(true)
+
+func _garage_summary_text(player_index: int) -> String:
+	var build: TankBuildState = _tank_build_for_player(player_index)
+	var tank_class: TankClassDefinition = TankProgressionRegistry.get_tank_class(tank_classes, build.tank_class_id)
+	var stats: Dictionary = TankProgressionRegistry.effective_stats(build, tank_classes, tank_upgrades, tank_crew)
+	var lines: Array[String] = []
+	lines.append("Player %d Tank" % (player_index + 1))
+	lines.append("Class: %s  (Tier %d)" % [tank_class.display_name, tank_class.tier])
+	lines.append("Credits: %d" % build.credits)
+	lines.append("")
+	lines.append("Health: %.0f" % float(stats.get(TankProgressionRegistry.STAT_MAX_HEALTH, 100.0)))
+	lines.append("Armor: %.0f%%" % (100.0 * float(stats.get(TankProgressionRegistry.STAT_DAMAGE_RESIST, 0.0))))
+	lines.append("Fire Power: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_FIRE_POWER, 1.0)))
+	lines.append("Aim Stability: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_AIM_STABILITY, 1.0)))
+	lines.append("Reload: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_RELOAD_SPEED, 1.0)))
+	lines.append("Engine: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_ENGINE_POWER, 1.0)))
+	lines.append("Tracks: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_TRACK_GRIP, 1.0)))
+	lines.append("")
+	lines.append("Installed: %s" % _upgrade_summary(build))
+	return "\n".join(lines)
+
+func _add_upgrade_preview_buttons() -> void:
+	var upgrade_ids: Array[String] = [
+		"stabilized_barrel_mk1",
+		"reinforced_armor_mk1",
+		"wide_tracks_mk1",
+		"engine_tune_mk1"
+	]
+	var y_anchor: float = 0.49
+	for upgrade_id: String in upgrade_ids:
+		var upgrade: TankUpgradeDefinition = TankProgressionRegistry.get_upgrade(tank_upgrades, upgrade_id)
+		if upgrade == null:
+			continue
+		_add_disabled_menu_button(
+			"%s  -  %d cr" % [upgrade.display_name, upgrade.purchase_cost],
+			Vector2(0.70, y_anchor),
+			Vector2(320, 44)
+		)
+		y_anchor += 0.085
+	_add_multiline_menu_label("Purchase flow coming next; this screen establishes the garage location and upgrade list.", Vector2(0.70, 0.78), Vector2(340, 64), 15)
+
+func _add_plain_menu_button(text: String, anchor: Vector2, size: Vector2, callback: Callable) -> Button:
+	var button: Button = Button.new()
+	button.text = text
+	button.size = size
+	button.position = _anchored_position(anchor, size)
+	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(callback)
+	_style_menu_button(button)
+	menu_layer.add_child(button)
+	menu_buttons.append(button)
+	return button
+
+func _add_disabled_menu_button(text: String, anchor: Vector2, size: Vector2) -> Button:
+	var button: Button = _add_plain_menu_button(text, anchor, size, func() -> void:
+		return
+	)
+	button.disabled = true
+	button.modulate = Color(1.0, 1.0, 1.0, 0.62)
+	return button
+
+func _add_multiline_menu_label(text: String, anchor: Vector2, size: Vector2, font_size: int) -> Label:
+	var label: Label = Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size = size
+	label.position = _anchored_position(anchor, size)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	menu_layer.add_child(label)
+	menu_buttons.append(label)
+	return label
+
 func _build_tank_setup_button() -> void:
 	if ui_layer == null or tank_setup_button != null:
 		return
