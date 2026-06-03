@@ -4,6 +4,21 @@ extends "res://scripts/core/MainGameCameraHold.gd"
 # the active source of truth even while MainGame.gd still contains older
 # hardcoded weapon facade methods.
 
+var player_selected_weapons: Array[String] = [WEAPON_STANDARD, WEAPON_STANDARD]
+
+func reset_match() -> void:
+	player_selected_weapons = [WEAPON_STANDARD, WEAPON_STANDARD]
+	selected_weapon = WEAPON_STANDARD
+	super.reset_match()
+
+func _save_runtime_current_player_settings() -> void:
+	_store_current_player_selected_weapon()
+	super._save_runtime_current_player_settings()
+
+func _load_current_player_settings() -> void:
+	super._load_current_player_settings()
+	_load_current_player_selected_weapon()
+
 func _build_weapon_ui() -> void:
 	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
 	weapon_button.pressed.connect(_toggle_weapon_menu)
@@ -15,12 +30,29 @@ func _build_weapon_ui() -> void:
 	for weapon_id: String in active_weapon_loadout.weapon_ids:
 		var option_button: Button = WeaponSelectMenu.make_list_option_button(weapon_list, _weapon_display_name(weapon_id))
 		option_button.pressed.connect(func(id: String = weapon_id) -> void:
-			selected_weapon = _safe_selected_weapon(id)
+			_set_selected_weapon_for_current_player(id)
 			_close_weapon_menu()
 		)
 
 	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 334))
 	close_button.pressed.connect(_close_weapon_menu)
+
+func _set_selected_weapon_for_current_player(weapon_id: String) -> void:
+	selected_weapon = _safe_selected_weapon(weapon_id)
+	_store_current_player_selected_weapon()
+
+func _store_current_player_selected_weapon() -> void:
+	if current_player < 0:
+		return
+	while player_selected_weapons.size() <= current_player:
+		player_selected_weapons.append(WEAPON_STANDARD)
+	player_selected_weapons[current_player] = selected_weapon
+
+func _load_current_player_selected_weapon() -> void:
+	if current_player >= 0 and current_player < player_selected_weapons.size():
+		selected_weapon = _safe_selected_weapon(player_selected_weapons[current_player])
+	else:
+		selected_weapon = WEAPON_STANDARD
 
 func _weapon_definition(weapon: String) -> WeaponDefinition:
 	return WeaponRegistry.get_definition(weapon_definitions, weapon)
