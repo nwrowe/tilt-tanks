@@ -19,6 +19,8 @@ var tank_panel: Panel = null
 var tank_summary_label: Label = null
 var tank_setup_button: Button = null
 var tank_panel_player_index: int = 0
+var campaign_map_scroll: ScrollContainer = null
+var campaign_map_dragging: bool = false
 
 func _ready() -> void:
 	_initialize_progression_state()
@@ -69,6 +71,11 @@ func _return_to_main_menu() -> void:
 	super._return_to_main_menu()
 	_update_tank_setup_button_visibility()
 
+func _clear_menu_controls() -> void:
+	campaign_map_scroll = null
+	campaign_map_dragging = false
+	super._clear_menu_controls()
+
 func _on_campaign_pressed() -> void:
 	_show_campaign_hub_menu()
 
@@ -91,13 +98,17 @@ func _build_campaign_map_scroll() -> void:
 	scroll.position = Vector2.ZERO
 	scroll.size = viewport_size
 	scroll.custom_minimum_size = viewport_size
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	scroll.gui_input.connect(_on_campaign_map_scroll_gui_input)
+	campaign_map_scroll = scroll
 	menu_layer.add_child(scroll)
 	menu_buttons.append(scroll)
 
 	var map_root: Control = Control.new()
 	map_root.custom_minimum_size = CAMPAIGN_MAP_SIZE
 	map_root.size = CAMPAIGN_MAP_SIZE
+	map_root.mouse_filter = Control.MOUSE_FILTER_PASS
+	map_root.gui_input.connect(_on_campaign_map_scroll_gui_input)
 	scroll.add_child(map_root)
 
 	_add_campaign_map_background(map_root)
@@ -112,6 +123,40 @@ func _build_campaign_map_scroll() -> void:
 	_add_campaign_level_node(map_root, 4, "Factory\nSiege", Vector2(1185.0, 295.0), false)
 	_add_campaign_level_node(map_root, 5, "Canyon\nRun", Vector2(1545.0, 350.0), false)
 	_add_campaign_level_node(map_root, 6, "Final\nFortress", Vector2(1900.0, 270.0), false)
+
+func _on_campaign_map_scroll_gui_input(event: InputEvent) -> void:
+	if campaign_map_scroll == null:
+		return
+	if event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		_scroll_campaign_map_by(-drag.relative.x)
+		campaign_map_scroll.accept_event()
+	elif event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		campaign_map_dragging = touch.pressed
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			campaign_map_dragging = mb.pressed
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_scroll_campaign_map_by(-90.0)
+			campaign_map_scroll.accept_event()
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_scroll_campaign_map_by(90.0)
+			campaign_map_scroll.accept_event()
+	elif event is InputEventMouseMotion and campaign_map_dragging:
+		var motion: InputEventMouseMotion = event as InputEventMouseMotion
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_scroll_campaign_map_by(-motion.relative.x)
+			campaign_map_scroll.accept_event()
+		else:
+			campaign_map_dragging = false
+
+func _scroll_campaign_map_by(delta_x: float) -> void:
+	if campaign_map_scroll == null:
+		return
+	var max_scroll: int = maxi(0, int(CAMPAIGN_MAP_SIZE.x - campaign_map_scroll.size.x))
+	campaign_map_scroll.scroll_horizontal = clampi(campaign_map_scroll.scroll_horizontal + int(round(delta_x)), 0, max_scroll)
 
 func _add_campaign_map_background(parent: Control) -> void:
 	if ResourceLoader.exists(CAMPAIGN_MAP_BG_PATH):
@@ -169,7 +214,7 @@ func _add_campaign_level_node(parent: Control, level_index: int, label_text: Str
 	button.size = Vector2(96.0, 96.0)
 	button.focus_mode = Control.FOCUS_NONE
 	button.disabled = not unlocked
-	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	button.mouse_filter = Control.MOUSE_FILTER_PASS if unlocked else Control.MOUSE_FILTER_IGNORE
 	_style_campaign_level_button(button, unlocked)
 	parent.add_child(button)
 	if unlocked:
