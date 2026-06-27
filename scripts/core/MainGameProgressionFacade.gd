@@ -13,6 +13,14 @@ const CAMPAIGN_MAP_SIZE: Vector2 = Vector2(2200.0, 540.0)
 const HOTSEAT_START_TURN_BUTTON_SIZE: Vector2 = Vector2(300.0, 68.0)
 const HOTSEAT_START_TURN_BUTTON_POS: Vector2 = Vector2(300.0, 238.0)
 
+const GAME_MODE_ONLINE_DUEL: int = 3
+const ONLINE_DUEL_DEFAULT_HOST: String = "127.0.0.1"
+const ONLINE_DUEL_DEFAULT_PORT: int = 23458
+const ONLINE_DUEL_MAX_CLIENTS: int = 1
+const ONLINE_DUEL_HOST_PLAYER: int = 0
+const ONLINE_DUEL_CLIENT_PLAYER: int = 1
+const ONLINE_DUEL_SNAPSHOT_INTERVAL: float = 0.10
+
 var tank_classes: Dictionary = {}
 var tank_upgrades: Dictionary = {}
 var tank_crew: Dictionary = {}
@@ -26,6 +34,17 @@ var campaign_map_dragging: bool = false
 var hotseat_turn_start_pending: bool = false
 var hotseat_start_turn_button: Button = null
 
+var online_peer: ENetMultiplayerPeer = null
+var online_is_host: bool = false
+var online_connected: bool = false
+var online_local_player: int = ONLINE_DUEL_HOST_PLAYER
+var online_remote_peer_id: int = 0
+var online_status_text: String = ""
+var online_sync_timer: float = 0.0
+var online_client_waiting_for_authority: bool = false
+var online_join_host_field: LineEdit = null
+var online_join_port_field: LineEdit = null
+
 func _ready() -> void:
 	_initialize_progression_state()
 	super._ready()
@@ -33,12 +52,15 @@ func _ready() -> void:
 
 func reset_match() -> void:
 	hotseat_turn_start_pending = false
+	online_client_waiting_for_authority = false
 	_initialize_player_tank_builds()
 	super.reset_match()
 	_sync_match_state_tank_builds()
 	_update_tank_setup_button_visibility()
 	_refresh_tank_summary_panel()
 	_arm_hotseat_turn_start_prompt()
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
 
 func _initialize_progression_state() -> void:
 	if tank_classes.is_empty():
@@ -77,6 +99,7 @@ func _return_to_main_menu() -> void:
 	hotseat_turn_start_pending = false
 	_update_hotseat_start_turn_button()
 	_close_tank_summary_panel()
+	_online_disconnect()
 	super._return_to_main_menu()
 	_update_tank_setup_button_visibility()
 	_update_hotseat_start_turn_button()
@@ -84,33 +107,466 @@ func _return_to_main_menu() -> void:
 func _clear_menu_controls() -> void:
 	campaign_map_scroll = null
 	campaign_map_dragging = false
+	online_join_host_field = null
+	online_join_port_field = null
 	super._clear_menu_controls()
 
 func _advance_turn() -> void:
 	super._advance_turn()
 	_arm_hotseat_turn_start_prompt()
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
 
 func _process(delta: float) -> void:
+	if _is_online_duel_active() and not online_is_host:
+		_process_online_client(delta)
+		return
+
 	if _should_hold_for_hotseat_turn_start():
 		_process_hotseat_turn_start_wait(delta)
 		return
 
 	super._process(delta)
 	_update_hotseat_start_turn_button()
+	if _is_online_duel_active() and online_is_host:
+		_online_process_host_sync(delta)
+
+func _process_online_client(delta: float) -> void:
+	if menu_state != MENU_STATE_GAME:
+		queue_redraw()
+		return
+	if _online_is_local_turn() and not _is_hotseat_turn_start_prompt_active() and not online_client_waiting_for_authority:
+		_update_angle_from_input(delta)
+		_update_hotseat_charge(delta)
+	else:
+		_clear_hotseat_handoff_input_state()
+	_update_camera(delta)
+	_update_ui()
+	_update_muzzle_effects(delta)
+	_update_hotseat_start_turn_button()
+	queue_redraw()
 
 func _hotseat_can_begin_charge() -> bool:
 	if _is_hotseat_turn_start_prompt_active():
 		return false
+	if _is_online_duel_active():
+		if not _online_is_local_turn() or online_client_waiting_for_authority:
+			return false
 	return super._hotseat_can_begin_charge()
+
+func _on_fire_pressed() -> void:
+	if _is_online_duel_active():
+		if not _online_is_local_turn():
+			_reset_hotseat_charge()
+			return
+		if not online_is_host:
+			_online_submit_fire_request()
+			return
+	super._on_fire_pressed()
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
 
 func _update_ui() -> void:
 	super._update_ui()
+	if _is_online_duel_active() and menu_state == MENU_STATE_GAME:
+		_update_online_duel_status_ui()
+		return
 	if _is_hotseat_turn_start_prompt_active() and not game_over:
 		status_label.text = "Pass phone to Player %d" % (current_player + 1)
 		power_label.text = "Press START"
 
+func _show_multiplayer_menu() -> void:
+	menu_state = MENU_STATE_MULTIPLAYER
+	single_player_mode = false
+	_hide_game_ui()
+	_clear_menu_controls()
+	_add_menu_button("Hotseat", BUTTON_HOTSEAT_PATH, Vector2(0.5, 0.58), Vector2(310, 72), _on_hotseat_pressed)
+	_add_menu_button("Online Duel", BUTTON_ONLINE_PATH, Vector2(0.5, 0.69), Vector2(310, 72), _on_online_pressed)
+	_add_menu_button("Back", BUTTON_BACK_PATH, Vector2(0.5, 0.82), Vector2(210, 58), _show_main_menu)
+	queue_redraw()
+
 func _on_campaign_pressed() -> void:
 	_show_campaign_hub_menu()
+
+func _on_online_pressed() -> void:
+	_show_online_duel_menu()
+
+func _show_online_duel_menu() -> void:
+	menu_state = MENU_STATE_MULTIPLAYER
+	single_player_mode = false
+	_hide_game_ui()
+	_clear_menu_controls()
+	_add_text_label("Online Duel", Vector2(0.5, 0.16), Vector2(460, 48), 32)
+	_add_multiline_menu_label("Private, turn-based, host-authoritative duel. Host a match, then have your opponent join by IP and port on the same network or through port forwarding.", Vector2(0.5, 0.27), Vector2(700, 72), 17)
+	_add_plain_menu_button("Host Private Duel", Vector2(0.5, 0.42), Vector2(310, 60), _on_online_host_pressed)
+	_add_text_label("Join Host", Vector2(0.5, 0.52), Vector2(240, 34), 20)
+	online_join_host_field = _add_menu_line_edit(ONLINE_DUEL_DEFAULT_HOST, "Host IP", Vector2(0.43, 0.60), Vector2(260, 44))
+	online_join_port_field = _add_menu_line_edit(str(ONLINE_DUEL_DEFAULT_PORT), "Port", Vector2(0.67, 0.60), Vector2(120, 44))
+	_add_plain_menu_button("Join Duel", Vector2(0.5, 0.71), Vector2(310, 58), _on_online_join_pressed)
+	_add_plain_menu_button("Back", Vector2(0.5, 0.84), Vector2(210, 54), _show_multiplayer_menu)
+	queue_redraw()
+
+func _add_menu_line_edit(text: String, placeholder: String, anchor: Vector2, size: Vector2) -> LineEdit:
+	var field: LineEdit = LineEdit.new()
+	field.text = text
+	field.placeholder_text = placeholder
+	field.size = size
+	field.position = _anchored_position(anchor, size)
+	field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	field.add_theme_font_size_override("font_size", 18)
+	menu_layer.add_child(field)
+	menu_buttons.append(field)
+	return field
+
+func _on_online_host_pressed() -> void:
+	_online_disconnect()
+	_online_connect_multiplayer_signals()
+	online_peer = ENetMultiplayerPeer.new()
+	var port: int = _online_menu_port()
+	var err: int = online_peer.create_server(port, ONLINE_DUEL_MAX_CLIENTS)
+	if err != OK:
+		_show_online_status_menu("Could not host Online Duel on port %d. Error: %d" % [port, err])
+		return
+	multiplayer.multiplayer_peer = online_peer
+	online_is_host = true
+	online_connected = true
+	online_local_player = ONLINE_DUEL_HOST_PLAYER
+	online_remote_peer_id = 0
+	online_status_text = "Hosting private duel on port %d. Waiting for guest..." % port
+	game_mode = GAME_MODE_ONLINE_DUEL
+	_start_game(false)
+
+func _on_online_join_pressed() -> void:
+	_online_disconnect()
+	_online_connect_multiplayer_signals()
+	online_peer = ENetMultiplayerPeer.new()
+	var host: String = ONLINE_DUEL_DEFAULT_HOST
+	if online_join_host_field != null:
+		host = online_join_host_field.text.strip_edges()
+	if host.is_empty():
+		host = ONLINE_DUEL_DEFAULT_HOST
+	var port: int = _online_menu_port()
+	var err: int = online_peer.create_client(host, port)
+	if err != OK:
+		_show_online_status_menu("Could not join %s:%d. Error: %d" % [host, port, err])
+		return
+	multiplayer.multiplayer_peer = online_peer
+	online_is_host = false
+	online_connected = false
+	online_local_player = ONLINE_DUEL_CLIENT_PLAYER
+	online_remote_peer_id = 1
+	online_status_text = "Connecting to %s:%d..." % [host, port]
+	_show_online_status_menu(online_status_text)
+
+func _show_online_status_menu(message: String) -> void:
+	menu_state = MENU_STATE_MULTIPLAYER
+	_hide_game_ui()
+	_clear_menu_controls()
+	_add_text_label("Online Duel", Vector2(0.5, 0.40), Vector2(460, 48), 30)
+	_add_multiline_menu_label(message, Vector2(0.5, 0.53), Vector2(680, 92), 18)
+	_add_plain_menu_button("Back", Vector2(0.5, 0.74), Vector2(210, 54), _show_online_duel_menu)
+	queue_redraw()
+
+func _online_menu_port() -> int:
+	if online_join_port_field == null:
+		return ONLINE_DUEL_DEFAULT_PORT
+	var parsed: int = int(online_join_port_field.text.strip_edges())
+	if parsed <= 0:
+		return ONLINE_DUEL_DEFAULT_PORT
+	return parsed
+
+func _online_connect_multiplayer_signals() -> void:
+	if not multiplayer.peer_connected.is_connected(_on_online_peer_connected):
+		multiplayer.peer_connected.connect(_on_online_peer_connected)
+	if not multiplayer.peer_disconnected.is_connected(_on_online_peer_disconnected):
+		multiplayer.peer_disconnected.connect(_on_online_peer_disconnected)
+	if not multiplayer.connected_to_server.is_connected(_on_online_connected_to_server):
+		multiplayer.connected_to_server.connect(_on_online_connected_to_server)
+	if not multiplayer.connection_failed.is_connected(_on_online_connection_failed):
+		multiplayer.connection_failed.connect(_on_online_connection_failed)
+	if not multiplayer.server_disconnected.is_connected(_on_online_server_disconnected):
+		multiplayer.server_disconnected.connect(_on_online_server_disconnected)
+
+func _online_disconnect() -> void:
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = null
+	online_peer = null
+	online_is_host = false
+	online_connected = false
+	online_remote_peer_id = 0
+	online_status_text = ""
+	online_sync_timer = 0.0
+	online_client_waiting_for_authority = false
+
+func _on_online_peer_connected(peer_id: int) -> void:
+	if not online_is_host:
+		return
+	online_remote_peer_id = peer_id
+	online_connected = true
+	online_status_text = "Guest connected. Host is Player 1. Guest is Player 2."
+	_online_send_snapshot(true)
+
+func _on_online_peer_disconnected(peer_id: int) -> void:
+	if peer_id == online_remote_peer_id or not online_is_host:
+		online_remote_peer_id = 0
+		online_connected = false
+		online_status_text = "Opponent disconnected."
+		_update_hotseat_start_turn_button()
+
+func _on_online_connected_to_server() -> void:
+	online_connected = true
+	online_is_host = false
+	online_local_player = ONLINE_DUEL_CLIENT_PLAYER
+	online_remote_peer_id = 1
+	online_status_text = "Connected. You are Player 2. Waiting for host state..."
+	game_mode = GAME_MODE_ONLINE_DUEL
+	_start_game(false)
+
+func _on_online_connection_failed() -> void:
+	online_status_text = "Connection failed."
+	_show_online_status_menu(online_status_text)
+	_online_disconnect()
+
+func _on_online_server_disconnected() -> void:
+	online_status_text = "Host disconnected."
+	_show_online_status_menu(online_status_text)
+	_online_disconnect()
+
+func _is_online_duel_active() -> bool:
+	return menu_state == MENU_STATE_GAME and game_mode == GAME_MODE_ONLINE_DUEL
+
+func _online_is_local_turn() -> bool:
+	if not _is_online_duel_active():
+		return true
+	return current_player == online_local_player
+
+func _online_can_use_turn_button() -> bool:
+	if not _is_online_duel_active():
+		return true
+	return _online_is_local_turn() and not online_client_waiting_for_authority
+
+func _online_process_host_sync(delta: float) -> void:
+	if online_remote_peer_id == 0:
+		return
+	online_sync_timer -= delta
+	if online_sync_timer <= 0.0:
+		online_sync_timer = ONLINE_DUEL_SNAPSHOT_INTERVAL
+		_online_send_snapshot(false)
+
+func _online_submit_fire_request() -> void:
+	if not _is_online_duel_active() or online_is_host:
+		return
+	if not _online_is_local_turn() or online_client_waiting_for_authority or _is_hotseat_turn_start_prompt_active():
+		_reset_hotseat_charge()
+		return
+	online_client_waiting_for_authority = true
+	var payload: Dictionary = {
+		"angle": angle_deg,
+		"power_percent": power_percent,
+		"weapon": selected_weapon
+	}
+	_online_request_fire.rpc_id(1, payload)
+	_reset_hotseat_charge()
+	_update_hotseat_start_turn_button()
+
+@rpc("any_peer", "reliable")
+func _online_request_start_turn() -> void:
+	if not _is_online_duel_active() or not online_is_host:
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != online_remote_peer_id:
+		return
+	if current_player != ONLINE_DUEL_CLIENT_PLAYER or not _is_hotseat_turn_start_prompt_active():
+		return
+	_start_pending_turn_locally()
+	_online_send_snapshot(true)
+
+@rpc("any_peer", "reliable")
+func _online_request_fire(payload: Dictionary) -> void:
+	if not _is_online_duel_active() or not online_is_host:
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != online_remote_peer_id:
+		return
+	if current_player != ONLINE_DUEL_CLIENT_PLAYER:
+		return
+	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or _is_hotseat_turn_start_prompt_active():
+		return
+	angle_deg = clampf(float(payload.get("angle", 45.0)), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
+	power_percent = clampf(float(payload.get("power_percent", POWER_PERCENT_DEFAULT)), HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT)
+	power = _power_from_percent(power_percent)
+	selected_weapon = str(payload.get("weapon", WEAPON_STANDARD))
+	player_angles[current_player] = angle_deg
+	player_power_percents[current_player] = power_percent
+	player_powers[current_player] = power
+	hotseat_release_in_progress = true
+	super._on_fire_pressed()
+	hotseat_release_in_progress = false
+	_reset_hotseat_charge()
+	_online_send_snapshot(true)
+
+@rpc("authority", "reliable")
+func _online_receive_snapshot(snapshot: Dictionary) -> void:
+	if online_is_host:
+		return
+	_online_apply_snapshot(snapshot)
+
+func _online_send_snapshot(force: bool) -> void:
+	if not _is_online_duel_active() or not online_is_host:
+		return
+	if online_remote_peer_id == 0:
+		return
+	_online_receive_snapshot.rpc_id(online_remote_peer_id, _online_make_snapshot())
+
+func _online_make_snapshot() -> Dictionary:
+	return {
+		"active_world_width": active_world_width,
+		"active_right_start_x": active_right_start_x,
+		"terrain_points": _online_pack_vec2_array(terrain_points),
+		"ponds": ponds.duplicate(true),
+		"tank_positions": _online_pack_vec2_array(tank_positions),
+		"tank_health": tank_health.duplicate(),
+		"player_angles": player_angles.duplicate(),
+		"player_power_percents": player_power_percents.duplicate(),
+		"player_powers": player_powers.duplicate(),
+		"current_player": current_player,
+		"angle_deg": angle_deg,
+		"power_percent": power_percent,
+		"power": power,
+		"wind": wind,
+		"turn_timer": turn_timer,
+		"game_over": game_over,
+		"selected_weapon": selected_weapon,
+		"projectile_active": projectile_active,
+		"projectile_pos": _online_pack_vec2(projectile_pos),
+		"projectile_vel": _online_pack_vec2(projectile_vel),
+		"turn_projectiles": turn_projectiles.duplicate(true),
+		"explosion_pos": _online_pack_vec2(explosion_pos),
+		"explosion_timer": explosion_timer,
+		"hotseat_turn_start_pending": hotseat_turn_start_pending,
+		"pending_advance_after_explosion_hold": pending_advance_after_explosion_hold,
+		"cluster_camera_hold_timer": cluster_camera_hold_timer,
+		"cluster_camera_hold_pos": _online_pack_vec2(cluster_camera_hold_pos)
+	}
+
+func _online_apply_snapshot(snapshot: Dictionary) -> void:
+	active_world_width = float(snapshot.get("active_world_width", active_world_width))
+	active_right_start_x = float(snapshot.get("active_right_start_x", active_right_start_x))
+	terrain_points.clear()
+	for packed_point: Variant in snapshot.get("terrain_points", []):
+		terrain_points.append(_online_unpack_vec2(packed_point))
+	if not terrain_points.is_empty():
+		_refresh_terrain_line()
+	ponds.clear()
+	for pond: Variant in snapshot.get("ponds", []):
+		if pond is Dictionary:
+			ponds.append((pond as Dictionary).duplicate(true))
+	tank_positions.clear()
+	for packed_tank: Variant in snapshot.get("tank_positions", []):
+		tank_positions.append(_online_unpack_vec2(packed_tank))
+	if tank_positions.size() < 2:
+		tank_positions = [Vector2(TANK_START_LEFT_X, 0.0), Vector2(active_right_start_x, 0.0)]
+	tank_health = _online_int_array(snapshot.get("tank_health", tank_health), tank_health)
+	player_angles = _online_float_array(snapshot.get("player_angles", player_angles), player_angles)
+	player_power_percents = _online_float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
+	player_powers = _online_float_array(snapshot.get("player_powers", player_powers), player_powers)
+	current_player = int(snapshot.get("current_player", current_player))
+	angle_deg = float(snapshot.get("angle_deg", angle_deg))
+	power_percent = float(snapshot.get("power_percent", power_percent))
+	power = float(snapshot.get("power", power))
+	wind = float(snapshot.get("wind", wind))
+	turn_timer = float(snapshot.get("turn_timer", turn_timer))
+	game_over = bool(snapshot.get("game_over", game_over))
+	selected_weapon = str(snapshot.get("selected_weapon", selected_weapon))
+	projectile_active = bool(snapshot.get("projectile_active", projectile_active))
+	projectile_pos = _online_unpack_vec2(snapshot.get("projectile_pos", projectile_pos))
+	projectile_vel = _online_unpack_vec2(snapshot.get("projectile_vel", projectile_vel))
+	turn_projectiles.clear()
+	for shell: Variant in snapshot.get("turn_projectiles", []):
+		if shell is Dictionary:
+			turn_projectiles.append((shell as Dictionary).duplicate(true))
+	explosion_pos = _online_unpack_vec2(snapshot.get("explosion_pos", explosion_pos))
+	explosion_timer = float(snapshot.get("explosion_timer", explosion_timer))
+	hotseat_turn_start_pending = bool(snapshot.get("hotseat_turn_start_pending", hotseat_turn_start_pending))
+	pending_advance_after_explosion_hold = bool(snapshot.get("pending_advance_after_explosion_hold", pending_advance_after_explosion_hold))
+	cluster_camera_hold_timer = float(snapshot.get("cluster_camera_hold_timer", cluster_camera_hold_timer))
+	cluster_camera_hold_pos = _online_unpack_vec2(snapshot.get("cluster_camera_hold_pos", cluster_camera_hold_pos))
+	online_client_waiting_for_authority = false
+	if current_player >= 0 and current_player < player_angles.size():
+		angle_deg = player_angles[current_player]
+	if current_player >= 0 and current_player < player_power_percents.size():
+		power_percent = player_power_percents[current_player]
+		power = _power_from_percent(power_percent)
+	if power_slider != null:
+		power_slider.value = power_percent
+	_sync_match_state_from_runtime()
+	_update_hotseat_start_turn_button()
+	queue_redraw()
+
+func _online_pack_vec2(value: Vector2) -> Dictionary:
+	if value == Vector2.INF:
+		return {"x": INF, "y": INF}
+	return {"x": value.x, "y": value.y}
+
+func _online_unpack_vec2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value as Vector2
+	if value is Dictionary:
+		var data: Dictionary = value as Dictionary
+		return Vector2(float(data.get("x", 0.0)), float(data.get("y", 0.0)))
+	return Vector2.ZERO
+
+func _online_pack_vec2_array(values: Array) -> Array:
+	var packed: Array = []
+	for value: Variant in values:
+		if value is Vector2:
+			packed.append(_online_pack_vec2(value as Vector2))
+	return packed
+
+func _online_float_array(value: Variant, fallback: Array) -> Array:
+	var result: Array = []
+	if value is Array:
+		for entry: Variant in value:
+			result.append(float(entry))
+	else:
+		result = fallback.duplicate()
+	return result
+
+func _online_int_array(value: Variant, fallback: Array) -> Array:
+	var result: Array = []
+	if value is Array:
+		for entry: Variant in value:
+			result.append(int(entry))
+	else:
+		result = fallback.duplicate()
+	return result
+
+func _update_online_duel_status_ui() -> void:
+	if status_label == null or power_label == null:
+		return
+	if game_over:
+		return
+	var role: String = "Host P1" if online_is_host else "Guest P2"
+	var connection: String = "connected" if online_connected else "waiting"
+	if _is_hotseat_turn_start_prompt_active():
+		if _online_is_local_turn():
+			status_label.text = "Online Duel %s (%s): your turn" % [role, connection]
+			power_label.text = "Press START"
+		else:
+			status_label.text = "Online Duel %s (%s): opponent turn" % [role, connection]
+			power_label.text = "Waiting"
+		return
+	if _online_is_local_turn():
+		status_label.text = "Online Duel %s (%s): aim and hold FIRE" % [role, connection]
+		if online_client_waiting_for_authority:
+			power_label.text = "Waiting for host"
+	elif online_status_text.is_empty():
+		status_label.text = "Online Duel %s (%s): opponent turn" % [role, connection]
+		power_label.text = "Waiting"
+	else:
+		status_label.text = online_status_text
+		power_label.text = "Waiting"
 
 func _show_campaign_hub_menu() -> void:
 	menu_state = MENU_STATE_SINGLE_PLAYER
@@ -507,7 +963,19 @@ func _on_hotseat_start_turn_pressed() -> void:
 		hotseat_turn_start_pending = false
 		_update_hotseat_start_turn_button()
 		return
+	if _is_online_duel_active() and not online_is_host:
+		if _online_is_local_turn() and not online_client_waiting_for_authority:
+			online_client_waiting_for_authority = true
+			_online_request_start_turn.rpc_id(1)
+			_update_hotseat_start_turn_button()
+		return
+	if _is_online_duel_active() and not _online_is_local_turn():
+		return
+	_start_pending_turn_locally()
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
 
+func _start_pending_turn_locally() -> void:
 	hotseat_turn_start_pending = false
 	turn_timer = TURN_TIME_LIMIT
 	if match_state != null:
@@ -546,7 +1014,7 @@ func _is_hotseat_turn_start_prompt_active() -> bool:
 	return hotseat_turn_start_pending and _is_hotseat_turn_start_prompt_mode() and not game_over
 
 func _is_hotseat_turn_start_prompt_mode() -> bool:
-	return menu_state == MENU_STATE_GAME and game_mode == GAME_MODE_HOTSEAT and not single_player_mode
+	return menu_state == MENU_STATE_GAME and not single_player_mode and (game_mode == GAME_MODE_HOTSEAT or game_mode == GAME_MODE_ONLINE_DUEL)
 
 func _clear_hotseat_handoff_input_state() -> void:
 	mobile_left_pressed = false
@@ -563,9 +1031,9 @@ func _clear_hotseat_handoff_input_state() -> void:
 func _update_hotseat_start_turn_button() -> void:
 	if hotseat_start_turn_button == null:
 		return
-	var should_show: bool = _is_hotseat_turn_start_prompt_active() and not overlay_open
+	var should_show: bool = _is_hotseat_turn_start_prompt_active() and not overlay_open and _online_can_use_turn_button()
 	hotseat_start_turn_button.visible = should_show
-	hotseat_start_turn_button.disabled = not should_show
+	hotseat_start_turn_button.disabled = not should_show or online_client_waiting_for_authority
 	if should_show:
 		hotseat_start_turn_button.text = "Start P%d Turn" % (current_player + 1)
 
@@ -589,6 +1057,8 @@ func _show_end_popup() -> void:
 	_update_hotseat_start_turn_button()
 	super._show_end_popup()
 	_update_tank_setup_button_visibility()
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
 
 func _handle_outside_menu_tap(event: InputEvent) -> bool:
 	var handled: bool = super._handle_outside_menu_tap(event)
