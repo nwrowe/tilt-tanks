@@ -4,10 +4,7 @@ extends "res://scripts/core/MainGameProgressionFacade.gd"
 # aiming/movement/charging and the countdown timer become active.
 
 const HOTSEAT_START_TURN_BUTTON_SIZE: Vector2 = Vector2(300.0, 68.0)
-const HOTSEAT_START_TURN_BUTTON_POS: Vector2 = Vector2(
-	(VIEW_SIZE.x - HOTSEAT_START_TURN_BUTTON_SIZE.x) * 0.5,
-	VIEW_SIZE.y * 0.44
-)
+const HOTSEAT_START_TURN_BUTTON_POS: Vector2 = Vector2(300.0, 238.0)
 
 var hotseat_turn_start_pending: bool = false
 var hotseat_start_turn_button: Button = null
@@ -102,15 +99,17 @@ func _process_hotseat_turn_start_wait(delta: float) -> void:
 	queue_redraw()
 
 func _should_hold_for_hotseat_turn_start() -> bool:
-	return _is_hotseat_turn_start_prompt_active() \
-		and not overlay_open \
-		and not projectile_active \
-		and turn_projectiles.is_empty() \
-		and not machine_gun_active \
-		and not machine_gun_turn_waiting_for_shells \
-		and not pending_advance_after_explosion_hold \
-		and explosion_timer <= 0.0 \
+	return (
+		_is_hotseat_turn_start_prompt_active()
+		and not overlay_open
+		and not projectile_active
+		and turn_projectiles.is_empty()
+		and not machine_gun_active
+		and not machine_gun_turn_waiting_for_shells
+		and not pending_advance_after_explosion_hold
+		and explosion_timer <= 0.0
 		and cluster_camera_hold_timer <= 0.0
+	)
 
 func _is_hotseat_turn_start_prompt_active() -> bool:
 	return hotseat_turn_start_pending and _is_hotseat_turn_start_prompt_mode() and not game_over
