@@ -7,6 +7,7 @@ const ONLINE_DUEL_IDLE_SYNC_INTERVAL: float = 0.10
 const ONLINE_DUEL_ACTIVE_SYNC_INTERVAL: float = 0.033
 const ONLINE_DUEL_TANK_SMOOTH_TIME: float = 0.14
 const ONLINE_DUEL_PROJECTILE_SMOOTH_TIME: float = 0.055
+const ONLINE_DUEL_TURN_ADVANCE_FALLBACK_DELAY: float = 1.25
 
 var online_host_wait_label: Label = null
 var online_host_wait_seconds: float = 0.0
@@ -17,7 +18,10 @@ var online_client_tank_targets: Array = []
 var online_client_projectile_target: Vector2 = Vector2.INF
 var online_client_was_projectile_active: bool = false
 var online_snapshot_seq: int = 0
-var online_client_last_snapshot_seq: int = -1
+var online_client_last_full_snapshot_seq: int = -1
+var online_client_last_motion_snapshot_seq: int = -1
+var online_turn_advance_fallback_timer: float = 0.0
+var online_turn_advance_fallback_owner: int = -1
 
 func _process(delta: float) -> void:
 	if _is_online_host_waiting_screen_active():
@@ -27,11 +31,13 @@ func _process(delta: float) -> void:
 	super._process(delta)
 
 	if _is_online_duel_active() and online_is_host:
+		_online_process_turn_advance_fallback(delta)
 		_online_maybe_force_pending_turn_advance()
 		_online_process_host_sync(delta)
 
 func reset_match() -> void:
 	_online_clear_client_smoothing()
+	_online_clear_turn_advance_fallback()
 	super.reset_match()
 
 func _clear_menu_controls() -> void:
@@ -43,8 +49,10 @@ func _online_disconnect() -> void:
 	online_host_wait_seconds = 0.0
 	online_host_wait_label = null
 	online_snapshot_seq = 0
-	online_client_last_snapshot_seq = -1
+	online_client_last_full_snapshot_seq = -1
+	online_client_last_motion_snapshot_seq = -1
 	_online_clear_client_smoothing()
+	_online_clear_turn_advance_fallback()
 
 func _on_online_host_pressed() -> void:
 	_online_disconnect()
@@ -119,7 +127,6 @@ func _process_online_client(delta: float) -> void:
 		queue_redraw()
 		return
 
-	_online_update_client_visual_projectile(delta)
 	_online_update_client_interpolation(delta)
 
 	if _online_is_local_turn() and not _is_hotseat_turn_start_prompt_active() and not online_client_waiting_for_authority:
@@ -158,14 +165,33 @@ func _on_fire_pressed() -> void:
 	super._on_fire_pressed()
 
 	if send_fire_event and projectile_active and online_remote_peer_id != 0:
-		_online_send_fire_event(firing_player, firing_angle, firing_power_percent, firing_weapon, projectile_pos, projectile_vel)
+		_online_send_fire_event(firing_player, firing_angle, firing_power_percent, firing_weapon, projectile_pos)
 		_online_send_snapshot(true)
 
 func _advance_turn() -> void:
 	super._advance_turn()
+	_online_clear_turn_advance_fallback()
 	if _is_online_duel_active() and online_is_host:
 		online_sync_timer = 0.0
 		_online_send_snapshot(true)
+
+func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
+	var owner_before_explosion: int = current_player
+	super._explode_turn_weapon(pos, weapon, advance_after)
+	if _is_online_duel_active() and online_is_host:
+		_online_send_snapshot(true)
+		if advance_after and not game_over and current_player == owner_before_explosion:
+			online_turn_advance_fallback_owner = owner_before_explosion
+			online_turn_advance_fallback_timer = ONLINE_DUEL_TURN_ADVANCE_FALLBACK_DELAY
+
+func _maybe_advance_after_explosion_hold() -> void:
+	var player_before: int = current_player
+	var pending_before: bool = pending_advance_after_explosion_hold
+	super._maybe_advance_after_explosion_hold()
+	if _is_online_duel_active() and online_is_host:
+		if player_before != current_player or (pending_before and not pending_advance_after_explosion_hold):
+			_online_clear_turn_advance_fallback()
+			_online_send_snapshot(true)
 
 func _online_process_host_sync(delta: float) -> void:
 	if online_remote_peer_id == 0:
@@ -224,20 +250,39 @@ func _online_next_snapshot_seq() -> int:
 	online_snapshot_seq += 1
 	return online_snapshot_seq
 
-func _online_accept_snapshot_seq(snapshot: Dictionary) -> bool:
+func _online_accept_full_snapshot_seq(snapshot: Dictionary) -> bool:
 	var seq: int = int(snapshot.get("seq", -1))
 	if seq < 0:
 		return true
-	if seq <= online_client_last_snapshot_seq:
+	if seq <= online_client_last_full_snapshot_seq:
 		return false
-	online_client_last_snapshot_seq = seq
+	online_client_last_full_snapshot_seq = seq
+	online_client_last_motion_snapshot_seq = maxi(online_client_last_motion_snapshot_seq, seq)
+	return true
+
+func _online_accept_motion_snapshot_seq(snapshot: Dictionary) -> bool:
+	var seq: int = int(snapshot.get("seq", -1))
+	if seq < 0:
+		return true
+	if seq <= online_client_last_motion_snapshot_seq:
+		return false
+	online_client_last_motion_snapshot_seq = seq
+	return true
+
+func _online_accept_fire_event_seq(event: Dictionary) -> bool:
+	var seq: int = int(event.get("seq", -1))
+	if seq < 0:
+		return true
+	if seq <= online_client_last_full_snapshot_seq:
+		return false
+	online_client_last_motion_snapshot_seq = maxi(online_client_last_motion_snapshot_seq, seq)
 	return true
 
 @rpc("authority", "reliable")
 func _online_receive_snapshot(snapshot: Dictionary) -> void:
 	if online_is_host:
 		return
-	if not _online_accept_snapshot_seq(snapshot):
+	if not _online_accept_full_snapshot_seq(snapshot):
 		return
 
 	var previous_tanks: Array = tank_positions.duplicate()
@@ -270,11 +315,11 @@ func _online_receive_snapshot(snapshot: Dictionary) -> void:
 	online_client_was_projectile_active = projectile_active
 	queue_redraw()
 
-@rpc("authority", "unreliable_ordered")
+@rpc("authority", "reliable")
 func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	if online_is_host:
 		return
-	if not _online_accept_snapshot_seq(snapshot):
+	if not _online_accept_motion_snapshot_seq(snapshot):
 		return
 
 	var was_projectile_active: bool = projectile_active
@@ -344,7 +389,7 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	_update_hotseat_start_turn_button()
 	queue_redraw()
 
-func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: float, weapon: String, pos: Vector2, vel: Vector2) -> void:
+func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: float, weapon: String, pos: Vector2) -> void:
 	if online_remote_peer_id == 0:
 		return
 	var event: Dictionary = {
@@ -355,7 +400,6 @@ func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: 
 		"power": _power_from_percent(shot_power_percent),
 		"weapon": weapon,
 		"projectile_pos": _online_pack_vec2(pos),
-		"projectile_vel": _online_pack_vec2(vel),
 		"wind": wind
 	}
 	_online_receive_fire_event.rpc_id(online_remote_peer_id, event)
@@ -364,35 +408,34 @@ func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: 
 func _online_receive_fire_event(event: Dictionary) -> void:
 	if online_is_host:
 		return
-	if not _online_accept_snapshot_seq(event):
+	if not _online_accept_fire_event_seq(event):
 		return
 	var owner: int = int(event.get("owner", current_player))
 	var shot_angle: float = float(event.get("angle", angle_deg))
 	var shot_power_percent: float = float(event.get("power_percent", power_percent))
+	var shot_power: float = float(event.get("power", _power_from_percent(shot_power_percent)))
 	current_player = owner
 	angle_deg = shot_angle
 	power_percent = shot_power_percent
-	power = float(event.get("power", _power_from_percent(shot_power_percent)))
+	power = shot_power
 	selected_weapon = str(event.get("weapon", selected_weapon))
 	wind = float(event.get("wind", wind))
 	if owner >= 0 and owner < player_angles.size():
 		player_angles[owner] = shot_angle
 		player_power_percents[owner] = shot_power_percent
-		player_powers[owner] = power
+		player_powers[owner] = shot_power
 	projectile_pos = _online_unpack_vec2(event.get("projectile_pos", _online_pack_vec2(projectile_pos)))
-	projectile_vel = _online_unpack_vec2(event.get("projectile_vel", _online_pack_vec2(projectile_vel)))
+	projectile_vel = _online_projectile_velocity_for(owner, shot_angle, shot_power)
 	projectile_active = true
 	turn_projectiles.clear()
 	online_client_projectile_target = projectile_pos
 	_trigger_fire_fx(owner, shot_angle)
 	queue_redraw()
 
-func _online_update_client_visual_projectile(delta: float) -> void:
-	if not _is_online_duel_active() or online_is_host or not projectile_active:
-		return
-	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(projectile_pos, projectile_vel, gravity, wind, delta)
-	projectile_pos = stepped.get("pos", projectile_pos)
-	projectile_vel = stepped.get("vel", projectile_vel)
+func _online_projectile_velocity_for(owner: int, shot_angle: float, shot_power: float) -> Vector2:
+	var facing: float = 1.0 if owner == ONLINE_DUEL_HOST_PLAYER else -1.0
+	var rad: float = deg_to_rad(shot_angle)
+	return Vector2(facing * shot_power * cos(rad), -shot_power * sin(rad))
 
 func _online_update_client_interpolation(delta: float) -> void:
 	if not _is_online_duel_active() or online_is_host:
@@ -424,6 +467,29 @@ func _online_has_active_authoritative_motion() -> bool:
 		or explosion_timer > 0.0
 		or cluster_camera_hold_timer > 0.0
 	)
+
+func _online_process_turn_advance_fallback(delta: float) -> void:
+	if online_turn_advance_fallback_owner < 0:
+		return
+	if current_player != online_turn_advance_fallback_owner:
+		_online_clear_turn_advance_fallback()
+		return
+	online_turn_advance_fallback_timer = maxf(0.0, online_turn_advance_fallback_timer - delta)
+	if online_turn_advance_fallback_timer > 0.0:
+		return
+	if game_over or projectile_active or not turn_projectiles.is_empty() or machine_gun_active or machine_gun_turn_waiting_for_shells:
+		return
+	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+		return
+	pending_advance_after_explosion_hold = false
+	machine_gun_camera_active = false
+	machine_gun_camera_pos = Vector2.INF
+	_advance_turn()
+	_online_send_snapshot(true)
+
+func _online_clear_turn_advance_fallback() -> void:
+	online_turn_advance_fallback_timer = 0.0
+	online_turn_advance_fallback_owner = -1
 
 func _online_maybe_force_pending_turn_advance() -> void:
 	if not _is_online_duel_active() or not online_is_host:
