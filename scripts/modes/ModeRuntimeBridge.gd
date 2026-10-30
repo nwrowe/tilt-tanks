@@ -386,31 +386,23 @@ func _score_ai_shot(test_angle_deg: float, test_power_percent: float) -> float:
 	return _score_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX], test_angle_deg, test_power_percent)
 
 func _score_ai_shot_from_position(shooter_pos: Vector2, test_angle_deg: float, test_power_percent: float) -> float:
-	var facing: float = -1.0
-	var rad: float = deg_to_rad(test_angle_deg)
 	var test_power: float = _power_from_percent(test_power_percent)
-	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	var pos: Vector2 = shooter_pos + muzzle_offset
-	var vel: Vector2 = Vector2(facing * test_power * cos(rad), -test_power * sin(rad))
-	var target_pos: Vector2 = tank_positions[HUMAN_PLAYER_INDEX] + Vector2(rng.randf_range(-28.0, 28.0), rng.randf_range(-8.0, 8.0))
-	var best_distance: float = pos.distance_to(target_pos)
-	var elapsed: float = 0.0
-
-	while elapsed < AI_SIM_MAX_TIME:
-		vel.y += gravity * AI_SIM_DT
-		vel.x += wind * AI_SIM_DT
-		pos += vel * AI_SIM_DT
-		elapsed += AI_SIM_DT
-		best_distance = minf(best_distance, pos.distance_to(target_pos))
-		if pos.x < -100.0 or pos.x > active_world_width + 100.0:
-			break
-		if pos.y > _bottom_floor_y() + 180.0:
-			break
-		var ground_y: float = _ground_y_at_x(pos.x)
-		if pos.y >= ground_y:
-			best_distance = minf(best_distance, Vector2(pos.x, ground_y).distance_to(target_pos))
-			break
-	return best_distance
+	var target_pos: Vector2 = tank_positions[HUMAN_PLAYER_INDEX] + Vector2(
+		rng.randf_range(-28.0, 28.0), rng.randf_range(-8.0, 8.0)
+	)
+	return TurnAIBallisticScorer.score(
+		shooter_pos, target_pos, test_angle_deg, test_power,
+		Callable(self, "_ground_y_at_x"),
+		{
+			"cannon_length": CANNON_LENGTH,
+			"sim_dt": AI_SIM_DT,
+			"max_time": AI_SIM_MAX_TIME,
+			"gravity": gravity,
+			"wind": wind,
+			"world_width": active_world_width,
+			"floor_y": _bottom_floor_y()
+		}
+	)
 
 func _apply_ai_move(target_x: float) -> void:
 	var current_x: float = tank_positions[AI_PLAYER_INDEX].x
