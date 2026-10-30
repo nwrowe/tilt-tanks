@@ -47,12 +47,17 @@ func _run() -> void:
 	else:
 		await _run_guest()
 	game.call("_online_disconnect")
+	var connection: OnlineDuelConnection = game.get("online_connection") as OnlineDuelConnection
+	_check(connection != null and connection.peer == null, "online session releases transport after disconnect")
 	game.queue_free()
 	await process_frame
 	_finish()
 
 func _run_host() -> void:
 	game.call("_on_online_host_pressed")
+	var connection: OnlineDuelConnection = game.get("online_connection") as OnlineDuelConnection
+	_check(connection != null and connection.peer != null, "host connection component owns ENet peer")
+	_check(game.get("online_peer") == connection.peer, "host legacy peer pointer matches owner")
 	_check(bool(game.get("online_is_host")), "host starts as authority")
 	_check(bool(game.call("_is_online_host_waiting_screen_active")), "host enters waiting room")
 	if not await _until(func() -> bool: return bool(game.get("online_connected")) and int(game.get("online_remote_peer_id")) != 0):
@@ -79,6 +84,9 @@ func _run_guest() -> void:
 		return
 	host_field.text = "127.0.0.1"
 	game.call("_on_online_join_pressed")
+	var connection: OnlineDuelConnection = game.get("online_connection") as OnlineDuelConnection
+	_check(connection != null and connection.peer != null, "guest connection component owns ENet peer")
+	_check(game.get("online_peer") == connection.peer, "guest legacy peer pointer matches owner")
 	_check(not bool(game.get("online_is_host")), "guest is not authoritative")
 	if not await _until(func() -> bool: return bool(game.get("online_connected")) and int(game.get("menu_state")) == 4):
 		_fail("guest never joined the live game")
