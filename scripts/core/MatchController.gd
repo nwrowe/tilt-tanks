@@ -28,6 +28,30 @@ func start_match(
 	state.reset_players(default_angle, default_power, default_power_percent, left_start, right_start)
 	state.reset_projectile_state()
 
+## Adopt the legacy runtime's player-facing frame in one place. Copies
+## mutable arrays so MatchState snapshots cannot alias the active game arrays.
+## Until physics/input have migrated, the game runtime remains the producer.
+func sync_runtime_player_frame(
+	player: int,
+	positions: Array[Vector2],
+	angles: Array[float],
+	powers: Array[float],
+	power_percents: Array[float],
+	frame_wind: float,
+	frame_turn_timer: float,
+	mode: int,
+	world_width: float
+) -> void:
+	state.current_player = player
+	state.tank_positions = positions.duplicate()
+	state.player_angles = angles.duplicate()
+	state.player_powers = powers.duplicate()
+	state.player_power_percents = power_percents.duplicate()
+	state.wind = frame_wind
+	state.turn_timer = frame_turn_timer
+	state.game_mode = mode
+	state.active_world_width = world_width
+
 func advance_turn(turn_time_limit: float) -> int:
 	state.current_player = 1 - state.current_player
 	state.turn_timer = turn_time_limit
