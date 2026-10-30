@@ -271,8 +271,7 @@ func _style_menu_button(button: Button) -> void:
 	button.add_theme_font_size_override("font_size", 24)
 
 func _anchored_position(anchor: Vector2, size: Vector2) -> Vector2:
-	var viewport_size: Vector2 = get_viewport_rect().size
-	return Vector2(viewport_size.x * anchor.x - size.x * 0.5, viewport_size.y * anchor.y - size.y * 0.5)
+	return MainMenuPresentation.anchored_position(get_viewport_rect().size, anchor, size)
 
 func _draw_menu_background() -> void:
 	var viewport_rect: Rect2 = get_viewport_rect()
@@ -292,11 +291,10 @@ func _draw_menu_background() -> void:
 		_draw_fallback_logo(viewport_size, use_landscape)
 
 func _draw_menu_logo_texture(viewport_size: Vector2, use_landscape: bool) -> void:
-	var target_width: float = viewport_size.x * (0.36 if use_landscape else 0.70)
-	var aspect: float = float(menu_logo_texture.get_width()) / float(menu_logo_texture.get_height())
-	var target_size: Vector2 = Vector2(target_width, target_width / aspect)
-	var y: float = viewport_size.y * (0.12 if use_landscape else 0.09)
-	var rect: Rect2 = Rect2(Vector2((viewport_size.x - target_size.x) * 0.5, y), target_size)
+	var rect: Rect2 = MainMenuPresentation.logo_rect(
+		viewport_size, use_landscape,
+		Vector2(float(menu_logo_texture.get_width()), float(menu_logo_texture.get_height()))
+	)
 	draw_texture_rect(menu_logo_texture, rect, false)
 
 func _draw_fallback_logo(viewport_size: Vector2, use_landscape: bool) -> void:
@@ -306,33 +304,8 @@ func _draw_fallback_logo(viewport_size: Vector2, use_landscape: bool) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(viewport_size.x * 0.5 - 125.0, subtitle_y), "TANKS", HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(1.0, 0.70, 0.08))
 
 func _draw_fallback_menu_background(viewport_size: Vector2) -> void:
-	var horizon_y: float = viewport_size.y * 0.56
-	var hill_y: float = viewport_size.y * 0.72
-	for i: int in range(8):
-		var t: float = float(i) / 7.0
-		var y0: float = viewport_size.y * t
-		var color: Color = Color(0.04 + 0.15 * t, 0.05, 0.16 + 0.20 * t)
-		draw_rect(Rect2(Vector2(0, y0), Vector2(viewport_size.x, viewport_size.y / 7.0 + 2.0)), color, true)
-	draw_circle(Vector2(viewport_size.x * 0.50, horizon_y), 24.0, Color(1.0, 0.78, 0.18, 0.95))
-	var mountains: PackedVector2Array = PackedVector2Array()
-	mountains.append(Vector2(0, horizon_y + 85.0))
-	for i: int in range(8):
-		var x: float = viewport_size.x * float(i) / 7.0
-		var y: float = horizon_y + 80.0 - 90.0 * absf(sin(float(i) * 1.37))
-		mountains.append(Vector2(x, y))
-	mountains.append(Vector2(viewport_size.x, horizon_y + 85.0))
-	draw_colored_polygon(mountains, Color(0.19, 0.11, 0.32, 0.95))
-	var hill: PackedVector2Array = PackedVector2Array()
-	hill.append(Vector2(0, viewport_size.y))
-	for i: int in range(30):
-		var x: float = viewport_size.x * float(i) / 29.0
-		var y: float = hill_y + 32.0 * sin(float(i) * 0.42)
-		hill.append(Vector2(x, y))
-	hill.append(Vector2(viewport_size.x, viewport_size.y))
-	draw_colored_polygon(hill, Color(0.08, 0.25, 0.08, 1.0))
+	MainMenuPresentation.draw_fallback_background(self, viewport_size)
 
-# These are the remaining lower-runtime compatibility hooks needed by the
-# game. Unused legacy geometry, physics and reset overrides were not copied.
 func _update_angle_from_input(delta: float) -> void:
 	var gravity_vec: Vector3 = Input.get_gravity()
 	if gravity_vec.length() < 0.01:
