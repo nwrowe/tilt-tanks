@@ -31,6 +31,7 @@ var campaign_map_scroll: ScrollContainer = null
 var hotseat_turn_start_pending: bool = false
 var hotseat_start_turn_button: Button = null
 
+var online_connection: OnlineDuelConnection = OnlineDuelConnection.new()
 var online_peer: ENetMultiplayerPeer = null
 var online_is_host: bool = false
 var online_connected: bool = false
@@ -217,13 +218,12 @@ func _add_menu_line_edit(text: String, placeholder: String, anchor: Vector2, siz
 func _on_online_host_pressed() -> void:
 	_online_disconnect()
 	_online_connect_multiplayer_signals()
-	online_peer = ENetMultiplayerPeer.new()
 	var port: int = _online_menu_port()
-	var err: int = online_peer.create_server(port, ONLINE_DUEL_MAX_CLIENTS)
+	var err: int = online_connection.host(multiplayer, port, ONLINE_DUEL_MAX_CLIENTS)
+	online_peer = online_connection.peer
 	if err != OK:
 		_show_online_status_menu("Could not host Online Duel on port %d. Error: %d" % [port, err])
 		return
-	multiplayer.multiplayer_peer = online_peer
 	online_is_host = true
 	online_connected = true
 	online_local_player = ONLINE_DUEL_HOST_PLAYER
@@ -235,18 +235,17 @@ func _on_online_host_pressed() -> void:
 func _on_online_join_pressed() -> void:
 	_online_disconnect()
 	_online_connect_multiplayer_signals()
-	online_peer = ENetMultiplayerPeer.new()
 	var host: String = ONLINE_DUEL_DEFAULT_HOST
 	if online_join_host_field != null:
 		host = online_join_host_field.text.strip_edges()
 	if host.is_empty():
 		host = ONLINE_DUEL_DEFAULT_HOST
 	var port: int = _online_menu_port()
-	var err: int = online_peer.create_client(host, port)
+	var err: int = online_connection.join(multiplayer, host, port)
+	online_peer = online_connection.peer
 	if err != OK:
 		_show_online_status_menu("Could not join %s:%d. Error: %d" % [host, port, err])
 		return
-	multiplayer.multiplayer_peer = online_peer
 	online_is_host = false
 	online_connected = false
 	online_local_player = ONLINE_DUEL_CLIENT_PLAYER
@@ -272,21 +271,17 @@ func _online_menu_port() -> int:
 	return parsed
 
 func _online_connect_multiplayer_signals() -> void:
-	if not multiplayer.peer_connected.is_connected(_on_online_peer_connected):
-		multiplayer.peer_connected.connect(_on_online_peer_connected)
-	if not multiplayer.peer_disconnected.is_connected(_on_online_peer_disconnected):
-		multiplayer.peer_disconnected.connect(_on_online_peer_disconnected)
-	if not multiplayer.connected_to_server.is_connected(_on_online_connected_to_server):
-		multiplayer.connected_to_server.connect(_on_online_connected_to_server)
-	if not multiplayer.connection_failed.is_connected(_on_online_connection_failed):
-		multiplayer.connection_failed.connect(_on_online_connection_failed)
-	if not multiplayer.server_disconnected.is_connected(_on_online_server_disconnected):
-		multiplayer.server_disconnected.connect(_on_online_server_disconnected)
+	online_connection.connect_signals(
+		multiplayer,
+		_on_online_peer_connected,
+		_on_online_peer_disconnected,
+		_on_online_connected_to_server,
+		_on_online_connection_failed,
+		_on_online_server_disconnected
+	)
 
 func _online_disconnect() -> void:
-	if multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer.close()
-		multiplayer.multiplayer_peer = null
+	online_connection.disconnect(multiplayer)
 	online_peer = null
 	online_is_host = false
 	online_connected = false
