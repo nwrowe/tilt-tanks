@@ -60,6 +60,7 @@ func _run() -> void:
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
+	_test_realtime_ai_movement_planner_live()
 
 	game.queue_free()
 	await process_frame
@@ -688,6 +689,31 @@ func _test_turn_ai_ballistic_scorer_live() -> void:
 	var repeated: float = float(game.call("_score_ai_shot_from_position", shooter_pos, 45.0, 55.0))
 	_check(is_equal_approx(actual, repeated), "live trajectory scoring preserves RNG reproducibility")
 	_check(actual >= 0.0 and is_finite(actual), "live scorer returns a finite nonnegative miss distance")
+	game.call("reset_match")
+
+func _test_realtime_ai_movement_planner_live() -> void:
+	game.call("_on_quick_game_pressed")
+	var positions: Array = game.get("tank_positions")
+	var ai_pos_before: Vector2 = positions[1]
+	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
+	var config: Dictionary = {
+		"move_chance": 0.50, "edge_margin": 70.0,
+		"min_human_distance": 160.0, "tank_radius": 16.0
+	}
+	rng.seed = 20261030
+	var expected: float = RealtimeAIMovementPlanner.choose_target_x(
+		rng, positions[1], positions[0], float(game.get("active_world_width")),
+		Callable(game, "_ground_y_at_x"), Callable(game, "_find_ai_shot_from_position"), config
+	)
+	var expected_next_random: float = rng.randf()
+	rng.seed = 20261030
+	game.call("_choose_realtime_ai_move_target")
+	_check(is_equal_approx(float(game.get("rt_ai_target_x")), expected),
+		"live realtime AI delegates movement-target selection without changing candidate scores")
+	_check(is_equal_approx(rng.randf(), expected_next_random),
+		"live realtime AI movement preserves shot-search RNG draw sequence")
+	_check(ai_pos_before == (game.get("tank_positions") as Array)[1],
+		"realtime AI movement planning does not physically move the tank")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:

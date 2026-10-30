@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_water_manager_world_policy()
 	_test_turn_ai_ballistic_scorer()
 	_test_turn_ai_shot_planner()
+	_test_realtime_ai_movement_planner()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -36,6 +37,50 @@ func _run() -> void:
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		failures.append(description)
+
+func _movement_test_ground(_x: float) -> float:
+	return 200.0
+
+func _movement_test_score(shooter_pos: Vector2) -> Dictionary:
+	return {"score": absf(shooter_pos.x - 900.0) * 1000.0}
+
+func _test_realtime_ai_movement_planner() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var config: Dictionary = {
+		"move_chance": 1.0, "edge_margin": 70.0,
+		"min_human_distance": 160.0, "tank_radius": 24.0
+	}
+	var ai_pos: Vector2 = Vector2(800.0, 200.0)
+	var human_pos: Vector2 = Vector2(100.0, 200.0)
+	var ground: Callable = Callable(self, "_movement_test_ground")
+	var score: Callable = Callable(self, "_movement_test_score")
+
+	rng.seed = 20261030
+	var choice: float = RealtimeAIMovementPlanner.choose_target_x(
+		rng, ai_pos, human_pos, 1200.0, ground, score, config
+	)
+	var next_random: float = rng.randf()
+	_check(is_equal_approx(choice, 900.0), "realtime AI movement chooses lowest-scoring safe offset")
+
+	rng.seed = 20261030
+	var repeat_choice: float = RealtimeAIMovementPlanner.choose_target_x(
+		rng, ai_pos, human_pos, 1200.0, ground, score, config
+	)
+	_check(is_equal_approx(choice, repeat_choice) and is_equal_approx(rng.randf(), next_random),
+		"realtime movement planning reproduces choice and RNG consumption")
+
+	config["move_chance"] = 0.0
+	rng.seed = 20261030
+	_check(is_equal_approx(
+		RealtimeAIMovementPlanner.choose_target_x(rng, ai_pos, human_pos, 1200.0, ground, score, config), ai_pos.x
+	), "realtime AI respects no-move probability gate")
+
+	config["move_chance"] = 1.0
+	config["min_human_distance"] = 1400.0
+	rng.seed = 20261030
+	_check(is_equal_approx(
+		RealtimeAIMovementPlanner.choose_target_x(rng, ai_pos, human_pos, 1200.0, ground, score, config), ai_pos.x
+	), "realtime AI retains position when all movement candidates are unsafe")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

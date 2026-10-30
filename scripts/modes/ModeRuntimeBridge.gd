@@ -484,24 +484,17 @@ func _update_realtime_ai(delta: float) -> void:
 		rt_ai_fire_cooldown = rng.randf_range(RT_AI_FIRE_COOLDOWN_MAX * 0.75, RT_AI_FIRE_COOLDOWN_MAX * 1.25)
 
 func _choose_realtime_ai_move_target() -> void:
-	if rng.randf() > RT_AI_MOVE_CHANCE:
-		rt_ai_target_x = tank_positions[AI_PLAYER_INDEX].x
-		return
-	var move_options: Array[float] = [-100.0, -55.0, 0.0, 55.0, 100.0]
-	var best_x: float = tank_positions[AI_PLAYER_INDEX].x
-	var best_score: float = INF
-	for offset: float in move_options:
-		var candidate_x: float = clampf(tank_positions[AI_PLAYER_INDEX].x + offset, AI_EDGE_MARGIN, active_world_width - AI_EDGE_MARGIN)
-		if absf(candidate_x - tank_positions[HUMAN_PLAYER_INDEX].x) < AI_MIN_DISTANCE_FROM_HUMAN:
-			continue
-		var candidate_y: float = _ground_y_at_x(candidate_x) - TANK_RADIUS
-		var candidate_pos: Vector2 = Vector2(candidate_x, candidate_y)
-		var shot: Dictionary = _find_ai_shot_from_position(candidate_pos)
-		var score: float = float(shot.get("score", 999999.0)) + absf(offset) * 0.2 + rng.randf_range(0.0, 100.0)
-		if score < best_score:
-			best_score = score
-			best_x = candidate_x
-	rt_ai_target_x = best_x
+	rt_ai_target_x = RealtimeAIMovementPlanner.choose_target_x(
+		rng, tank_positions[AI_PLAYER_INDEX], tank_positions[HUMAN_PLAYER_INDEX],
+		active_world_width, Callable(self, "_ground_y_at_x"),
+		Callable(self, "_find_ai_shot_from_position"),
+		{
+			"move_chance": RT_AI_MOVE_CHANCE,
+			"edge_margin": AI_EDGE_MARGIN,
+			"min_human_distance": AI_MIN_DISTANCE_FROM_HUMAN,
+			"tank_radius": TANK_RADIUS
+		}
+	)
 
 func _prepare_realtime_ai_shot() -> void:
 	var aim: Dictionary = _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
