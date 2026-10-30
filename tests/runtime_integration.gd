@@ -62,6 +62,7 @@ func _run() -> void:
 	_test_turn_ai_planner_live()
 	_test_realtime_ai_movement_planner_live()
 	_test_steam_puff_effect_live()
+	_test_realtime_cooldown_policy_live()
 
 	game.queue_free()
 	await process_frame
@@ -733,6 +734,30 @@ func _test_steam_puff_effect_live() -> void:
 	game.call("_update_steam_puffs", 0.50)
 	_check((game.get("steam_puffs") as Array).is_empty(),
 		"active realtime steam expires at original lifetime")
+	game.call("reset_match")
+
+func _test_realtime_cooldown_policy_live() -> void:
+	game.call("_on_quick_game_pressed")
+	game.set("rt_player_fire_cooldown", 0.08)
+	game.set("rt_ai_fire_cooldown", 0.50)
+	game.set("rt_ai_move_cooldown", 1.0)
+	game.set("rt_movement_exhaust_cooldown", 0.05)
+	game.set("rt_movement_energy", 0.2)
+	game.set("movement_was_overheated", false)
+	game.call("_update_realtime_cooldowns", 0.10)
+	_check(is_zero_approx(float(game.get("rt_player_fire_cooldown"))) and
+		is_equal_approx(float(game.get("rt_ai_fire_cooldown")), 0.4),
+		"active realtime fire timers use composed cooldown policy")
+	_check(is_equal_approx(float(game.get("rt_ai_move_cooldown")), 0.9),
+		"active realtime movement cooldown uses composed policy")
+	_check(is_zero_approx(float(game.get("rt_movement_exhaust_cooldown"))) and
+		is_equal_approx(float(game.get("rt_movement_energy")), 0.75),
+		"active overheat expiry restores one-quarter movement energy")
+	_check(bool(game.get("movement_was_overheated")),
+		"active runtime preserves overheated marker on expiry frame")
+	game.call("_update_realtime_cooldowns", 0.02)
+	_check(not bool(game.get("movement_was_overheated")),
+		"active runtime clears overheat marker on subsequent frame")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
