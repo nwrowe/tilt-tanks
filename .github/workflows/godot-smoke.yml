@@ -32,5 +32,11 @@ jobs:
       - name: Run lightweight contract checks
         run: godot --headless --path . --script res://tests/smoke.gd
 
+      - name: Test live scene, campaign navigation and hotseat firing
+        run: godot --headless --path . --script res://tests/runtime_integration.gd
+
+      - name: Test online packet and snapshot contracts
+        run: godot --headless --path . --script res://tests/network_contracts.gd
+
       - name: Start the main scene (headless smoke)
         run: godot --headless --path . --quit-after 3
