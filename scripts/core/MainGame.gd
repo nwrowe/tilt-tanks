@@ -1,4 +1,4 @@
-extends "res://scripts/weapons/WeaponDefinitionRuntimeBridge.gd"
+extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 
 # CLEAN ACTIVE ENTRY POINT
 # ------------------------
@@ -28,6 +28,12 @@ const MUZZLE_SMOKE_RISE_SPEED: float = 26.0
 const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
 const MUZZLE_SMOKE_START_RADIUS: float = 3.0
 const MUZZLE_SMOKE_END_RADIUS: float = 10.0
+
+var weapon_definition_session: WeaponDefinitionSession = WeaponDefinitionSession.new()
+# Compatibility references for older runtime code, modes and networking.
+# The session remains the owner; methods below keep aliases synchronized.
+var weapon_definitions: Dictionary = weapon_definition_session.definitions
+var active_weapon_loadout: WeaponLoadout = weapon_definition_session.loadout
 
 var match_state: MatchState = MatchState.new()
 var match_controller: MatchController = MatchController.new(match_state)
@@ -82,6 +88,8 @@ func reset_match() -> void:
 	barrel_recoil_timers = [0.0, 0.0]
 	barrel_recoil_angles = [45.0, 45.0]
 	muzzle_smoke_puffs.clear()
+	# Retains the former weapon-definition bridge reset guard before base reset.
+	selected_weapon = _safe_selected_weapon(selected_weapon)
 	super.reset_match()
 	_initialize_match_controller_from_runtime_reset()
 	_sync_match_state_from_runtime()
@@ -1276,3 +1284,47 @@ func _apply_match_projectile_state_to_runtime() -> void:
 	projectile_vel = match_state.projectile_vel
 	explosion_pos = match_state.explosion_pos
 	explosion_timer = match_state.explosion_timer
+
+# Weapon registry / loadout compatibility API: policy is composed, not inherited.
+func _set_active_weapon_loadout(loadout: WeaponLoadout) -> void:
+	if not weapon_definition_session.set_loadout(loadout):
+		return
+	active_weapon_loadout = weapon_definition_session.loadout
+	selected_weapon = _safe_selected_weapon(selected_weapon)
+
+func _reset_default_weapon_loadout() -> void:
+	weapon_definition_session.reset_default()
+	active_weapon_loadout = weapon_definition_session.loadout
+	selected_weapon = _safe_selected_weapon(selected_weapon)
+
+func _safe_selected_weapon(weapon: String) -> String:
+	return weapon_definition_session.safe_weapon(weapon)
+
+func _weapon_definition(weapon: String) -> WeaponDefinition:
+	return weapon_definition_session.definition(weapon)
+
+func _weapon_display_name(weapon: String) -> String:
+	return weapon_definition_session.display_name(weapon)
+
+func _weapon_value(weapon: String, key: String, fallback: Variant) -> Variant:
+	return weapon_definition_session.value(weapon, key, fallback)
+
+func _weapon_split_behavior(weapon: String) -> String:
+	return weapon_definition_session.split_behavior(weapon)
+
+func _weapon_child_id(weapon: String) -> String:
+	return weapon_definition_session.child_id(weapon)
+
+func _weapon_child_count(weapon: String) -> int:
+	return weapon_definition_session.child_count(weapon)
+
+func _weapon_has_split_behavior(weapon: String) -> bool:
+	return weapon_definition_session.has_split_behavior(weapon)
+
+func _weapon_should_split_on_descent(weapon: String, split_done: bool, vel: Vector2) -> bool:
+	return weapon_definition_session.should_split_on_descent(weapon, split_done, vel)
+
+func _make_split_children(owner: int, weapon: String, pos: Vector2, vel: Vector2) -> Array[Dictionary]:
+	return weapon_definition_session.make_split_children(
+		owner, weapon, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y
+	)
