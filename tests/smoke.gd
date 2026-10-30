@@ -193,6 +193,40 @@ func _test_weapon_definition_session() -> void:
 	session.reset_default()
 	_check(session.safe_weapon(WeaponCatalog.CLUSTER) == WeaponCatalog.CLUSTER, "session reset restores full weapon set")
 
+func _test_composed_match_runtime_synchronizer() -> void:
+	var state: MatchState = MatchState.new()
+	var controller: MatchController = MatchController.new(state)
+	var adapter: MatchRuntimeSynchronizer = MatchRuntimeSynchronizer.new(controller)
+	_check(adapter.state == state and adapter.controller == controller, "composed adapter owns expected controller and state")
+	adapter.start_match(
+		0, 1500.0, 30.0, 45.0, 800.0, 50.0,
+		Vector2(100, 300), Vector2(1400, 300), 0.0
+	)
+	var positions: Array[Vector2] = [Vector2(120, 300), Vector2(1350, 290)]
+	var angles: Array[float] = [35.0, 55.0]
+	var powers: Array[float] = [700.0, 950.0]
+	var charges: Array[float] = [25.0, 73.0]
+	var health: Array[int] = [100, 65]
+	var over: bool = adapter.sync_frame(
+		1, positions, angles, powers, charges,
+		17.0, 14.0, 0, 1550.0,
+		true, Vector2(350, 100), Vector2(100, -20),
+		Vector2.INF, 0.0, health
+	)
+	_check(not over and state.current_player == 1, "adapter synchronizes turn and game-over state")
+	_check(state.player_angles == angles and state.player_power_percents == charges, "adapter synchronizes player settings")
+	_check(state.projectile_active and state.projectile_pos == Vector2(350, 100), "adapter synchronizes active projectile")
+	_check(state.tank_health == [100, 65], "adapter synchronizes health")
+	adapter.sync_projectile(false, Vector2.ZERO, Vector2.ZERO, Vector2(350, 310), 0.5)
+	_check(not state.projectile_active and state.explosion_pos == Vector2(350, 310), "adapter synchronizes projectile impact")
+	var updated: Array[int] = adapter.apply_radial_damage(
+		[100, 65], [Vector2(350, 310), Vector2(1200, 310)],
+		Vector2(350, 310), 12.0, 90.0, 75, 50, 4
+	)
+	_check(updated == [25, 65] and state.tank_health == updated, "adapter applies controller radial damage")
+	_check(adapter.sync_health([100, 0]), "adapter reports terminal health state")
+	_check(controller.winner_index() == 0, "adapter retains controller winner result")
+
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
 	_check(definitions.has(WeaponCatalog.STANDARD), "standard shell is registered")
