@@ -61,6 +61,7 @@ func _run() -> void:
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
 	_test_realtime_ai_movement_planner_live()
+	_test_steam_puff_effect_live()
 
 	game.queue_free()
 	await process_frame
@@ -714,6 +715,24 @@ func _test_realtime_ai_movement_planner_live() -> void:
 		"live realtime AI movement preserves shot-search RNG draw sequence")
 	_check(ai_pos_before == (game.get("tank_positions") as Array)[1],
 		"realtime AI movement planning does not physically move the tank")
+	game.call("reset_match")
+
+func _test_steam_puff_effect_live() -> void:
+	game.call("_on_quick_game_pressed")
+	var puff: Dictionary = {"pos": Vector2(210.0, 310.0), "age": 0.2, "life": 0.95, "drift": -8.0}
+	var puffs: Array[Dictionary] = [puff]
+	game.set("steam_puffs", puffs)
+	game.call("_update_steam_puffs", 0.25)
+	var active: Array = game.get("steam_puffs")
+	_check(active.size() == 1 and active[0] == puff,
+		"active realtime game delegates steam simulation to composed effect")
+	_check(is_equal_approx(float(puff["age"]), 0.45),
+		"active steam update retains age integration")
+	_check((puff["pos"] as Vector2).distance_to(Vector2(208.0, 301.5)) < 0.0001,
+		"active steam update retains wind drift and rise")
+	game.call("_update_steam_puffs", 0.50)
+	_check((game.get("steam_puffs") as Array).is_empty(),
+		"active realtime steam expires at original lifetime")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:

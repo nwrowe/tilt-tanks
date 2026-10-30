@@ -550,31 +550,19 @@ func _update_ui() -> void:
 		status_label.text = "Your turn   P1 HP: %d    CPU HP: %d" % [tank_health[0], tank_health[1]]
 
 func _update_steam_puffs(delta: float) -> void:
-	if steam_puffs.is_empty():
-		return
-	var remaining: Array[Dictionary] = []
-	for puff: Dictionary in steam_puffs:
-		var age: float = float(puff.get("age", 0.0)) + delta
-		var life: float = float(puff.get("life", STEAM_PUFF_LIFETIME))
-		if age < life:
-			var pos: Vector2 = puff.get("pos", Vector2.ZERO)
-			var drift: float = float(puff.get("drift", 0.0))
-			pos.x += drift * delta
-			pos.y -= STEAM_PUFF_RISE_SPEED * delta
-			puff["age"] = age
-			puff["pos"] = pos
-			remaining.append(puff)
-	steam_puffs = remaining
+	steam_puffs = SteamPuffEffect.advance(
+		steam_puffs, delta, STEAM_PUFF_RISE_SPEED, STEAM_PUFF_LIFETIME
+	)
 
 func _draw_steam_puffs() -> void:
 	for puff: Dictionary in steam_puffs:
-		var age: float = float(puff.get("age", 0.0))
-		var life: float = float(puff.get("life", STEAM_PUFF_LIFETIME))
-		var t: float = clampf(age / life, 0.0, 1.0)
-		var pos: Vector2 = puff.get("pos", Vector2.ZERO)
-		var radius: float = lerpf(STEAM_PUFF_START_RADIUS, STEAM_PUFF_END_RADIUS, t) * CAMERA_SCALE
-		var alpha: float = 0.52 * (1.0 - t)
-		draw_circle(_world_to_screen(pos), radius, Color(0.88, 0.90, 0.86, alpha))
+		var appearance: Dictionary = SteamPuffEffect.appearance(
+			puff, STEAM_PUFF_LIFETIME, STEAM_PUFF_START_RADIUS,
+			STEAM_PUFF_END_RADIUS, CAMERA_SCALE
+		)
+		draw_circle(
+			_world_to_screen(appearance["pos"]), appearance["radius"], appearance["color"]
+		)
 
 func _randomize_wind() -> void:
 	var display_wind: float = rng.randf_range(-WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
