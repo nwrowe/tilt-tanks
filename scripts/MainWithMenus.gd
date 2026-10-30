@@ -46,6 +46,7 @@ const MENU_STATE_GAME: int = 4
 var menu_state: int = MENU_STATE_MAIN
 var menu_layer: CanvasLayer
 var menu_buttons: Array[Control] = []
+var menu_view: MainMenuView = MainMenuView.new()
 var menu_logo_texture: Texture2D
 var menu_bg_landscape_texture: Texture2D
 var menu_bg_portrait_texture: Texture2D
@@ -132,19 +133,18 @@ func _draw() -> void:
 	_draw_menu_background()
 
 func _load_menu_assets() -> void:
-	menu_bg_landscape_texture = _load_texture_if_exists(MENU_BG_LANDSCAPE_PATH)
-	menu_bg_portrait_texture = _load_texture_if_exists(MENU_BG_PORTRAIT_PATH)
-	menu_logo_texture = _load_texture_if_exists(MENU_LOGO_PATH)
+	menu_view.load_assets(MENU_BG_LANDSCAPE_PATH, MENU_BG_PORTRAIT_PATH, MENU_LOGO_PATH)
+	menu_bg_landscape_texture = menu_view.landscape_texture
+	menu_bg_portrait_texture = menu_view.portrait_texture
+	menu_logo_texture = menu_view.logo_texture
 
 func _load_texture_if_exists(path: String) -> Texture2D:
-	if ResourceLoader.exists(path):
-		return load(path) as Texture2D
-	return null
+	return menu_view._load_texture(path)
 
 func _build_menu_layer() -> void:
-	menu_layer = CanvasLayer.new()
-	menu_layer.layer = 20
-	add_child(menu_layer)
+	menu_view.attach(self)
+	menu_layer = menu_view.layer
+	menu_buttons = menu_view.controls
 
 func _show_main_menu() -> void:
 	menu_state = MENU_STATE_MAIN
@@ -208,87 +208,22 @@ func _show_game_ui() -> void:
 		ui_layer.visible = true
 
 func _clear_menu_controls() -> void:
-	for control: Control in menu_buttons:
-		if is_instance_valid(control):
-			control.queue_free()
-	menu_buttons.clear()
+	menu_view.clear()
 
 func _add_text_label(text: String, anchor: Vector2, size: Vector2, font_size: int) -> Label:
-	var label: Label = Label.new()
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size = size
-	label.position = _anchored_position(anchor, size)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	menu_layer.add_child(label)
-	menu_buttons.append(label)
-	return label
+	return menu_view.add_label(get_viewport_rect().size, text, anchor, size, font_size)
 
 func _add_menu_button(text: String, texture_path: String, anchor: Vector2, size: Vector2, callback: Callable) -> Control:
-	var texture: Texture2D = _load_texture_if_exists(texture_path)
-	if texture != null:
-		var texture_button: TextureButton = TextureButton.new()
-		texture_button.texture_normal = texture
-		texture_button.ignore_texture_size = true
-		texture_button.stretch_mode = TextureButton.STRETCH_SCALE
-		texture_button.size = size
-		texture_button.position = _anchored_position(anchor, size)
-		texture_button.focus_mode = Control.FOCUS_NONE
-		texture_button.pressed.connect(callback)
-		menu_layer.add_child(texture_button)
-		menu_buttons.append(texture_button)
-		return texture_button
-
-	var button: Button = Button.new()
-	button.text = text
-	button.size = size
-	button.position = _anchored_position(anchor, size)
-	button.focus_mode = Control.FOCUS_NONE
-	button.pressed.connect(callback)
-	_style_menu_button(button)
-	menu_layer.add_child(button)
-	menu_buttons.append(button)
-	return button
+	return menu_view.add_button(get_viewport_rect().size, text, texture_path, anchor, size, callback)
 
 func _style_menu_button(button: Button) -> void:
-	var normal: StyleBoxFlat = StyleBoxFlat.new()
-	normal.bg_color = Color(0.08, 0.12, 0.16, 0.88)
-	normal.border_color = Color(0.55, 0.82, 0.95, 0.65)
-	normal.set_border_width_all(2)
-	normal.set_corner_radius_all(18)
-	var pressed: StyleBoxFlat = normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(0.17, 0.28, 0.34, 0.95)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", normal)
-	button.add_theme_stylebox_override("focus", normal)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_font_size_override("font_size", 24)
+	menu_view.style_button(button)
 
 func _anchored_position(anchor: Vector2, size: Vector2) -> Vector2:
 	return MainMenuPresentation.anchored_position(get_viewport_rect().size, anchor, size)
 
 func _draw_menu_background() -> void:
-	var viewport_rect: Rect2 = get_viewport_rect()
-	var viewport_size: Vector2 = viewport_rect.size
-	var use_landscape: bool = viewport_size.x >= viewport_size.y
-	var bg_texture: Texture2D = menu_bg_landscape_texture if use_landscape else menu_bg_portrait_texture
-
-	if bg_texture != null:
-		draw_texture_rect(bg_texture, Rect2(Vector2.ZERO, viewport_size), false)
-	else:
-		draw_rect(Rect2(Vector2.ZERO, viewport_size), Color(0.04, 0.05, 0.12), true)
-		_draw_fallback_menu_background(viewport_size)
-
-	if menu_logo_texture != null:
-		_draw_menu_logo_texture(viewport_size, use_landscape)
-	else:
-		_draw_fallback_logo(viewport_size, use_landscape)
+	menu_view.draw_background(self, get_viewport_rect().size)
 
 func _draw_menu_logo_texture(viewport_size: Vector2, use_landscape: bool) -> void:
 	var rect: Rect2 = MainMenuPresentation.logo_rect(
