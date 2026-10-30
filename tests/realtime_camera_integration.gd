@@ -26,11 +26,19 @@ func _run() -> void:
 	_check(int(game.get("menu_state")) == 4, "quick game opens actual game")
 	_check(bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER)), "quick game activates realtime mode")
 	_check(int(game.get("current_player")) == 0, "human is realtime player 1")
-	_check(bool(game.get("rt_ai_visual_has_plan")), "AI initializes an aiming plan")
+	_check((game.get("realtime_ai_aim") as RealtimeAIAimingSession).has_plan, "AI initializes an aiming plan")
 	_check((game.get("rt_projectiles") as Array).is_empty(), "realtime match starts without projectiles")
+	var aim_session: RealtimeAIAimingSession = game.get("realtime_ai_aim") as RealtimeAIAimingSession
+	_check(aim_session != null and aim_session.has_plan, "world runtime composes an active AI aim session")
+	_check(is_finite(aim_session.target_angle) and is_finite(aim_session.target_power_percent), "AI session stores finite aim targets")
+
 	game.set("rt_ai_fire_cooldown", 100.0)
 	game.call("_update_realtime_ai", 0.016)
-	_check(bool(game.get("rt_ai_visual_has_plan")), "AI maintains a smooth aiming plan")
+	game.call("_clear_realtime_ai_visual_plan")
+	_check(not aim_session.has_plan, "AI plan reset clears the composed session")
+	game.call("_choose_realtime_ai_visual_plan")
+	_check(aim_session.has_plan, "AI plan recomputes through composed session")
+	_check((game.get("realtime_ai_aim") as RealtimeAIAimingSession).has_plan, "AI maintains a smooth aiming plan")
 
 	game.call("_fire_realtime_projectile", 0)
 	var shots: Array = game.get("rt_projectiles")
