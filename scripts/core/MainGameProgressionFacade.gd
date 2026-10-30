@@ -367,10 +367,13 @@ func _online_submit_fire_request() -> void:
 func _online_request_start_turn() -> void:
 	if not _is_online_duel_active() or not online_is_host:
 		return
-	var sender_id: int = multiplayer.get_remote_sender_id()
-	if sender_id != online_remote_peer_id:
-		return
-	if current_player != ONLINE_DUEL_CLIENT_PLAYER or not _is_hotseat_turn_start_prompt_active():
+	if not OnlineDuelCommandValidator.can_start_turn(
+		multiplayer.get_remote_sender_id(),
+		online_remote_peer_id,
+		current_player,
+		ONLINE_DUEL_CLIENT_PLAYER,
+		_is_hotseat_turn_start_prompt_active()
+	):
 		return
 	_start_pending_turn_locally()
 	_online_send_snapshot(true)
@@ -379,17 +382,35 @@ func _online_request_start_turn() -> void:
 func _online_request_fire(payload: Dictionary) -> void:
 	if not _is_online_duel_active() or not online_is_host:
 		return
-	var sender_id: int = multiplayer.get_remote_sender_id()
-	if sender_id != online_remote_peer_id:
+	var shot_blocked: bool = (
+		projectile_active or not turn_projectiles.is_empty()
+		or game_over or overlay_open or _is_hotseat_turn_start_prompt_active()
+	)
+	if not OnlineDuelCommandValidator.can_fire(
+		multiplayer.get_remote_sender_id(),
+		online_remote_peer_id,
+		current_player,
+		ONLINE_DUEL_CLIENT_PLAYER,
+		shot_blocked
+	):
 		return
-	if current_player != ONLINE_DUEL_CLIENT_PLAYER:
+	var command: Dictionary = OnlineDuelCommandValidator.normalize_fire(
+		payload,
+		45.0,
+		POWER_PERCENT_DEFAULT,
+		MOBILE_MIN_ANGLE,
+		MOBILE_MAX_ANGLE,
+		HOTSEAT_CHARGE_MIN_PERCENT,
+		HOTSEAT_CHARGE_MAX_PERCENT,
+		active_weapon_loadout,
+		WEAPON_STANDARD
+	)
+	if command.is_empty():
 		return
-	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or _is_hotseat_turn_start_prompt_active():
-		return
-	angle_deg = clampf(float(payload.get("angle", 45.0)), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
-	power_percent = clampf(float(payload.get("power_percent", POWER_PERCENT_DEFAULT)), HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT)
+	angle_deg = float(command["angle"])
+	power_percent = float(command["power_percent"])
 	power = _power_from_percent(power_percent)
-	selected_weapon = OnlineDuelCodec.safe_requested_weapon(payload, active_weapon_loadout, WEAPON_STANDARD)
+	selected_weapon = str(command["weapon"])
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
