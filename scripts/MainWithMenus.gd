@@ -402,3 +402,25 @@ func _update_ui() -> void:
 
 func _draw_distant_mountains() -> void:
 	LegacyBackdropRenderer.draw_distant_mountains(self, VIEW_SIZE)
+
+# Required compatibility method for lower ancestor compile-time dispatch.
+func _bottom_floor_y() -> float:
+	return (VIEW_SIZE.y - CAMERA_Y_OFFSET) / CAMERA_SCALE - BOTTOM_FLOOR_SCREEN_MARGIN
+
+# Required compatibility method for lower ancestor compile-time dispatch.
+func _draw_trajectory_preview() -> void:
+	if projectile_active or game_over:
+		return
+	var facing: float = 1.0 if current_player == 0 else -1.0
+	var rad: float = deg_to_rad(angle_deg)
+	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	var pos: Vector2 = tank_positions[current_player] + muzzle_offset
+	var vel: Vector2 = Vector2(facing * power * cos(rad), -power * sin(rad))
+	for i: int in range(1, TRAJECTORY_DOT_COUNT + 1):
+		vel.y += gravity * TRAJECTORY_DOT_DT
+		vel.x += wind * TRAJECTORY_DOT_DT
+		pos += vel * TRAJECTORY_DOT_DT
+		if pos.x < 0.0 or pos.x > active_world_width or pos.y >= _ground_y_at_x(pos.x):
+			break
+		var alpha: float = 0.55 * (1.0 - float(i - 1) / float(TRAJECTORY_DOT_COUNT))
+		draw_circle(_world_to_screen(pos), TRAJECTORY_DOT_RADIUS, Color(1.0, 1.0, 1.0, alpha))
