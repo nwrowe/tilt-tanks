@@ -142,6 +142,26 @@ func _test_hotseat_weapons_turns_and_fire() -> void:
 	game.call("_update_projectile", 0.02)
 	var updated_position: Vector2 = game.get("projectile_pos")
 	_check(updated_position.distance_to(initial_position) > 0.01, "projectile advances with real weapon physics")
+
+	# Step the actual projectile to impact or world exit. This tests the complete
+	# fire -> flight -> explosion path without wall-clock timing.
+	var resolved: bool = not bool(game.get("projectile_active"))
+	for step: int in range(600):
+		if resolved:
+			break
+		game.call("_update_projectile", 0.02)
+		resolved = not bool(game.get("projectile_active"))
+	_check(resolved, "fired shell resolves within a bounded simulation")
+	if resolved:
+		_check(float(game.get("explosion_timer")) > 0.0, "impact starts an explosion")
+		_check(bool(game.get("pending_advance_after_explosion_hold")) or bool(game.get("game_over")), "impact queues turn advance or ends match")
+		if not bool(game.get("game_over")):
+			# The gameplay frame loop normally decreases these timers.
+			game.set("explosion_timer", 0.0)
+			game.set("cluster_camera_hold_timer", 0.0)
+			game.call("_maybe_advance_after_explosion_hold")
+			_check(int(game.get("current_player")) == 1, "resolved shot advances to player 2")
+			_check(bool(game.get("hotseat_turn_start_pending")), "next turn is gated for hotseat handoff")
 	game.call("reset_match")
 	_check(int(game.get("current_player")) == 0, "reset returns turn to player 1")
 	_check(str(game.get("selected_weapon")) == WeaponCatalog.STANDARD, "reset restores default weapon")
