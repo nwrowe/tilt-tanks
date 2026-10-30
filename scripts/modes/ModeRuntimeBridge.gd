@@ -579,7 +579,7 @@ func _draw_wind_widget() -> void:
 	var meter_y: float = box.position.y + 22.0
 	var half_width: float = (meter_right - meter_left) * 0.5
 	var display_wind: float = _wind_display_value()
-	var strength: float = clampf(absf(display_wind) / WIND_DISPLAY_MAX, 0.0, 1.0)
+	var strength: float = WindMeterPolicy.strength(display_wind, WIND_DISPLAY_MAX)
 	var fill_width: float = half_width * strength
 	var bar_color: Color = _wind_strength_color(strength)
 	draw_line(Vector2(meter_left, meter_y), Vector2(meter_right, meter_y), Color(0.55, 0.65, 0.75, 0.45), 8.0)
@@ -594,26 +594,15 @@ func _draw_wind_widget() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(box.position.x + box.size.x - 48.0, box.position.y + 35.0), "%+.0f" % display_wind, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 
 func _wind_display_value() -> float:
-	return clampf(wind / WIND_METER_MAX_ACCEL * WIND_DISPLAY_MAX, -WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
+	return WindMeterPolicy.display_value(wind, WIND_METER_MAX_ACCEL, WIND_DISPLAY_MAX)
 
 func _wind_strength_color(strength: float) -> Color:
-	var s: float = clampf(strength, 0.0, 1.0)
-	if s < 0.55:
-		return Color(0.35, 0.95, 0.35, 0.92)
-	if s < 0.82:
-		var t: float = (s - 0.55) / 0.27
-		return Color(lerpf(0.35, 1.0, t), 0.95, lerpf(0.35, 0.08, t), 0.92)
-	var t2: float = (s - 0.82) / 0.18
-	return Color(1.0, lerpf(0.95, 0.12, t2), 0.08, 0.92)
+	return WindMeterPolicy.strength_color(strength)
 
 func _draw_small_arrow(tip: Vector2, direction: float, color: Color) -> void:
-	var d: float = signf(direction)
-	if d == 0.0:
-		return
-	var p1: Vector2 = tip
-	var p2: Vector2 = tip + Vector2(-8.0 * d, -6.0)
-	var p3: Vector2 = tip + Vector2(-8.0 * d, 6.0)
-	draw_colored_polygon(PackedVector2Array([p1, p2, p3]), color)
+	var points: PackedVector2Array = WindMeterPolicy.arrow_points(tip, direction)
+	if not points.is_empty():
+		draw_colored_polygon(points, color)
 
 # Base gameplay frame behavior from the retired menu ancestor.
 func _process_legacy_gameplay_frame(delta: float) -> void:
