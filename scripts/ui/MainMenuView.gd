@@ -90,6 +90,44 @@ func style_button(button: Button) -> void:
 	button.add_theme_color_override("font_color", Color.WHITE)
 	button.add_theme_font_size_override("font_size", 24)
 
+## Screen-specific layouts belong to this presentation object, while the
+## caller retains screen state, navigation callbacks and gameplay side effects.
+## Do not clear here: the game calls its overridable clear hook first.
+
+func build_home(
+	view_size: Vector2,
+	single_path: String, multiplayer_path: String, options_path: String,
+	single_callback: Callable, multiplayer_callback: Callable, options_callback: Callable
+) -> void:
+	add_button(view_size, "Single Player", single_path, Vector2(0.5, 0.54), Vector2(310, 72), single_callback)
+	add_button(view_size, "Multiplayer", multiplayer_path, Vector2(0.5, 0.65), Vector2(310, 72), multiplayer_callback)
+	add_button(view_size, "Options", options_path, Vector2(0.5, 0.76), Vector2(310, 72), options_callback)
+
+func build_single_player(
+	view_size: Vector2,
+	quick_path: String, campaign_path: String, back_path: String,
+	quick_callback: Callable, campaign_callback: Callable, back_callback: Callable
+) -> void:
+	add_button(view_size, "Quick Game", quick_path, Vector2(0.5, 0.58), Vector2(310, 72), quick_callback)
+	add_button(view_size, "Campaign", campaign_path, Vector2(0.5, 0.69), Vector2(310, 72), campaign_callback)
+	add_button(view_size, "Back", back_path, Vector2(0.5, 0.82), Vector2(210, 58), back_callback)
+
+func build_multiplayer(
+	view_size: Vector2,
+	hotseat_path: String, online_path: String, back_path: String,
+	hotseat_callback: Callable, online_callback: Callable, back_callback: Callable
+) -> void:
+	add_button(view_size, "Hotseat", hotseat_path, Vector2(0.5, 0.58), Vector2(310, 72), hotseat_callback)
+	add_button(view_size, "Online", online_path, Vector2(0.5, 0.69), Vector2(310, 72), online_callback)
+	add_button(view_size, "Back", back_path, Vector2(0.5, 0.82), Vector2(210, 58), back_callback)
+
+func build_placeholder(
+	view_size: Vector2, title: String, back_path: String, back_callback: Callable
+) -> void:
+	add_label(view_size, title, Vector2(0.5, 0.54), Vector2(420, 60), 28)
+	add_label(view_size, "Coming soon", Vector2(0.5, 0.62), Vector2(420, 44), 20)
+	add_button(view_size, "Back", back_path, Vector2(0.5, 0.76), Vector2(210, 58), back_callback)
+
 func draw_background(canvas: CanvasItem, viewport_size: Vector2) -> void:
 	var landscape: bool = viewport_size.x >= viewport_size.y
 	var texture: Texture2D = landscape_texture if landscape else portrait_texture

@@ -66,6 +66,7 @@ func _run() -> void:
 	_test_wind_meter_policy_live()
 	_test_turn_ai_session_live()
 	_test_menu_navigation_session_live()
+	_test_composed_menu_screen_layouts_live()
 
 	game.queue_free()
 	await process_frame
@@ -833,6 +834,45 @@ func _test_menu_navigation_session_live() -> void:
 	game.call("_show_main_menu")
 	_check(navigation.screen == 0 and not navigation.single_player,
 		"active scene returns home through composed navigation state")
+
+func _test_composed_menu_screen_layouts_live() -> void:
+	var view: MainMenuView = game.get("menu_view") as MainMenuView
+	var viewport_size: Vector2 = game.get_viewport_rect().size
+	game.call("_show_main_menu")
+	_check(view.controls.size() == 3, "composed menu builder creates three home actions")
+	_check(view.controls[0].position == MainMenuPresentation.anchored_position(
+		viewport_size, Vector2(0.5, 0.54), Vector2(310, 72)),
+		"home screen keeps original single-player button placement")
+	var single_button: BaseButton = view.controls[0] as BaseButton
+	_check(single_button != null, "home menu first control remains clickable")
+	if single_button != null:
+		single_button.pressed.emit()
+	_check(int(game.get("menu_state")) == 1 and view.controls.size() == 3,
+		"composed home screen retains single-player callback wiring")
+	_check(view.controls[2].position == MainMenuPresentation.anchored_position(
+		viewport_size, Vector2(0.5, 0.82), Vector2(210, 58)),
+		"single-player screen retains back-button placement")
+	var back_button: BaseButton = view.controls[2] as BaseButton
+	if back_button != null:
+		back_button.pressed.emit()
+	_check(int(game.get("menu_state")) == 0,
+		"single-player back control still navigates home")
+	game.call("_show_multiplayer_menu")
+	_check(view.controls.size() == 3 and view.controls[1].position == MainMenuPresentation.anchored_position(
+		viewport_size, Vector2(0.5, 0.69), Vector2(310, 72)),
+		"composed multiplayer menu retains online option placement")
+	# Active online navigation is overridden by the full multiplayer facade.
+	# Exercise the reusable fallback placeholder directly.
+	game.call("_show_placeholder_menu", "Options")
+	_check(view.controls.size() == 3 and (view.controls[0] as Label).text == "Options" and
+		(view.controls[1] as Label).text == "Coming soon",
+		"composed placeholder retains its title and unavailable notice")
+	var placeholder_back: BaseButton = view.controls[2] as BaseButton
+	if placeholder_back != null:
+		placeholder_back.pressed.emit()
+	_check(int(game.get("menu_state")) == 0 and view.controls.size() == 3,
+		"composed fallback placeholder back action returns home")
+	game.call("_show_main_menu")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
