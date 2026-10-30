@@ -17,6 +17,7 @@ func _run() -> void:
 	_test_weapon_catalog()
 	_test_power_control_policy()
 	_test_legacy_input_motion_policy()
+	_test_composed_backdrop_geometry()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -254,6 +255,15 @@ func _test_legacy_input_motion_policy() -> void:
 	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(800.0, false, 0.0, 0.0, Vector2.INF, 800.0, 1.0, 1600.0), 400.0), "camera follows active tank")
 	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(300.0, true, 900.0, 0.5, Vector2(200.0, 0.0), 800.0, 1.0, 1600.0), 500.0), "active projectile takes camera priority")
 	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(300.0, false, 0.0, 0.5, Vector2(750.0, 0.0), 800.0, 1.0, 1600.0), 350.0), "explosion hold becomes camera target")
+
+func _test_composed_backdrop_geometry() -> void:
+	var points: PackedVector2Array = LegacyBackdropRenderer.mountain_polygon(Vector2(900.0, 540.0))
+	_check(points.size() == 12, "mountain backdrop retains original ten ridge points and two floor corners")
+	_check(points[0] == Vector2(-120.0, 540.0), "backdrop retains left floor corner")
+	_check(points[1] == Vector2(-120.0, 295.0), "backdrop retains first mountain ridge")
+	_check(points[11] == Vector2(1020.0, 540.0), "backdrop retains right floor corner")
+	var different: PackedVector2Array = LegacyBackdropRenderer.mountain_polygon(Vector2(600.0, 400.0))
+	_check(different[0].y == 400.0 and different[11].x == 720.0, "backdrop adapts to viewport dimensions")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()

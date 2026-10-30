@@ -27,7 +27,7 @@ jobs:
           include-templates: false
 
       - name: Enforce active inheritance depth budget
-        run: python3 tests/check_inheritance_depth.py --max-depth 11
+        run: python3 tests/check_inheritance_depth.py --max-depth 10
 
       - name: Import assets and register script classes
         run: bash tests/check_godot_run.sh godot --headless --path . --import
