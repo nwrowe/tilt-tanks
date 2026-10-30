@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_composed_backdrop_geometry()
 	_test_main_menu_presentation()
 	_test_water_manager_world_policy()
+	_test_turn_ai_shot_planner()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -305,6 +306,53 @@ func _test_water_manager_world_policy() -> void:
 	_check(is_equal_approx(WaterManager.tank_y_for_surface(ponds, points, 20.0, 10.0, 16.0, 3.0, 0.5), 128.0), "floating tank respects half-submergence")
 	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 20.0, 10.0, 3.0, 0.42), 0.42), "pond movement uses original water slowdown")
 	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 0.0, 10.0, 3.0, 0.42), 1.0), "dry ground retains normal speed")
+
+func _ai_test_ground(_x: float) -> float:
+	return 300.0
+
+func _ai_test_score(pos: Vector2, angle: float, power_percent: float) -> float:
+	return absf(pos.x - 600.0) * 0.1 + absf(angle - 36.0) + absf(power_percent - 22.0)
+
+func _test_turn_ai_shot_planner() -> void:
+	var config: Dictionary = {
+		"max_score": 999999.0, "min_angle": 12, "max_angle": 48,
+		"angle_step": 4, "min_power": 10, "max_power": 34,
+		"power_step": 1, "score_randomness": 0.0,
+		"move_offsets": [-80.0, 0.0, 100.0],
+		"edge_margin": 70.0, "min_human_distance": 160.0,
+		"tank_radius": 16.0, "move_penalty_per_pixel": 0.02,
+		"move_chance": 1.0
+	}
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 1234
+	var scorer: Callable = Callable(self, "_ai_test_score")
+	var shot: Dictionary = TurnAIShotPlanner.find_shot(rng, Vector2(600, 284), scorer, config)
+	_check(is_equal_approx(float(shot["angle"]), 36.0), "planner selects lowest-scoring shot angle")
+	_check(is_equal_approx(float(shot["power_percent"]), 22.0), "planner selects lowest-scoring shot power")
+	_check(is_zero_approx(float(shot["score"])), "zero-noise planner preserves base shot score")
+	var plan: Dictionary = TurnAIShotPlanner.find_plan(
+		rng, Vector2(500, 284), Vector2(1200, 284), 1500.0,
+		Callable(self, "_ai_test_ground"), scorer, config
+	)
+	_check(is_equal_approx(float(plan["move_x"]), 600.0), "planner prefers useful movement after move penalty")
+	_check(is_equal_approx(float(plan["angle"]), 36.0), "planner searches angle over movement candidates")
+	_check(is_equal_approx(float(plan["power_percent"]), 22.0), "planner searches power over movement candidates")
+	_check(is_equal_approx(float(plan["score"]), 2.0), "planner includes movement penalty in best score")
+	config["move_chance"] = -1.0
+	var stationary: Dictionary = TurnAIShotPlanner.find_plan(
+		rng, Vector2(500, 284), Vector2(1200, 284), 1500.0,
+		Callable(self, "_ai_test_ground"), scorer, config
+	)
+	_check(is_equal_approx(float(stationary["move_x"]), 500.0), "stationary fallback preserves start position")
+	_check(is_equal_approx(float(stationary["angle"]), 36.0), "stationary fallback independently recalculates aim")
+	config["move_chance"] = 1.0
+	config["min_human_distance"] = 1000.0
+	var blocked: Dictionary = TurnAIShotPlanner.find_plan(
+		rng, Vector2(500, 284), Vector2(600, 284), 1500.0,
+		Callable(self, "_ai_test_ground"), scorer, config
+	)
+	_check(is_equal_approx(float(blocked["move_x"]), 500.0), "unsafe movement candidates are rejected")
+	_check(is_equal_approx(float(blocked["angle"]), 45.0), "no valid candidate retains default angle")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
