@@ -66,6 +66,18 @@ func advance_turn(turn_time_limit: float) -> int:
 	state.turn_timer = turn_time_limit
 	return state.current_player
 
+## Save the outgoing player's aim and power, then advance to the next
+## player as one controller-owned operation. Weapon selection is a separate
+## loadout concern handled by the mode layer before this call.
+func complete_turn_without_shot(
+	turn_time_limit: float,
+	angle: float,
+	power: float,
+	power_percent: float
+) -> int:
+	save_current_player_settings(angle, power, power_percent)
+	return advance_turn(turn_time_limit)
+
 func end_turn_without_shot(turn_time_limit: float) -> int:
 	return advance_turn(turn_time_limit)
 
