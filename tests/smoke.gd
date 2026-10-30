@@ -12,6 +12,7 @@ func _run() -> void:
 	_test_match_controller()
 	_test_match_damage()
 	_test_player_frame_adoption()
+	_test_complete_turn_with_settings()
 	_test_weapon_catalog()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -145,6 +146,26 @@ func _test_match_damage() -> void:
 	controller.sync_health_values([100, 100])
 	controller.apply_radial_damage(impact, [impact], 10.0, 100.0, 75, 50, 4)
 	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "malformed target count leaves health unchanged")
+
+func _test_complete_turn_with_settings() -> void:
+	var state: MatchState = MatchState.new()
+	var controller: MatchController = MatchController.new(state)
+	controller.start_match(
+		0, 1500.0, 30.0, 45.0, 800.0, 50.0,
+		Vector2(100, 300), Vector2(1400, 300), 0.0
+	)
+	var next_player: int = controller.complete_turn_without_shot(30.0, 39.0, 720.0, 33.0)
+	_check(next_player == 1 and state.current_player == 1, "completing first turn advances to player 2")
+	_check(is_equal_approx(state.player_angles[0], 39.0), "turn completion preserves player 1 aim")
+	_check(is_equal_approx(state.player_powers[0], 720.0), "turn completion preserves player 1 power")
+	_check(is_equal_approx(state.player_power_percents[0], 33.0), "turn completion preserves player 1 power percentage")
+	_check(is_equal_approx(state.player_angles[1], 45.0), "outgoing player save does not overwrite next player")
+	controller.complete_turn_without_shot(30.0, 58.0, 975.0, 68.0)
+	_check(state.current_player == 0, "completing second turn returns to player 1")
+	_check(is_equal_approx(state.player_angles[1], 58.0), "turn completion preserves player 2 aim")
+	_check(is_equal_approx(state.player_power_percents[1], 68.0), "turn completion preserves player 2 charge")
+	_check(is_equal_approx(state.turn_timer, 30.0), "turn completion resets timer")
+	_check(state.tank_health == [100, 100] and not state.game_over, "turn completion leaves health and winner intact")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()

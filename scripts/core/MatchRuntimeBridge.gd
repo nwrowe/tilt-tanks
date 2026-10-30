@@ -25,7 +25,10 @@ func _advance_turn() -> void:
 func _end_turn_without_shot() -> void:
 	_sync_match_state_from_runtime()
 	_save_runtime_current_player_settings()
-	match_controller.end_turn_without_shot(TURN_TIME_LIMIT)
+	match_controller.complete_turn_without_shot(
+		TURN_TIME_LIMIT, angle_deg, power,
+		power_percent if "power_percent" in self else 0.0
+	)
 	_apply_post_turn_match_state()
 
 func _update_projectile(delta: float) -> void:
@@ -110,7 +113,6 @@ func _save_runtime_current_player_settings() -> void:
 	player_powers[current_player] = power
 	if "player_power_percents" in self:
 		player_power_percents[current_player] = power_percent
-	match_controller.save_current_player_settings(angle_deg, power, power_percent if "power_percent" in self else 0.0)
 
 func _sync_projectile_state_to_match_controller() -> void:
 	# Legacy physics still advances the projectile in game runtime; the
