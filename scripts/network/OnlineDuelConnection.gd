@@ -25,7 +25,7 @@ func connect_signals(
 		api.server_disconnected.connect(on_server_disconnected)
 
 func host(api: MultiplayerAPI, port: int, max_clients: int) -> int:
-	disconnect(api)
+	close_peer(api)
 	var candidate: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	var err: int = candidate.create_server(port, max_clients)
 	if err != OK:
@@ -36,7 +36,7 @@ func host(api: MultiplayerAPI, port: int, max_clients: int) -> int:
 	return OK
 
 func join(api: MultiplayerAPI, host_address: String, port: int) -> int:
-	disconnect(api)
+	close_peer(api)
 	var candidate: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	var err: int = candidate.create_client(host_address, port)
 	if err != OK:
@@ -46,7 +46,7 @@ func join(api: MultiplayerAPI, host_address: String, port: int) -> int:
 	api.multiplayer_peer = peer
 	return OK
 
-func disconnect(api: MultiplayerAPI) -> void:
+func close_peer(api: MultiplayerAPI) -> void:
 	if api.multiplayer_peer != null:
 		api.multiplayer_peer.close()
 		api.multiplayer_peer = null
