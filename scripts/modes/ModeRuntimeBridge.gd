@@ -350,56 +350,37 @@ func _take_ai_shot() -> void:
 		power_slider.value = power_percent
 	_on_fire_pressed()
 
+func _turn_ai_search_config() -> Dictionary:
+	return {
+		"max_score": AI_MAX_SCORE_DISTANCE,
+		"min_angle": AI_MIN_ANGLE_DEG, "max_angle": AI_MAX_ANGLE_DEG,
+		"angle_step": AI_ANGLE_STEP_DEG,
+		"min_power": AI_MIN_POWER_PERCENT, "max_power": AI_MAX_POWER_PERCENT,
+		"power_step": AI_POWER_STEP_PERCENT,
+		"score_randomness": AI_SCORE_RANDOMNESS,
+		"move_offsets": AI_MOVE_OFFSETS,
+		"edge_margin": AI_EDGE_MARGIN,
+		"min_human_distance": AI_MIN_DISTANCE_FROM_HUMAN,
+		"tank_radius": TANK_RADIUS,
+		"move_penalty_per_pixel": AI_MOVE_PENALTY_PER_PIXEL,
+		"move_chance": AI_MOVE_CHANCE
+	}
+
 func _find_ai_plan() -> Dictionary:
-	var best_score: float = AI_MAX_SCORE_DISTANCE
-	var best_angle: float = 45.0
-	var best_power_percent: float = 55.0
-	var best_x: float = tank_positions[AI_PLAYER_INDEX].x
-	var start_x: float = tank_positions[AI_PLAYER_INDEX].x
-
-	for offset: float in AI_MOVE_OFFSETS:
-		var candidate_x: float = clampf(start_x + offset, AI_EDGE_MARGIN, active_world_width - AI_EDGE_MARGIN)
-		if absf(candidate_x - tank_positions[HUMAN_PLAYER_INDEX].x) < AI_MIN_DISTANCE_FROM_HUMAN:
-			continue
-		var candidate_y: float = _ground_y_at_x(candidate_x) - TANK_RADIUS
-		var candidate_pos: Vector2 = Vector2(candidate_x, candidate_y)
-		var move_penalty: float = absf(candidate_x - start_x) * AI_MOVE_PENALTY_PER_PIXEL
-
-		for test_angle: int in range(AI_MIN_ANGLE_DEG, AI_MAX_ANGLE_DEG + 1, AI_ANGLE_STEP_DEG + 2):
-			for test_power_percent: int in range(AI_MIN_POWER_PERCENT, AI_MAX_POWER_PERCENT + 1, AI_POWER_STEP_PERCENT + 3):
-				var score: float = _score_ai_shot_from_position(candidate_pos, float(test_angle), float(test_power_percent))
-				score += move_penalty
-				score += rng.randf_range(0.0, AI_SCORE_RANDOMNESS)
-				if score < best_score:
-					best_score = score
-					best_angle = float(test_angle)
-					best_power_percent = float(test_power_percent)
-					best_x = candidate_x
-
-	if rng.randf() > AI_MOVE_CHANCE:
-		best_x = start_x
-		var stationary: Dictionary = _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
-		best_angle = float(stationary.get("angle", best_angle))
-		best_power_percent = float(stationary.get("power_percent", best_power_percent))
-
-	return {"angle": best_angle, "power_percent": best_power_percent, "move_x": best_x, "score": best_score}
+	return TurnAIShotPlanner.find_plan(
+		rng, tank_positions[AI_PLAYER_INDEX], tank_positions[HUMAN_PLAYER_INDEX],
+		active_world_width, Callable(self, "_ground_y_at_x"),
+		Callable(self, "_score_ai_shot_from_position"), _turn_ai_search_config()
+	)
 
 func _find_ai_shot() -> Dictionary:
 	return _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
 
 func _find_ai_shot_from_position(shooter_pos: Vector2) -> Dictionary:
-	var best_score: float = AI_MAX_SCORE_DISTANCE
-	var best_angle: float = 45.0
-	var best_power_percent: float = 55.0
-	for test_angle: int in range(AI_MIN_ANGLE_DEG, AI_MAX_ANGLE_DEG + 1, AI_ANGLE_STEP_DEG + 2):
-		for test_power_percent: int in range(AI_MIN_POWER_PERCENT, AI_MAX_POWER_PERCENT + 1, AI_POWER_STEP_PERCENT + 3):
-			var score: float = _score_ai_shot_from_position(shooter_pos, float(test_angle), float(test_power_percent))
-			score += rng.randf_range(0.0, AI_SCORE_RANDOMNESS)
-			if score < best_score:
-				best_score = score
-				best_angle = float(test_angle)
-				best_power_percent = float(test_power_percent)
-	return {"angle": best_angle, "power_percent": best_power_percent, "score": best_score}
+	return TurnAIShotPlanner.find_shot(
+		rng, shooter_pos, Callable(self, "_score_ai_shot_from_position"),
+		_turn_ai_search_config()
+	)
 
 func _score_ai_shot(test_angle_deg: float, test_power_percent: float) -> float:
 	return _score_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX], test_angle_deg, test_power_percent)
