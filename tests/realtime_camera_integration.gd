@@ -57,6 +57,10 @@ func _run() -> void:
 	_check(is_equal_approx(float(game.get("cluster_camera_hold_timer")), 0.5), "human explosion starts short camera hold")
 	_check(game.get("cluster_camera_hold_pos") == human_impact, "camera follows human explosion")
 	_check(not bool(game.get("manual_camera_active")), "camera hold disables manual panning")
+	# The former inheritance layer also clamps longer cluster camera holds.
+	game.set("cluster_camera_hold_timer", 0.85)
+	game.call("_process", 0.0)
+	_check(float(game.get("cluster_camera_hold_timer")) <= 0.50001, "legacy global camera hold clamp survives layer retirement")
 
 	game.call("reset_match")
 	_check(is_zero_approx(float(game.get("cluster_camera_hold_timer"))), "reset clears explosion hold")
