@@ -222,25 +222,21 @@ func _terrain_slope_at_x(x: float) -> float:
 	return (right_y - left_y) / (2.0 * dx)
 
 func _pond_at_x(x: float) -> Dictionary:
-	for pond: Dictionary in ponds:
-		var start_x: float = float(pond.get("start_x", 0.0))
-		var end_x: float = float(pond.get("end_x", 0.0))
-		var water_y: float = float(pond.get("water_y", 0.0))
-		if x >= start_x and x <= end_x and _ground_y_at_x(x) >= water_y + WATER_MIN_VISIBLE_DEPTH:
-			return pond
-	return {}
+	return WaterManager.pond_at_x(
+		ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH
+	)
 
 func _tank_y_for_surface(player: int, x: float) -> float:
-	var ground_y: float = _ground_y_at_x(x) - TANK_RADIUS
-	var pond: Dictionary = _pond_at_x(x)
-	if pond.is_empty():
-		return ground_y
-	var water_y: float = float(pond.get("water_y", 0.0))
-	var float_y: float = water_y + TANK_RADIUS * (1.0 - WATER_FLOAT_TANK_SUBMERGENCE)
-	return minf(ground_y, float_y)
+	return WaterManager.tank_y_for_surface(
+		ponds, terrain_points, x, TERRAIN_STEP, TANK_RADIUS,
+		WATER_MIN_VISIBLE_DEPTH, WATER_FLOAT_TANK_SUBMERGENCE
+	)
 
 func _movement_speed_mult_at_x(x: float) -> float:
-	return WATER_DRIVE_SPEED_MULT if not _pond_at_x(x).is_empty() else 1.0
+	return WaterManager.movement_speed_mult_at_x(
+		ponds, terrain_points, x, TERRAIN_STEP,
+		WATER_MIN_VISIBLE_DEPTH, WATER_DRIVE_SPEED_MULT
+	)
 
 func _draw_ponds_under_ground() -> void:
 	for pond: Dictionary in ponds:
@@ -280,12 +276,9 @@ func _draw_water_surface_segment(start_i: int, end_i: int, water_y: float) -> vo
 	draw_line(left + Vector2(0, 3), right + Vector2(0, 3), Color(0.72, 0.92, 1.0, 0.28), 1.5)
 
 func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
-	var volume: float = 0.0
-	for i: int in range(start_i, end_i + 1):
-		var depth: float = terrain_points[i].y - water_y
-		if depth > 0.0:
-			volume += depth * TERRAIN_STEP
-	return volume
+	return WaterManager.water_volume_for_range(
+		terrain_points, start_i, end_i, water_y, TERRAIN_STEP
+	)
 
 func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
 	var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
@@ -295,21 +288,10 @@ func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
 	return pond
 
 func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
-	var highest_y: float = -INF
-	var lowest_y: float = INF
-	for i: int in range(left_i, right_i + 1):
-		highest_y = maxf(highest_y, terrain_points[i].y)
-		lowest_y = minf(lowest_y, terrain_points[i].y)
-	var low_surface: float = lowest_y
-	var high_surface: float = highest_y
-	for iter: int in range(WATER_MAX_SURFACE_ITERATIONS):
-		var mid: float = (low_surface + high_surface) * 0.5
-		var vol: float = _water_volume_for_range(left_i, right_i, mid)
-		if vol > target_volume:
-			low_surface = mid
-		else:
-			high_surface = mid
-	return (low_surface + high_surface) * 0.5
+	return WaterManager.solve_water_level_for_volume(
+		terrain_points, left_i, right_i, target_volume, TERRAIN_STEP,
+		WATER_MAX_SURFACE_ITERATIONS
+	)
 
 func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
 	var old_start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
@@ -361,14 +343,9 @@ func _reflow_water_after_terrain_change(changed_x: float) -> void:
 	)
 
 func _is_in_pond(pos: Vector2) -> bool:
-	for pond: Dictionary in ponds:
-		var start_x: float = float(pond.get("start_x", 0.0))
-		var end_x: float = float(pond.get("end_x", 0.0))
-		var water_y: float = float(pond.get("water_y", 0.0))
-		if pos.x >= start_x and pos.x <= end_x and pos.y >= water_y:
-			if _ground_y_at_x(pos.x) >= water_y + WATER_MIN_VISIBLE_DEPTH:
-				return true
-	return false
+	return WaterManager.is_in_pond(
+		ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH
+	)
 
 func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
