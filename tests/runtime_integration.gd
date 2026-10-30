@@ -47,6 +47,7 @@ func _run() -> void:
 	_test_runtime_player_frame_bridge()
 	_test_level_and_build_state_bridge()
 	_test_runtime_radial_damage()
+	_test_runtime_turn_completion()
 
 	game.queue_free()
 	await process_frame
@@ -379,6 +380,29 @@ func _test_runtime_radial_damage() -> void:
 	_check(controller.is_game_over() and controller.winner_index() == -1, "live dual destruction is a draw")
 	game.call("reset_match")
 	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "reset clears damage and draw")
+
+func _test_runtime_turn_completion() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var expected_charge: float = 63.0
+	var expected_angle: float = 36.0
+	game.set("angle_deg", expected_angle)
+	game.set("power_percent", expected_charge)
+	var expected_power: float = float(game.call("_power_from_percent", expected_charge))
+	game.set("power", expected_power)
+	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.HEAVY)
+	game.call("_end_turn_without_shot")
+	_check(int(game.get("current_player")) == 1 and state.current_player == 1, "no-shot end hands turn to player 2")
+	_check(is_equal_approx(state.player_angles[0], expected_angle), "controller stores outgoing player angle")
+	_check(is_equal_approx(state.player_power_percents[0], expected_charge), "controller stores outgoing player charge")
+	_check(is_equal_approx(state.player_powers[0], expected_power), "controller stores outgoing player power")
+	_check((game.get("player_angles") as Array) == state.player_angles, "legacy aim array matches authoritative MatchState")
+	_check((game.get("player_power_percents") as Array) == state.player_power_percents, "legacy charge array matches MatchState")
+	game.call("_end_turn_without_shot")
+	_check(int(game.get("current_player")) == 0, "turn cycles back to player 1")
+	_check(is_equal_approx(float(game.get("angle_deg")), expected_angle), "saved player angle is restored after handoff")
+	_check(is_equal_approx(float(game.get("power_percent")), expected_charge), "saved charge is restored after handoff")
+	_check(str(game.get("selected_weapon")) == WeaponCatalog.HEAVY, "outgoing weapon choice remains independent of turn controller")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
