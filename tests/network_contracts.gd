@@ -30,6 +30,7 @@ func _run() -> void:
 	_test_weapon_request_validation()
 	_test_typed_wire_arrays()
 	_test_interpolation_math()
+	_test_host_coordinator()
 	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
@@ -123,6 +124,32 @@ func _test_interpolation_math() -> void:
 	_check(frozen == Vector2(10, 20), "inactive projectile is not smoothed")
 	smoother.reset()
 	_check(smoother.tank_targets.is_empty() and smoother.projectile_target == Vector2.INF, "reset discards client targets")
+
+func _test_host_coordinator() -> void:
+	var host: OnlineDuelHostCoordinator = OnlineDuelHostCoordinator.new()
+	_check(not host.due_for_sync(0.1, false, false, 0.033, 0.1), "host never emits updates without connected peer")
+	_check(host.due_for_sync(0.0, true, false, 0.033, 0.1), "host sends immediately on connection")
+	_check(not host.due_for_sync(0.05, true, false, 0.033, 0.1), "idle host does not oversend")
+	_check(host.due_for_sync(0.06, true, false, 0.033, 0.1), "idle host schedules next snapshot")
+	host.force_next_sync()
+	_check(host.due_for_sync(0.0, true, true, 0.033, 0.1), "active projectile uses fast snapshot schedule")
+	_check(not host.due_for_sync(0.01, true, true, 0.033, 0.1), "active sync respects interval")
+	_check(host.due_for_sync(0.03, true, true, 0.033, 0.1), "active sync resumes after interval")
+	host.arm_fallback(0, 1.25)
+	_check(not host.fallback_due(0.5, 0, true), "fallback never advances before timeout")
+	_check(not host.fallback_due(0.75, 0, false), "fallback waits for projectile and explosion clearance")
+	_check(host.fallback_due(0.0, 0, true), "fallback advances only when time and safety allow")
+	_check(not host.fallback_due(0.0, 0, true), "fallback fires only once")
+	host.arm_fallback(0, 1.25)
+	_check(not host.fallback_due(0.5, 1, true), "owner change cancels pending fallback")
+	_check(host.fallback_owner == -1, "owner switch clears host fallback state")
+	_check(OnlineDuelHostCoordinator.can_advance(false, false, false, false, false, 0.0, 0.0), "clear host turn may advance")
+	_check(not OnlineDuelHostCoordinator.can_advance(false, true, false, false, false, 0.0, 0.0), "projectile blocks forced advance")
+	_check(not OnlineDuelHostCoordinator.can_advance(false, false, false, true, false, 0.0, 0.0), "machine gun burst blocks advance")
+	_check(not OnlineDuelHostCoordinator.can_advance(false, false, false, false, false, 0.1, 0.0), "explosion delay blocks advance")
+	_check(not OnlineDuelHostCoordinator.can_advance(true, false, false, false, false, 0.0, 0.0), "game over blocks advance")
+	host.reset()
+	_check(host.fallback_owner == -1 and host.sync_remaining == 0.0, "disconnect resets host coordination")
 
 func _test_sequencer_reset() -> void:
 	var seq: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
