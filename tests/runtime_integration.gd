@@ -45,6 +45,7 @@ func _run() -> void:
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
 	_test_runtime_player_frame_bridge()
+	_test_level_and_build_state_bridge()
 
 	game.queue_free()
 	await process_frame
@@ -314,6 +315,27 @@ func _test_runtime_player_frame_bridge() -> void:
 	_check(is_equal_approx(state.active_world_width, float(game.get("active_world_width"))), "live frame captures world width")
 	game.call("reset_match")
 	_check(state.player_angles == [45.0, 45.0], "live reset resynchronizes default player aim")
+
+func _test_level_and_build_state_bridge() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	game.call("_select_level", LevelRegistry.LEVEL_SNOWY_RIDGE)
+	game.call("reset_match")
+	_check(is_equal_approx(state.wind, float(game.get("wind"))), "level wind agrees with controller state after reset")
+	_check(state.tank_builds.size() >= 2, "reset initializes both tank builds")
+	var builds: Array[TankBuildState] = [
+		TankProgressionRegistry.default_player_build(0),
+		TankProgressionRegistry.default_player_build(1)
+	]
+	builds[0].credits = 175
+	game.set("player_tank_builds", builds)
+	game.call("_sync_match_state_tank_builds")
+	_check(state.tank_build_for_player(0).credits == 175, "progression build reaches MatchState through controller")
+	_check(state.tank_build_for_player(1).tank_class_id == builds[1].tank_class_id, "second player build stays independent")
+	game.call("reset_match")
+	_check(state.tank_build_for_player(0).credits == 0, "match reset rebuilds default progression credits")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
