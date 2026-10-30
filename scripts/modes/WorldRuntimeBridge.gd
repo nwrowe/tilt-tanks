@@ -461,9 +461,11 @@ func _update_tank_movement(delta: float) -> void:
 	if direction == 0.0:
 		return
 	var speed: float = float(adjusted.get("speed", TANK_MOVE_SPEED))
-	var new_x: float = clampf(tank_positions[current_player].x + direction * speed * delta, 45.0, active_world_width - 45.0)
+	var new_x: float = LegacyInputMotionPolicy.next_tank_x(
+		tank_positions[current_player].x, direction, speed, delta, active_world_width
+	)
 	var other_player: int = 1 - current_player
-	if absf(new_x - tank_positions[other_player].x) < 90.0:
+	if not LegacyInputMotionPolicy.can_move_without_overlap(new_x, tank_positions[other_player].x):
 		return
 	tank_positions[current_player].x = new_x
 	tank_positions[current_player].y = _tank_y_for_surface(current_player, new_x)
