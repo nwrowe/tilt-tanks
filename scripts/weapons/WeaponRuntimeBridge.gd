@@ -226,8 +226,7 @@ func _process_game_over_visuals(delta: float) -> void:
 	queue_redraw()
 
 func _begin_ai_turn() -> void:
-	ai_pending_turn = true
-	ai_think_timer = AI_THINK_TIME_SLOWER
+	turn_ai_session.begin(AI_THINK_TIME_SLOWER)
 	mobile_left_pressed = false
 	mobile_right_pressed = false
 	if power_slider != null:
@@ -256,12 +255,12 @@ func _process_ai_turn(delta: float) -> void:
 	if not ai_pending_turn:
 		_begin_ai_turn()
 	_update_ai_visual_aim(delta)
-	ai_think_timer -= delta
+	turn_ai_session.step(delta)
 	_update_camera(delta)
 	_update_ui()
 	queue_redraw()
 	if ai_think_timer <= 0.0:
-		ai_pending_turn = false
+		turn_ai_session.cancel()
 		_take_ai_shot()
 
 func _update_ai_visual_aim(delta: float) -> void:
