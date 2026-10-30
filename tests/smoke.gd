@@ -10,6 +10,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_main_scene()
 	_test_match_controller()
+	_test_composed_match_runtime_synchronizer()
 	_test_match_damage()
 	_test_player_frame_adoption()
 	_test_complete_turn_with_settings()
