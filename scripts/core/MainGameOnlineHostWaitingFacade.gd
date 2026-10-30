@@ -53,14 +53,12 @@ func _online_disconnect() -> void:
 func _on_online_host_pressed() -> void:
 	_online_disconnect()
 	_online_connect_multiplayer_signals()
-	online_peer = ENetMultiplayerPeer.new()
 	online_host_wait_port = _online_menu_port()
-	var err: int = online_peer.create_server(online_host_wait_port, ONLINE_DUEL_MAX_CLIENTS)
+	var err: int = online_connection.host(multiplayer, online_host_wait_port, ONLINE_DUEL_MAX_CLIENTS)
+	online_peer = online_connection.peer
 	if err != OK:
 		_show_online_status_menu("Could not host Online Duel on port %d. Error: %d" % [online_host_wait_port, err])
 		return
-
-	multiplayer.multiplayer_peer = online_peer
 	online_is_host = true
 	online_connected = false
 	online_local_player = ONLINE_DUEL_HOST_PLAYER
