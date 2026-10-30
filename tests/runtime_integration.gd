@@ -46,6 +46,7 @@ func _run() -> void:
 	_test_runtime_projectile_bridge()
 	_test_runtime_player_frame_bridge()
 	_test_level_and_build_state_bridge()
+	_test_runtime_radial_damage()
 
 	game.queue_free()
 	await process_frame
@@ -336,6 +337,46 @@ func _test_level_and_build_state_bridge() -> void:
 	_check(state.tank_build_for_player(0).credits == 0, "match reset rebuilds default progression credits")
 	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
 	game.call("reset_match")
+
+func _test_runtime_radial_damage() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var controller: MatchController = game.get("match_controller") as MatchController
+	var impact: Vector2 = Vector2(400.0, 150.0)
+	var far: Vector2 = Vector2(1300.0, 150.0)
+	var base_health: Array[int] = [100, 100]
+	var positions: Array[Vector2] = [impact, far]
+	game.set("tank_positions", positions)
+	game.set("tank_health", base_health)
+	var standard_damage: int = int(game.call("_weapon_direct_damage", WeaponCatalog.STANDARD))
+	game.call("_apply_weapon_damage", impact, WeaponCatalog.STANDARD)
+	_check(int((game.get("tank_health") as Array)[0]) == maxi(0, 100 - standard_damage), "actual standard shell applies registry direct damage")
+	_check(int((game.get("tank_health") as Array)[1]) == 100, "actual blast leaves distant tank untouched")
+	_check(state.tank_health == game.get("tank_health"), "weapon damage updates runtime and controller identically")
+
+	var direct_radius: float = float(game.call("_weapon_direct_radius", WeaponCatalog.HEAVY))
+	var blast_radius: float = float(game.call("_weapon_explosion_radius", WeaponCatalog.HEAVY))
+	var midpoint: float = direct_radius + (blast_radius - direct_radius) * 0.5
+	var targets: Array[Vector2] = [far, impact + Vector2(midpoint, 0.0)]
+	game.set("tank_positions", targets)
+	game.set("tank_health", base_health.duplicate())
+	var expected_splash: int = MatchDamagePolicy.radial_damage(
+		impact, targets[1], direct_radius, blast_radius,
+		int(game.call("_weapon_direct_damage", WeaponCatalog.HEAVY)),
+		int(game.call("_weapon_splash_damage", WeaponCatalog.HEAVY)), 4
+	)
+	game.call("_apply_weapon_damage", impact, WeaponCatalog.HEAVY)
+	_check(int((game.get("tank_health") as Array)[1]) == 100 - expected_splash, "heavy shell uses defined splash formula")
+	_check(state.tank_health == game.get("tank_health"), "heavy splash matches controller health state")
+	_check(not controller.is_game_over(), "nonlethal splash keeps the match active")
+
+	game.set("tank_positions", [impact, impact] as Array[Vector2])
+	game.set("tank_health", [1, 1] as Array[int])
+	game.call("_apply_explosion_damage", impact)
+	_check((game.get("tank_health") as Array) == [0, 0], "legacy explosion can destroy both tanks")
+	_check(controller.is_game_over() and controller.winner_index() == -1, "live dual destruction is a draw")
+	game.call("reset_match")
+	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "reset clears damage and draw")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
