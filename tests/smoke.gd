@@ -16,6 +16,7 @@ func _run() -> void:
 	_test_complete_turn_with_settings()
 	_test_weapon_catalog()
 	_test_power_control_policy()
+	_test_legacy_input_motion_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -235,6 +236,24 @@ func _test_power_control_policy() -> void:
 	_check(is_equal_approx(PowerControlPolicy.force_from_percent(-10.0, 400.0, 1200.0), 400.0), "negative percentage is clamped")
 	_check(is_equal_approx(PowerControlPolicy.force_from_percent(140.0, 400.0, 1200.0), 1200.0), "above maximum percentage is clamped")
 	_check(is_equal_approx(PowerControlPolicy.clamp_percent(42.0), 42.0), "valid percentage is unchanged")
+
+func _test_legacy_input_motion_policy() -> void:
+	_check(is_equal_approx(LegacyInputMotionPolicy.keyboard_aim(45.0, 1.0, 0.2, 2.0, 94.0), 60.0), "keyboard up advances aim at 75 degrees per second")
+	_check(is_equal_approx(LegacyInputMotionPolicy.keyboard_aim(45.0, -1.0, 0.2, 2.0, 94.0), 30.0), "keyboard down reduces aim")
+	_check(is_equal_approx(LegacyInputMotionPolicy.keyboard_aim(90.0, 1.0, 0.2, 2.0, 94.0), 94.0), "keyboard aim is clamped")
+	_check(is_equal_approx(LegacyInputMotionPolicy.tilt_aim(0.0, 0, 0.5, 2.0, 94.0), 48.0), "neutral gravity selects midpoint angle")
+	_check(is_equal_approx(LegacyInputMotionPolicy.tilt_aim(4.9, 0, 0.5, 2.0, 94.0), 2.0), "player one tilt maps to minimum aim")
+	_check(is_equal_approx(LegacyInputMotionPolicy.tilt_aim(4.9, 1, 0.5, 2.0, 94.0), 94.0), "player two tilt reverses player one direction")
+	_check(is_equal_approx(LegacyInputMotionPolicy.tilt_aim(-12.0, 0, 0.5, 2.0, 94.0), 94.0), "gravity input outside full scale clamps")
+	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(200.0, 1.0, 100.0, 0.5, 1500.0), 250.0), "tank position integrates movement")
+	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(1490.0, 1.0, 100.0, 0.5, 1500.0), 1455.0), "tank cannot cross right world edge")
+	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(20.0, -1.0, 100.0, 0.5, 1500.0), 45.0), "tank cannot cross left world edge")
+	_check(not LegacyInputMotionPolicy.can_move_without_overlap(100.0, 185.0), "nearby tanks block movement")
+	_check(LegacyInputMotionPolicy.can_move_without_overlap(100.0, 190.0), "ninety-unit tank gap is permitted")
+	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(150.0, false, 0.0, 0.0, Vector2.INF, 800.0, 1.0, 1600.0), 0.0), "camera clamps near world start")
+	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(800.0, false, 0.0, 0.0, Vector2.INF, 800.0, 1.0, 1600.0), 400.0), "camera follows active tank")
+	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(300.0, true, 900.0, 0.5, Vector2(200.0, 0.0), 800.0, 1.0, 1600.0), 500.0), "active projectile takes camera priority")
+	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(300.0, false, 0.0, 0.5, Vector2(750.0, 0.0), 800.0, 1.0, 1600.0), 350.0), "explosion hold becomes camera target")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
