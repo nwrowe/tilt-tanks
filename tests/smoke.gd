@@ -55,9 +55,22 @@ func _test_match_controller() -> void:
 	_check(is_equal_approx(state.player_angles[0], 32.0), "player 1 aim persists across turns")
 	controller.begin_projectile(Vector2(200.0, 100.0), Vector2(40.0, -20.0))
 	_check(state.projectile_active, "projectile begins")
+	controller.sync_projectile_frame(true, Vector2(225.0, 95.0), Vector2(55.0, -10.0), Vector2.INF, 0.0)
+	_check(state.projectile_active and state.projectile_pos == Vector2(225.0, 95.0), "controller adopts active projectile position")
+	_check(state.projectile_vel == Vector2(55.0, -10.0), "controller adopts active projectile velocity")
+	_check(state.explosion_pos == Vector2.INF, "active flight clears previous explosion")
+
 	controller.finish_projectile_with_explosion(Vector2(250.0, 300.0), 0.5)
 	_check(not state.projectile_active, "projectile clears on explosion")
 	_check(state.explosion_timer > 0.0, "explosion timer is set")
+	controller.sync_projectile_frame(false, Vector2.ZERO, Vector2.ZERO, Vector2(280.0, 315.0), 0.75)
+	_check(not state.projectile_active and state.explosion_pos == Vector2(280.0, 315.0), "impact transitions into explosion state")
+	_check(is_equal_approx(state.explosion_timer, 0.75), "controller preserves explosion hold duration")
+	controller.sync_projectile_frame(false, Vector2.ZERO, Vector2.ZERO, Vector2.INF, 0.0)
+	_check(state.explosion_pos == Vector2.INF and is_zero_approx(state.explosion_timer), "expired explosion clears controller state")
+	controller.sync_projectile_frame(true, Vector2(100.0, 40.0), Vector2(7.0, 9.0), Vector2(200.0, 40.0), 1.0)
+	_check(state.projectile_active and state.explosion_pos == Vector2.INF, "new projectile takes precedence over stale explosion")
+
 	controller.apply_damage(1, 100)
 	_check(controller.is_game_over() and controller.winner_index() == 0, "destroying player 2 ends match")
 	# A complete health snapshot has one winner decision, never a transient
