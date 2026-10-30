@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_realtime_ai_movement_planner()
 	_test_steam_puff_effect()
 	_test_realtime_cooldown_policy()
+	_test_wind_meter_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -121,6 +122,32 @@ func _test_realtime_cooldown_policy() -> void:
 	var clear: Dictionary = RealtimeCooldownPolicy.advance(0.0, 0.0, 0.0, 0.0, 0.80, 3.0, 0.1)
 	_check(not bool(clear["was_overheated"]) and is_equal_approx(float(clear["energy"]), 0.80),
 		"the frame after expiry clears the overheat flag without losing movement energy")
+
+func _test_wind_meter_policy() -> void:
+	_check(is_equal_approx(WindMeterPolicy.display_value(42.5, 85.0, 10.0), 5.0),
+		"wind meter preserves physical acceleration to display scaling")
+	_check(is_equal_approx(WindMeterPolicy.display_value(-170.0, 85.0, 10.0), -10.0),
+		"wind display clamps negative out-of-range acceleration")
+	_check(is_equal_approx(WindMeterPolicy.strength(-5.0, 10.0), 0.5),
+		"wind strength uses absolute display value")
+	_check(is_equal_approx(WindMeterPolicy.strength(30.0, 10.0), 1.0),
+		"wind meter strength clamps magnitude")
+	_check(WindMeterPolicy.strength_color(0.1).is_equal_approx(Color(0.35, 0.95, 0.35, 0.92)),
+		"weak wind keeps legacy green meter color")
+	_check(WindMeterPolicy.strength_color(0.55).is_equal_approx(Color(0.35, 0.95, 0.35, 0.92)),
+		"wind color is continuous at first gradient transition")
+	_check(WindMeterPolicy.strength_color(0.82).is_equal_approx(Color(1.0, 0.95, 0.08, 0.92)),
+		"wind color is continuous at second gradient transition")
+	_check(WindMeterPolicy.strength_color(1.0).is_equal_approx(Color(1.0, 0.12, 0.08, 0.92)),
+		"strong wind retains red meter color")
+	var arrow_right: PackedVector2Array = WindMeterPolicy.arrow_points(Vector2(100, 100), 1.0)
+	var arrow_left: PackedVector2Array = WindMeterPolicy.arrow_points(Vector2(100, 100), -1.0)
+	_check(arrow_right.size() == 3 and arrow_right[1] == Vector2(92, 94),
+		"positive wind retains right-facing arrowhead geometry")
+	_check(arrow_left.size() == 3 and arrow_left[1] == Vector2(108, 94),
+		"negative wind reverses the arrowhead geometry")
+	_check(WindMeterPolicy.arrow_points(Vector2.ZERO, 0.0).is_empty(),
+		"zero-direction wind arrow renders no polygon")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

@@ -145,7 +145,7 @@ func _draw_wind_widget() -> void:
 	var meter_y: float = box_pos.y + 22.0
 	var half_width: float = (meter_right - meter_left) * 0.5
 	var display_wind: float = _wind_display_value()
-	var strength: float = clampf(absf(display_wind) / WIND_DISPLAY_MAX, 0.0, 1.0)
+	var strength: float = WindMeterPolicy.strength(display_wind, WIND_DISPLAY_MAX)
 	var fill_width: float = half_width * strength
 	var bar_color: Color = _wind_strength_color(strength)
 
