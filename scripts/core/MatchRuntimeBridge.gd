@@ -108,16 +108,13 @@ func _sync_game_over_state_from_match_controller() -> void:
 	# game_over and tank_health directly.
 
 func _sync_match_state_from_runtime() -> void:
-	match_state.current_player = current_player
-	match_state.tank_positions = tank_positions.duplicate()
-	match_state.player_angles = player_angles.duplicate()
-	match_state.player_powers = player_powers.duplicate()
-	if "player_power_percents" in self:
-		match_state.player_power_percents = player_power_percents.duplicate()
-	match_state.wind = wind
-	match_state.turn_timer = turn_timer
-	match_state.game_mode = game_mode if "game_mode" in self else 0
-	match_state.active_world_width = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	var frame_percents: Array[float] = player_power_percents if "player_power_percents" in self else match_state.player_power_percents
+	var mode: int = game_mode if "game_mode" in self else 0
+	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	match_controller.sync_runtime_player_frame(
+		current_player, tank_positions, player_angles, player_powers,
+		frame_percents, wind, turn_timer, mode, world_width
+	)
 	_sync_projectile_state_to_match_controller()
 	_sync_health_state_to_match_controller()
 
