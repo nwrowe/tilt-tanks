@@ -27,6 +27,7 @@ func _run() -> void:
 	_test_realtime_cooldown_policy()
 	_test_wind_meter_policy()
 	_test_turn_ai_session()
+	_test_menu_navigation_session()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -179,6 +180,30 @@ func _test_turn_ai_session() -> void:
 		"AI waits while impact effect remains active")
 	_check(not TurnAITurnSession.waiting_for_explosion(true, true, false, false, false, 0.0),
 		"completed explosion releases AI waiting state")
+
+func _test_menu_navigation_session() -> void:
+	var navigation: MainMenuNavigationSession = MainMenuNavigationSession.new()
+	_check(navigation.screen == 0 and not navigation.single_player,
+		"menu navigation defaults to home, without single-player selection")
+	navigation.open_single_player()
+	_check(navigation.screen == 1 and navigation.single_player,
+		"single-player submenu sets screen and selection")
+	navigation.open_options()
+	_check(navigation.screen == 2 and navigation.single_player,
+		"options menu preserves selection as before")
+	navigation.show_online()
+	_check(navigation.screen == 3 and navigation.single_player,
+		"online action changes screen without resetting selection")
+	navigation.open_multiplayer()
+	_check(navigation.screen == 3 and not navigation.single_player,
+		"multiplayer navigation resets single-player selection")
+	navigation.choose_single_player(true)
+	navigation.enter_game()
+	_check(navigation.screen == 4 and navigation.single_player,
+		"game entry retains the selection made before clearing controls")
+	navigation.open_main()
+	_check(navigation.screen == 0 and not navigation.single_player,
+		"return to main menu clears single-player selection")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
