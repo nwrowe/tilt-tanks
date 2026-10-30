@@ -73,6 +73,11 @@ func _run_host() -> void:
 	game.call("_on_fire_pressed")
 	game.set("hotseat_release_in_progress", false)
 	_check(bool(game.get("projectile_active")), "host fires authoritative Heavy shell")
+	# Exercise health deserialization over the actual ENet connection,
+	# not just the offline decoder contract tests.
+	var authoritative_health: Array[int] = [100, 78]
+	game.set("tank_health", authoritative_health)
+	game.call("_online_send_snapshot", true)
 	# Keep the server alive long enough for guest to receive authoritative
 	# motion/full snapshots and the fire event.
 	await create_timer(2.0).timeout
@@ -106,6 +111,10 @@ func _run_guest() -> void:
 	# Full snapshots are sent at fire time. Assert a real post-join update,
 	# rather than merely verifying that an ENet socket connected.
 	_check(seq.last_full_sequence > 0, "guest receives subsequent reliable state")
+	if not await _until(func() -> bool: return (game.get("tank_health") as Array).size() >= 2 and int((game.get("tank_health") as Array)[1]) == 78):
+		_fail("guest did not receive typed authoritative health update")
+		return
+	_check(int((game.get("tank_health") as Array)[1]) == 78, "guest applied authoritative health update")
 
 func _until(predicate: Callable) -> bool:
 	var started: int = Time.get_ticks_msec()
