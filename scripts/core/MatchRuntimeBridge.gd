@@ -98,8 +98,9 @@ func _sync_projectile_state_to_match_controller() -> void:
 			match_controller.clear_explosion()
 
 func _sync_health_state_to_match_controller() -> void:
-	for player: int in range(tank_health.size()):
-		match_controller.set_health(player, int(tank_health[player]))
+	# Transfer the runtime health values as one transaction. The controller
+	# computes game-over/winner only after both tank values have been updated.
+	match_controller.sync_health_values(tank_health)
 	_sync_game_over_state_from_match_controller()
 
 func _sync_game_over_state_from_match_controller() -> void:
@@ -111,19 +112,16 @@ func _sync_game_over_state_from_match_controller() -> void:
 func _sync_match_state_from_runtime() -> void:
 	match_state.current_player = current_player
 	match_state.tank_positions = tank_positions.duplicate()
-	match_state.tank_health = tank_health.duplicate()
 	match_state.player_angles = player_angles.duplicate()
 	match_state.player_powers = player_powers.duplicate()
 	if "player_power_percents" in self:
 		match_state.player_power_percents = player_power_percents.duplicate()
 	match_state.wind = wind
 	match_state.turn_timer = turn_timer
-	match_state.game_over = game_over
 	match_state.game_mode = game_mode if "game_mode" in self else 0
 	match_state.active_world_width = active_world_width if "active_world_width" in self else WORLD_WIDTH
 	_sync_projectile_state_to_match_controller()
-	_recompute_match_winner_from_runtime_health()
-	_sync_game_over_state_from_match_controller()
+	_sync_health_state_to_match_controller()
 
 func _apply_match_state_to_runtime_basics() -> void:
 	current_player = match_state.current_player
@@ -148,6 +146,3 @@ func _apply_match_projectile_state_to_runtime() -> void:
 	explosion_pos = match_state.explosion_pos
 	explosion_timer = match_state.explosion_timer
 
-func _recompute_match_winner_from_runtime_health() -> void:
-	for player: int in range(tank_health.size()):
-		match_controller.set_health(player, int(tank_health[player]))
