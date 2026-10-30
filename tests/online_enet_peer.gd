@@ -96,6 +96,8 @@ func _run_guest() -> void:
 		_fail("guest never received initial authoritative state")
 		return
 	_check(int(game.get("current_player")) == 0, "guest recognizes host's starting turn")
+	var smoother: OnlineDuelInterpolation = game.get("online_interpolation") as OnlineDuelInterpolation
+	_check(smoother != null and smoother.has_authoritative_state, "client interpolation stores authoritative tank targets")
 	if not await _until(func() -> bool: return str(game.get("selected_weapon")) == HEAVY):
 		_fail("guest never observed the host's Heavy weapon")
 		return

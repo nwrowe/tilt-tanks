@@ -13,10 +13,7 @@ var online_host_wait_label: Label = null
 var online_host_wait_seconds: float = 0.0
 var online_host_wait_port: int = ONLINE_DUEL_DEFAULT_PORT
 
-var online_client_has_authoritative_state: bool = false
-var online_client_tank_targets: Array = []
-var online_client_projectile_target: Vector2 = Vector2.INF
-var online_client_was_projectile_active: bool = false
+var online_interpolation: OnlineDuelInterpolation = OnlineDuelInterpolation.new()
 var online_snapshot_sequencer: OnlineSnapshotSequencer = OnlineSnapshotSequencer.new()
 var online_turn_advance_fallback_timer: float = 0.0
 var online_turn_advance_fallback_owner: int = -1
@@ -267,26 +264,26 @@ func _online_receive_snapshot(snapshot: Dictionary) -> void:
 	super._online_receive_snapshot(snapshot)
 
 	var authoritative_tanks: Array = tank_positions.duplicate()
-	online_client_tank_targets = authoritative_tanks.duplicate()
-	if online_client_has_authoritative_state and previous_tanks.size() == authoritative_tanks.size():
+	online_interpolation.tank_targets = authoritative_tanks.duplicate()
+	if online_interpolation.has_authoritative_state and previous_tanks.size() == authoritative_tanks.size():
 		tank_positions = previous_tanks.duplicate()
 	else:
 		tank_positions = authoritative_tanks.duplicate()
-		online_client_has_authoritative_state = true
+		online_interpolation.has_authoritative_state = true
 
 	if projectile_active:
-		online_client_projectile_target = projectile_pos
+		online_interpolation.projectile_target = projectile_pos
 		if not was_projectile_active:
 			_trigger_fire_fx(current_player, angle_deg)
 		else:
 			projectile_pos = previous_projectile_pos
 	elif not turn_projectiles.is_empty() and previous_turn_projectile_count == 0:
 		_trigger_fire_fx(current_player, angle_deg)
-		online_client_projectile_target = Vector2.INF
+		online_interpolation.projectile_target = Vector2.INF
 	else:
-		online_client_projectile_target = Vector2.INF
+		online_interpolation.projectile_target = Vector2.INF
 
-	online_client_was_projectile_active = projectile_active
+	online_interpolation.was_projectile_active = projectile_active
 	queue_redraw()
 
 @rpc("authority", "reliable")
@@ -303,10 +300,10 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	for packed_tank: Variant in snapshot.get("tank_positions", []):
 		authoritative_tanks.append(OnlineDuelCodec.unpack_vec2(packed_tank))
 	if authoritative_tanks.size() == tank_positions.size():
-		online_client_tank_targets = authoritative_tanks.duplicate()
-		if not online_client_has_authoritative_state:
+		online_interpolation.tank_targets = authoritative_tanks.duplicate()
+		if not online_interpolation.has_authoritative_state:
 			tank_positions = authoritative_tanks.duplicate()
-			online_client_has_authoritative_state = true
+			online_interpolation.has_authoritative_state = true
 
 	tank_health = OnlineDuelCodec.int_array(snapshot.get("tank_health", tank_health), tank_health)
 	player_angles = OnlineDuelCodec.float_array(snapshot.get("player_angles", player_angles), player_angles)
@@ -325,13 +322,13 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	var authoritative_projectile_pos: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", OnlineDuelCodec.pack_vec2(projectile_pos)))
 	var authoritative_projectile_vel: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", OnlineDuelCodec.pack_vec2(projectile_vel)))
 	if projectile_active:
-		online_client_projectile_target = authoritative_projectile_pos
+		online_interpolation.projectile_target = authoritative_projectile_pos
 		projectile_vel = authoritative_projectile_vel
 		if not was_projectile_active:
 			projectile_pos = authoritative_projectile_pos
 			_trigger_fire_fx(current_player, angle_deg)
 	else:
-		online_client_projectile_target = Vector2.INF
+		online_interpolation.projectile_target = Vector2.INF
 		projectile_pos = authoritative_projectile_pos
 		projectile_vel = authoritative_projectile_vel
 
@@ -402,7 +399,7 @@ func _online_receive_fire_event(event: Dictionary) -> void:
 	projectile_vel = _online_projectile_velocity_for(owner, shot_angle, shot_power)
 	projectile_active = true
 	turn_projectiles.clear()
-	online_client_projectile_target = projectile_pos
+	online_interpolation.projectile_target = projectile_pos
 	_trigger_fire_fx(owner, shot_angle)
 	queue_redraw()
 
@@ -414,22 +411,11 @@ func _online_projectile_velocity_for(owner: int, shot_angle: float, shot_power: 
 func _online_update_client_interpolation(delta: float) -> void:
 	if not _is_online_duel_active() or online_is_host:
 		return
-
-	if online_client_tank_targets.size() == tank_positions.size():
-		var tank_alpha: float = clampf(delta / ONLINE_DUEL_TANK_SMOOTH_TIME, 0.0, 1.0)
-		for i: int in range(tank_positions.size()):
-			var target: Vector2 = online_client_tank_targets[i]
-			tank_positions[i] = tank_positions[i].lerp(target, tank_alpha)
-
-	if projectile_active and online_client_projectile_target != Vector2.INF:
-		var projectile_alpha: float = clampf(delta / ONLINE_DUEL_PROJECTILE_SMOOTH_TIME, 0.0, 1.0)
-		projectile_pos = projectile_pos.lerp(online_client_projectile_target, projectile_alpha)
+	online_interpolation.interpolate_tanks(tank_positions, delta, ONLINE_DUEL_TANK_SMOOTH_TIME)
+	projectile_pos = online_interpolation.interpolate_projectile(projectile_pos, projectile_active, delta, ONLINE_DUEL_PROJECTILE_SMOOTH_TIME)
 
 func _online_clear_client_smoothing() -> void:
-	online_client_has_authoritative_state = false
-	online_client_tank_targets.clear()
-	online_client_projectile_target = Vector2.INF
-	online_client_was_projectile_active = false
+	online_interpolation.reset()
 
 func _online_has_active_authoritative_motion() -> bool:
 	return (
