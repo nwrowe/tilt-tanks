@@ -73,6 +73,16 @@ func clear_explosion() -> void:
 	state.explosion_pos = Vector2.INF
 	state.explosion_timer = 0.0
 
+## Adopt an entire authoritative health frame at once. Winner and game-over
+## status are evaluated after *both* values have been installed, so updates
+## never expose a transient winner when two tanks are destroyed together.
+func sync_health_values(values: Array[int]) -> void:
+	if values.size() != state.tank_health.size():
+		return
+	for player: int in range(values.size()):
+		state.tank_health[player] = maxi(0, values[player])
+	_update_winner_from_health()
+
 func apply_damage(player: int, amount: int) -> void:
 	if player < 0 or player >= state.tank_health.size():
 		return
