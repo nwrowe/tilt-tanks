@@ -37,12 +37,37 @@ func _explode(pos: Vector2) -> void:
 	_sync_match_state_from_runtime()
 
 func _apply_explosion_damage(pos: Vector2) -> void:
-	super._apply_explosion_damage(pos)
-	_sync_health_state_to_match_controller()
+	# Classic explosions previously used the base script's direct/splash loop.
+	# The controller now applies that same six-HP-minimum profile to its state.
+	_apply_controller_radial_damage(
+		pos, DIRECT_HIT_RADIUS, EXPLOSION_RADIUS,
+		DIRECT_HIT_DAMAGE, MAX_SPLASH_DAMAGE, 6
+	)
 
 func _apply_weapon_damage(pos: Vector2, weapon: String) -> void:
-	super._apply_weapon_damage(pos, weapon)
-	_sync_health_state_to_match_controller()
+	# Registry-defined weapon stats use the original four-HP splash floor.
+	_apply_controller_radial_damage(
+		pos, _weapon_direct_radius(weapon), _weapon_explosion_radius(weapon),
+		_weapon_direct_damage(weapon), _weapon_splash_damage(weapon), 4
+	)
+
+func _apply_controller_radial_damage(
+	pos: Vector2,
+	direct_radius: float,
+	blast_radius: float,
+	direct_damage: int,
+	splash_damage: int,
+	minimum_splash: int
+) -> void:
+	# Legacy runtime values can have changed since the last frame sync.
+	# Adopt them once before applying the damage directly in MatchState.
+	match_controller.sync_health_values(tank_health)
+	match_controller.apply_radial_damage(
+		pos, tank_positions, direct_radius, blast_radius,
+		direct_damage, splash_damage, minimum_splash
+	)
+	tank_health = match_state.tank_health.duplicate()
+	_sync_game_over_state_from_match_controller()
 
 func _initialize_match_controller_from_runtime_reset() -> void:
 	var default_angle: float = angle_deg
