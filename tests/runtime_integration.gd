@@ -65,6 +65,7 @@ func _run() -> void:
 	_test_realtime_cooldown_policy_live()
 	_test_wind_meter_policy_live()
 	_test_turn_ai_session_live()
+	_test_menu_navigation_session_live()
 
 	game.queue_free()
 	await process_frame
@@ -805,6 +806,33 @@ func _test_turn_ai_session_live() -> void:
 	game.call("reset_match")
 	_check(not session.pending and is_zero_approx(session.think_timer),
 		"runtime reset clears the same composed session")
+
+func _test_menu_navigation_session_live() -> void:
+	game.call("_show_main_menu")
+	var navigation: MainMenuNavigationSession = game.get("menu_navigation") as MainMenuNavigationSession
+	_check(navigation != null and navigation.screen == 0 and not navigation.single_player,
+		"active scene composes menu navigation state owner")
+	game.call("_show_single_player_menu")
+	_check(navigation.screen == 1 and navigation.single_player and
+		bool(game.get("single_player_mode")),
+		"single-player menu updates composed state and inherited compatibility value")
+	game.call("_on_options_pressed")
+	_check(navigation.screen == 2 and navigation.single_player,
+		"options navigation retains prior single-player selection")
+	game.call("_show_multiplayer_menu")
+	_check(navigation.screen == 3 and not navigation.single_player,
+		"multiplayer menu resets single-player selection")
+	game.set("menu_state", 1)
+	game.set("single_player_mode", true)
+	_check(navigation.screen == 1 and navigation.single_player,
+		"legacy menu fields forward external writes to composed owner")
+	game.call("_on_hotseat_pressed")
+	_check(navigation.screen == 4 and not navigation.single_player and
+		int(game.get("menu_state")) == 4,
+		"hotseat game entry keeps existing controls and state transition ordering")
+	game.call("_show_main_menu")
+	_check(navigation.screen == 0 and not navigation.single_player,
+		"active scene returns home through composed navigation state")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
