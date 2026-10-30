@@ -73,10 +73,16 @@ func _run_host() -> void:
 	game.call("_on_fire_pressed")
 	game.set("hotseat_release_in_progress", false)
 	_check(bool(game.get("projectile_active")), "host fires authoritative Heavy shell")
-	# Exercise health deserialization over the actual ENet connection,
-	# not just the offline decoder contract tests.
-	var authoritative_health: Array[int] = [100, 78]
-	game.set("tank_health", authoritative_health)
+	# Simulate a direct impact at the actual guest tank position. Damage
+	# must be calculated by the live MatchController rather than assigned.
+	var tanks: Array = game.get("tank_positions")
+	var direct_damage: int = int(game.call("_weapon_direct_damage", HEAVY))
+	var impact: Vector2 = tanks[1]
+	game.call("_apply_weapon_damage", impact, HEAVY)
+	var remaining_health: int = maxi(0, 100 - direct_damage)
+	_check(int((game.get("tank_health") as Array)[1]) == remaining_health, "host combat path applies Heavy direct damage")
+	var state: MatchState = game.get("match_state") as MatchState
+	_check(int(state.tank_health[1]) == remaining_health, "host MatchState agrees with combat damage")
 	game.call("_online_send_snapshot", true)
 	# Keep the server alive long enough for guest to receive authoritative
 	# motion/full snapshots and the fire event.
@@ -111,10 +117,14 @@ func _run_guest() -> void:
 	# Full snapshots are sent at fire time. Assert a real post-join update,
 	# rather than merely verifying that an ENet socket connected.
 	_check(seq.last_full_sequence > 0, "guest receives subsequent reliable state")
-	if not await _until(func() -> bool: return (game.get("tank_health") as Array).size() >= 2 and int((game.get("tank_health") as Array)[1]) == 78):
-		_fail("guest did not receive typed authoritative health update")
+	var direct_damage: int = int(game.call("_weapon_direct_damage", HEAVY))
+	var expected_health: int = maxi(0, 100 - direct_damage)
+	if not await _until(func() -> bool: return (game.get("tank_health") as Array).size() >= 2 and int((game.get("tank_health") as Array)[1]) == expected_health):
+		_fail("guest did not receive actual host combat damage")
 		return
-	_check(int((game.get("tank_health") as Array)[1]) == 78, "guest applied authoritative health update")
+	_check(int((game.get("tank_health") as Array)[1]) == expected_health, "guest received authoritative Heavy impact damage")
+	var state: MatchState = game.get("match_state") as MatchState
+	_check(int(state.tank_health[1]) == expected_health, "guest MatchState agrees with networked combat damage")
 
 func _until(predicate: Callable) -> bool:
 	var started: int = Time.get_ticks_msec()
