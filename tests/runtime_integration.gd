@@ -55,6 +55,7 @@ func _run() -> void:
 	_test_active_world_movement_policy()
 	_test_retired_tweaks_runtime_hooks()
 	_test_menu_layout_policy_live()
+	_test_composed_menu_view()
 
 	game.queue_free()
 	await process_frame
@@ -576,6 +577,20 @@ func _test_menu_layout_policy_live() -> void:
 	_check((game.get("menu_buttons") as Array).size() == 3, "single-player menu still constructs three controls")
 	game.call("_show_main_menu")
 	_check(int(game.get("menu_state")) == 0, "menu navigation returns home after presentation extraction")
+
+func _test_composed_menu_view() -> void:
+	game.call("_show_main_menu")
+	var view: MainMenuView = game.get("menu_view") as MainMenuView
+	_check(view != null, "main game composes an independent menu view")
+	_check(game.get("menu_layer") == view.layer, "legacy menu layer shares view-owned canvas")
+	_check((game.get("menu_buttons") as Array).size() == view.controls.size(), "legacy menu controls agree with view")
+	_check(view.controls.size() == 3, "composed view builds home-menu controls")
+	game.call("_show_single_player_menu")
+	_check(view.controls.size() == 3, "composed view rebuilds single-player controls")
+	game.call("_show_main_menu")
+	_check(view.controls.size() == 3, "view clears old controls before home-menu rebuild")
+	_check(game.get("menu_buttons") == view.controls, "legacy control array remains linked after clear")
+	_check(view.layer != null and is_instance_valid(view.layer), "menu view keeps one attached canvas")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
