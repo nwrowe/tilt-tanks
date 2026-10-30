@@ -411,16 +411,25 @@ func _online_send_snapshot(force: bool) -> void:
 	_online_receive_snapshot.rpc_id(online_remote_peer_id, _online_make_snapshot())
 
 func _online_make_snapshot() -> Dictionary:
+	return OnlineDuelSnapshotBuilder.build_full(
+		_online_runtime_snapshot_data(),
+		{
+			"active_world_width": active_world_width,
+			"active_right_start_x": active_right_start_x,
+			"terrain_points": terrain_points,
+			"ponds": ponds
+		}
+	)
+
+func _online_runtime_snapshot_data() -> Dictionary:
+	# Capture the common runtime fields once. The builder owns the actual
+	# wire representation and deep copies of mutable packet arrays.
 	return {
-		"active_world_width": active_world_width,
-		"active_right_start_x": active_right_start_x,
-		"terrain_points": OnlineDuelCodec.pack_vec2_array(terrain_points),
-		"ponds": ponds.duplicate(true),
-		"tank_positions": OnlineDuelCodec.pack_vec2_array(tank_positions),
-		"tank_health": tank_health.duplicate(),
-		"player_angles": player_angles.duplicate(),
-		"player_power_percents": player_power_percents.duplicate(),
-		"player_powers": player_powers.duplicate(),
+		"tank_positions": tank_positions,
+		"tank_health": tank_health,
+		"player_angles": player_angles,
+		"player_power_percents": player_power_percents,
+		"player_powers": player_powers,
 		"current_player": current_player,
 		"angle_deg": angle_deg,
 		"power_percent": power_percent,
@@ -430,15 +439,15 @@ func _online_make_snapshot() -> Dictionary:
 		"game_over": game_over,
 		"selected_weapon": selected_weapon,
 		"projectile_active": projectile_active,
-		"projectile_pos": OnlineDuelCodec.pack_vec2(projectile_pos),
-		"projectile_vel": OnlineDuelCodec.pack_vec2(projectile_vel),
-		"turn_projectiles": turn_projectiles.duplicate(true),
-		"explosion_pos": OnlineDuelCodec.pack_vec2(explosion_pos),
+		"projectile_pos": projectile_pos,
+		"projectile_vel": projectile_vel,
+		"turn_projectiles": turn_projectiles,
+		"explosion_pos": explosion_pos,
 		"explosion_timer": explosion_timer,
 		"hotseat_turn_start_pending": hotseat_turn_start_pending,
 		"pending_advance_after_explosion_hold": pending_advance_after_explosion_hold,
 		"cluster_camera_hold_timer": cluster_camera_hold_timer,
-		"cluster_camera_hold_pos": OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos)
+		"cluster_camera_hold_pos": cluster_camera_hold_pos
 	}
 
 func _online_apply_snapshot(snapshot: Dictionary) -> void:

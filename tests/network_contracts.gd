@@ -25,6 +25,7 @@ func _run() -> void:
 	game.set_process(false)
 	_test_vector_round_trip()
 	_test_snapshot_shape()
+	_test_shared_snapshot_fields()
 	_test_sequence_ordering()
 	_test_weapon_request_validation()
 	_test_typed_wire_arrays()
@@ -48,6 +49,35 @@ func _test_snapshot_shape() -> void:
 	_check(motion.has("projectile_pos"), "motion snapshot includes projectile position")
 	_check(motion.has("tank_positions"), "motion snapshot includes tank positions")
 	_check(not motion.has("terrain_points"), "lightweight motion snapshot omits terrain")
+
+func _test_shared_snapshot_fields() -> void:
+	var full: Dictionary = game.call("_online_make_snapshot")
+	var motion: Dictionary = game.call("_online_make_motion_snapshot")
+	var common_fields: Array[String] = [
+		"tank_positions", "tank_health", "player_angles",
+		"player_power_percents", "player_powers", "current_player",
+		"angle_deg", "power_percent", "power", "wind", "turn_timer",
+		"game_over", "selected_weapon", "projectile_active",
+		"projectile_pos", "projectile_vel", "turn_projectiles",
+		"explosion_pos", "explosion_timer", "hotseat_turn_start_pending",
+		"pending_advance_after_explosion_hold",
+		"cluster_camera_hold_timer", "cluster_camera_hold_pos"
+	]
+	for field: String in common_fields:
+		_check(full.has(field) and motion.has(field), "both packets retain common field " + field)
+		if full.has(field) and motion.has(field):
+			_check(full[field] == motion[field], "both packet types agree on " + field)
+	_check(full.has("terrain_points") and full.has("ponds"), "full packet includes terrain and ponds")
+	_check(not motion.has("terrain_points") and not motion.has("ponds"), "motion packet skips static terrain")
+	_check(motion.has("turn_cluster_camera_pos"), "motion packet keeps extra camera target")
+	_check(not full.has("turn_cluster_camera_pos"), "full packet retains legacy key set")
+	# The packet must not alias mutable gameplay arrays. RPCs may be queued.
+	var original_health: int = int((game.get("tank_health") as Array)[0])
+	(full["tank_health"] as Array)[0] = original_health - 1
+	_check(int((game.get("tank_health") as Array)[0]) == original_health, "full packet health is copied")
+	var motion_hp: Array = motion["tank_health"] as Array
+	motion_hp[0] = original_health - 1
+	_check(int((game.get("tank_health") as Array)[0]) == original_health, "motion packet health is copied")
 
 func _test_sequence_ordering() -> void:
 	var sequencer: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer

@@ -210,32 +210,10 @@ func _online_send_snapshot(force: bool) -> void:
 		_online_receive_motion_snapshot.rpc_id(online_remote_peer_id, snapshot)
 
 func _online_make_motion_snapshot() -> Dictionary:
-	return {
-		"tank_positions": OnlineDuelCodec.pack_vec2_array(tank_positions),
-		"tank_health": tank_health.duplicate(),
-		"player_angles": player_angles.duplicate(),
-		"player_power_percents": player_power_percents.duplicate(),
-		"player_powers": player_powers.duplicate(),
-		"current_player": current_player,
-		"angle_deg": angle_deg,
-		"power_percent": power_percent,
-		"power": power,
-		"wind": wind,
-		"turn_timer": turn_timer,
-		"game_over": game_over,
-		"selected_weapon": selected_weapon,
-		"projectile_active": projectile_active,
-		"projectile_pos": OnlineDuelCodec.pack_vec2(projectile_pos),
-		"projectile_vel": OnlineDuelCodec.pack_vec2(projectile_vel),
-		"turn_projectiles": turn_projectiles.duplicate(true),
-		"explosion_pos": OnlineDuelCodec.pack_vec2(explosion_pos),
-		"explosion_timer": explosion_timer,
-		"hotseat_turn_start_pending": hotseat_turn_start_pending,
-		"pending_advance_after_explosion_hold": pending_advance_after_explosion_hold,
-		"cluster_camera_hold_timer": cluster_camera_hold_timer,
-		"cluster_camera_hold_pos": OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos),
-		"turn_cluster_camera_pos": OnlineDuelCodec.pack_vec2(turn_cluster_camera_pos)
-	}
+	return OnlineDuelSnapshotBuilder.build_motion(
+		_online_runtime_snapshot_data(),
+		turn_cluster_camera_pos
+	)
 
 func _online_next_snapshot_seq() -> int:
 	return online_snapshot_sequencer.next_outgoing_sequence()
