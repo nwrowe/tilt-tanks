@@ -20,7 +20,8 @@ godot --headless --path . --quit-after 3
   navigates single player > campaign > garage > campaign, checks level nodes,
   sends a screen-drag event to the campaign map, launches Level 1, then enters
   hotseat, alternates turns, verifies each player's selected weapon, passes the
-  Start Turn gate, fires a Heavy projectile and steps live projectile physics.
+  Start Turn gate, fires a Heavy projectile, steps it to impact, confirms the explosion and
+  advances to the next hotseat turn after the simulated explosion hold.
 - `network_contracts.gd`: checks pack/unpack of vectors, snapshot field
   contracts and monotonic snapshot/fire-event ordering with the active online
   facade methods, without opening sockets.
@@ -33,7 +34,7 @@ and input during assertions.
 
 ## Explicit gaps
 
-- Full projectile impact/crater/end-of-match flow, advanced special weapons,
+- Terrain deformation assertions, end-of-match winner resolution, advanced special weapons,
   realtime AI, actual touchscreen hardware, and visual appearance are **not**
   verified by the suite yet.
 - Snapshot contract tests are not two-peer multiplayer tests; add separate
