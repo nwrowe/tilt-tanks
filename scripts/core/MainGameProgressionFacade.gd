@@ -281,7 +281,7 @@ func _online_connect_multiplayer_signals() -> void:
 	)
 
 func _online_disconnect() -> void:
-	online_connection.disconnect(multiplayer)
+	online_connection.close_peer(multiplayer)
 	online_peer = null
 	online_is_host = false
 	online_connected = false
