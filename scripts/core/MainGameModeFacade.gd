@@ -59,10 +59,40 @@ func _store_current_player_selected_weapon() -> void:
 func _load_current_player_selected_weapon() -> void:
 	selected_weapon = player_weapon_selection.load(current_player, active_weapon_loadout, WEAPON_STANDARD)
 
+# MainGame.gd still contains pre-registry weapon constants, so keep
+# the metadata-based overrides while removing their separate facade layer.
+func _weapon_explosion_radius(weapon: String) -> float:
+	return float(_weapon_value(weapon, "explosion_radius", EXPLOSION_RADIUS))
+
+func _weapon_direct_radius(weapon: String) -> float:
+	return float(_weapon_value(weapon, "direct_radius", DIRECT_HIT_RADIUS))
+
+func _weapon_direct_damage(weapon: String) -> int:
+	return int(_weapon_value(weapon, "direct_damage", DIRECT_HIT_DAMAGE))
+
+func _weapon_splash_damage(weapon: String) -> int:
+	return int(_weapon_value(weapon, "splash_damage", MAX_SPLASH_DAMAGE))
+
+func _weapon_crater_radius(weapon: String) -> float:
+	return float(_weapon_value(weapon, "crater_radius", CRATER_RADIUS))
+
+func _weapon_crater_depth(weapon: String) -> float:
+	return float(_weapon_value(weapon, "crater_depth", CRATER_DEPTH))
+
+func _weapon_projectile_scale(weapon: String) -> float:
+	return float(_weapon_value(weapon, "projectile_scale", 1.0))
+
 func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
-	# The old definition facade also set the focus position during splitting.
-	super._split_turn_cluster_projectile(pos, vel)
+	projectile_active = false
+	turn_projectile_split_done = true
+	turn_projectiles.clear()
+	turn_projectiles = _make_split_children(current_player, turn_projectile_weapon, pos, vel)
 	turn_cluster_camera_pos = pos
+
+func _spawn_realtime_cluster_children(owner: int, pos: Vector2, vel: Vector2) -> void:
+	var children: Array[Dictionary] = _make_split_children(owner, WEAPON_CLUSTER, pos, vel)
+	for child: Dictionary in children:
+		rt_projectiles.append(child)
 
 func _initialize_mode_controllers() -> void:
 	mode_controllers = ModeControllerRegistry.build_default_controllers(self, match_controller)
