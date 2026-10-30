@@ -57,6 +57,7 @@ func _run() -> void:
 	_test_menu_layout_policy_live()
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
+	_test_water_manager_world_delegation()
 
 	game.queue_free()
 	await process_frame
@@ -613,6 +614,30 @@ func _test_menu_layer_retirement() -> void:
 	_check(int(game.get("menu_state")) == 4, "hotseat still launches through menu coordinator")
 	_check(game.get("menu_view") is MainMenuView, "mode runtime composes menu view after inheritance retirement")
 	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "gameplay setup retains charge defaults")
+
+func _test_water_manager_world_delegation() -> void:
+	var saved_points: Array[Vector2] = game.get("terrain_points")
+	var saved_ponds: Array[Dictionary] = game.get("ponds")
+	var points: Array[Vector2] = [
+		Vector2(0, 100), Vector2(10, 140), Vector2(20, 160),
+		Vector2(30, 140), Vector2(40, 100)
+	]
+	var ponds: Array[Dictionary] = [
+		{"start_i": 0, "end_i": 4, "start_x": 0.0, "end_x": 40.0, "water_y": 120.0}
+	]
+	game.set("terrain_points", points)
+	game.set("ponds", ponds)
+	_check(is_equal_approx(float(game.call("_water_volume_for_range", 0, 4, 120.0)), 800.0), "active world adopts WaterManager volume integration")
+	_check(absf(float(game.call("_solve_water_level_for_volume", 0, 4, 800.0)) - 120.0) < 0.001, "active world delegates water level solver")
+	_check(not (game.call("_pond_at_x", 20.0) as Dictionary).is_empty(), "active world detects pond over deep valley")
+	_check((game.call("_pond_at_x", 0.0) as Dictionary).is_empty(), "active world excludes exposed pond boundary")
+	_check(bool(game.call("_is_in_pond", Vector2(20, 130))), "active projectile water collision still detects submersion")
+	_check(not bool(game.call("_is_in_pond", Vector2(20, 110))), "active projectile does not collide above surface")
+	_check(is_equal_approx(float(game.call("_tank_y_for_surface", 0, 20.0)), 128.0), "active floating tank keeps the original submergence")
+	_check(is_equal_approx(float(game.call("_movement_speed_mult_at_x", 20.0)), 0.42), "active movement retains water slowdown")
+	_check(is_equal_approx(float(game.call("_movement_speed_mult_at_x", 0.0)), 1.0), "active movement retains dry terrain speed")
+	game.set("terrain_points", saved_points)
+	game.set("ponds", saved_ponds)
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
