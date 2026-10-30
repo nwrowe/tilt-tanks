@@ -77,10 +77,9 @@ func _initialize_player_tank_builds() -> void:
 	_sync_match_state_tank_builds()
 
 func _sync_match_state_tank_builds() -> void:
-	if match_state == null:
+	if match_controller == null:
 		return
-	for i: int in range(player_tank_builds.size()):
-		match_state.set_tank_build_for_player(i, player_tank_builds[i])
+	match_controller.sync_tank_builds(player_tank_builds)
 
 func _build_overlay_ui() -> void:
 	super._build_overlay_ui()
