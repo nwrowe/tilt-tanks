@@ -473,6 +473,32 @@ func _online_runtime_snapshot_data() -> Dictionary:
 		"cluster_camera_hold_pos": cluster_camera_hold_pos
 	}
 
+func _online_apply_shared_snapshot_fields(snapshot: Dictionary) -> void:
+	# Pure decoding lives in a reusable codec. Keep explicit assignments here:
+	# the gameplay fields are the active runtime's state owner for now.
+	var state: Dictionary = OnlineDuelSnapshotDecoder.decode_common(
+		snapshot, _online_runtime_snapshot_data()
+	)
+	tank_health = state["tank_health"]
+	player_angles = state["player_angles"]
+	player_power_percents = state["player_power_percents"]
+	player_powers = state["player_powers"]
+	current_player = int(state["current_player"])
+	angle_deg = float(state["angle_deg"])
+	power_percent = float(state["power_percent"])
+	power = float(state["power"])
+	wind = float(state["wind"])
+	turn_timer = float(state["turn_timer"])
+	game_over = bool(state["game_over"])
+	selected_weapon = str(state["selected_weapon"])
+	projectile_active = bool(state["projectile_active"])
+	explosion_pos = state["explosion_pos"]
+	explosion_timer = float(state["explosion_timer"])
+	hotseat_turn_start_pending = bool(state["hotseat_turn_start_pending"])
+	pending_advance_after_explosion_hold = bool(state["pending_advance_after_explosion_hold"])
+	cluster_camera_hold_timer = float(state["cluster_camera_hold_timer"])
+	cluster_camera_hold_pos = state["cluster_camera_hold_pos"]
+
 func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	active_world_width = float(snapshot.get("active_world_width", active_world_width))
 	active_right_start_x = float(snapshot.get("active_right_start_x", active_right_start_x))
@@ -490,31 +516,13 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 		tank_positions.append(OnlineDuelCodec.unpack_vec2(packed_tank))
 	if tank_positions.size() < 2:
 		tank_positions = [Vector2(TANK_START_LEFT_X, 0.0), Vector2(active_right_start_x, 0.0)]
-	tank_health = OnlineDuelCodec.int_array(snapshot.get("tank_health", tank_health), tank_health)
-	player_angles = OnlineDuelCodec.float_array(snapshot.get("player_angles", player_angles), player_angles)
-	player_power_percents = OnlineDuelCodec.float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
-	player_powers = OnlineDuelCodec.float_array(snapshot.get("player_powers", player_powers), player_powers)
-	current_player = int(snapshot.get("current_player", current_player))
-	angle_deg = float(snapshot.get("angle_deg", angle_deg))
-	power_percent = float(snapshot.get("power_percent", power_percent))
-	power = float(snapshot.get("power", power))
-	wind = float(snapshot.get("wind", wind))
-	turn_timer = float(snapshot.get("turn_timer", turn_timer))
-	game_over = bool(snapshot.get("game_over", game_over))
-	selected_weapon = str(snapshot.get("selected_weapon", selected_weapon))
-	projectile_active = bool(snapshot.get("projectile_active", projectile_active))
+	_online_apply_shared_snapshot_fields(snapshot)
 	projectile_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", projectile_pos))
 	projectile_vel = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", projectile_vel))
 	turn_projectiles.clear()
 	for shell: Variant in snapshot.get("turn_projectiles", []):
 		if shell is Dictionary:
 			turn_projectiles.append((shell as Dictionary).duplicate(true))
-	explosion_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("explosion_pos", explosion_pos))
-	explosion_timer = float(snapshot.get("explosion_timer", explosion_timer))
-	hotseat_turn_start_pending = bool(snapshot.get("hotseat_turn_start_pending", hotseat_turn_start_pending))
-	pending_advance_after_explosion_hold = bool(snapshot.get("pending_advance_after_explosion_hold", pending_advance_after_explosion_hold))
-	cluster_camera_hold_timer = float(snapshot.get("cluster_camera_hold_timer", cluster_camera_hold_timer))
-	cluster_camera_hold_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("cluster_camera_hold_pos", cluster_camera_hold_pos))
 	online_client_waiting_for_authority = false
 	if current_player >= 0 and current_player < player_angles.size():
 		angle_deg = player_angles[current_player]
