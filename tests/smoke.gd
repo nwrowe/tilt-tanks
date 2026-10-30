@@ -10,6 +10,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_main_scene()
 	_test_match_controller()
+	_test_player_frame_adoption()
 	_test_weapon_catalog()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -86,6 +87,32 @@ func _test_match_controller() -> void:
 	controller.sync_health_values([100])
 	_check(state.tank_health == [0, 42], "malformed health count does not partially update state")
 
+
+func _test_player_frame_adoption() -> void:
+	var state: MatchState = MatchState.new()
+	var controller: MatchController = MatchController.new(state)
+	controller.start_match(0, 1500.0, 30.0, 45.0, 800.0, 50.0, Vector2.ZERO, Vector2(1400, 300), 0.0)
+	var positions: Array[Vector2] = [Vector2(100, 300), Vector2(1300, 280)]
+	var angles: Array[float] = [31.0, 72.0]
+	var powers: Array[float] = [700.0, 1050.0]
+	var percents: Array[float] = [24.0, 82.0]
+	controller.sync_runtime_player_frame(1, positions, angles, powers, percents, -35.0, 11.5, 2, 1750.0)
+	_check(state.current_player == 1 and state.game_mode == 2, "controller adopts player and mode from runtime")
+	_check(state.tank_positions[1] == Vector2(1300, 280), "controller adopts tank positions")
+	_check(state.player_angles == [31.0, 72.0], "controller adopts both players' angles")
+	_check(state.player_powers == [700.0, 1050.0], "controller adopts both players' power")
+	_check(state.player_power_percents == [24.0, 82.0], "controller adopts both power percentages")
+	_check(is_equal_approx(state.turn_timer, 11.5) and is_equal_approx(state.wind, -35.0), "controller adopts timer and wind")
+	_check(is_equal_approx(state.active_world_width, 1750.0), "controller adopts active world width")
+	positions[1] = Vector2.ZERO
+	angles[0] = 0.0
+	powers[0] = 0.0
+	percents[0] = 0.0
+	_check(state.tank_positions[1] == Vector2(1300, 280), "controller frame does not alias positions")
+	_check(is_equal_approx(state.player_angles[0], 31.0), "controller frame does not alias angle arrays")
+	_check(is_equal_approx(state.player_powers[0], 700.0), "controller frame does not alias power arrays")
+	_check(is_equal_approx(state.player_power_percents[0], 24.0), "controller frame does not alias percentages")
+	_check(state.tank_health == [100, 100] and not state.game_over, "player frame adoption does not change match health")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
