@@ -10,6 +10,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_main_scene()
 	_test_match_controller()
+	_test_match_damage()
 	_test_player_frame_adoption()
 	_test_weapon_catalog()
 	_test_level_definitions()
@@ -123,6 +124,27 @@ func _test_player_frame_adoption() -> void:
 	_check(state.tank_build_for_player(0).credits == 120, "controller adopts player 1 progression build")
 	_check(state.tank_build_for_player(1).tank_class_id == second_build.tank_class_id, "controller preserves player 2 tank class")
 
+
+func _test_match_damage() -> void:
+	var impact: Vector2 = Vector2(100.0, 100.0)
+	_check(MatchDamagePolicy.radial_damage(impact, impact, 10.0, 100.0, 75, 50, 4) == 75, "direct impact uses direct damage")
+	_check(MatchDamagePolicy.radial_damage(impact, Vector2(155.0, 100.0), 10.0, 100.0, 75, 50, 4) == 20, "halfway blast preserves 1.35 power falloff")
+	_check(MatchDamagePolicy.radial_damage(impact, Vector2(199.0, 100.0), 10.0, 100.0, 75, 50, 4) == 4, "weapon blast preserves four HP splash minimum")
+	_check(MatchDamagePolicy.radial_damage(impact, Vector2(199.0, 100.0), 10.0, 100.0, 75, 50, 6) == 6, "classic blast preserves six HP splash minimum")
+	_check(MatchDamagePolicy.radial_damage(impact, Vector2(201.0, 100.0), 10.0, 100.0, 75, 50, 4) == 0, "targets outside blast receive no damage")
+	var state: MatchState = MatchState.new()
+	var controller: MatchController = MatchController.new(state)
+	controller.start_match(0, 1500.0, 30.0, 45.0, 800.0, 50.0, impact, Vector2(155.0, 100.0), 0.0)
+	controller.apply_radial_damage(impact, state.tank_positions, 10.0, 100.0, 75, 50, 4)
+	_check(state.tank_health == [25, 80], "controller applies both damage values together")
+	_check(not controller.is_game_over() and controller.winner_index() == -1, "partial damage leaves no winner")
+	controller.sync_health_values([50, 50])
+	controller.apply_radial_damage(impact, [impact, impact], 10.0, 100.0, 75, 50, 4)
+	_check(state.tank_health == [0, 0], "blast can destroy both tanks")
+	_check(controller.is_game_over() and controller.winner_index() == -1, "simultaneous kill is a draw")
+	controller.sync_health_values([100, 100])
+	controller.apply_radial_damage(impact, [impact], 10.0, 100.0, 75, 50, 4)
+	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "malformed target count leaves health unchanged")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
