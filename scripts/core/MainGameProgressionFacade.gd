@@ -38,7 +38,7 @@ var online_connected: bool = false
 var online_local_player: int = ONLINE_DUEL_HOST_PLAYER
 var online_remote_peer_id: int = 0
 var online_status_text: String = ""
-var online_sync_timer: float = 0.0
+var online_host_coordinator: OnlineDuelHostCoordinator = OnlineDuelHostCoordinator.new()
 var online_client_waiting_for_authority: bool = false
 var online_join_host_field: LineEdit = null
 var online_join_port_field: LineEdit = null
@@ -287,7 +287,7 @@ func _online_disconnect() -> void:
 	online_connected = false
 	online_remote_peer_id = 0
 	online_status_text = ""
-	online_sync_timer = 0.0
+	online_host_coordinator.reset()
 	online_client_waiting_for_authority = false
 
 func _on_online_peer_connected(peer_id: int) -> void:
@@ -338,11 +338,13 @@ func _online_can_use_turn_button() -> bool:
 	return _online_is_local_turn() and not online_client_waiting_for_authority
 
 func _online_process_host_sync(delta: float) -> void:
-	if online_remote_peer_id == 0:
-		return
-	online_sync_timer -= delta
-	if online_sync_timer <= 0.0:
-		online_sync_timer = ONLINE_DUEL_SNAPSHOT_INTERVAL
+	if online_host_coordinator.due_for_sync(
+		delta,
+		online_remote_peer_id != 0,
+		false,
+		ONLINE_DUEL_SNAPSHOT_INTERVAL,
+		ONLINE_DUEL_SNAPSHOT_INTERVAL
+	):
 		_online_send_snapshot(false)
 
 func _online_submit_fire_request() -> void:
