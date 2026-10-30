@@ -63,6 +63,7 @@ func _run() -> void:
 	_test_realtime_ai_movement_planner_live()
 	_test_steam_puff_effect_live()
 	_test_realtime_cooldown_policy_live()
+	_test_wind_meter_policy_live()
 
 	game.queue_free()
 	await process_frame
@@ -758,6 +759,20 @@ func _test_realtime_cooldown_policy_live() -> void:
 	game.call("_update_realtime_cooldowns", 0.02)
 	_check(not bool(game.get("movement_was_overheated")),
 		"active runtime clears overheat marker on subsequent frame")
+	game.call("reset_match")
+
+func _test_wind_meter_policy_live() -> void:
+	game.call("_on_quick_game_pressed")
+	var old_wind: float = float(game.get("wind"))
+	game.set("wind", -42.5)
+	_check(is_equal_approx(float(game.call("_wind_display_value")), -5.0),
+		"live game delegates normalized wind readout to composed policy")
+	var weak_color: Color = game.call("_wind_strength_color", 0.3)
+	var strong_color: Color = game.call("_wind_strength_color", 0.95)
+	_check(weak_color.is_equal_approx(WindMeterPolicy.strength_color(0.3)) and
+		strong_color.is_equal_approx(WindMeterPolicy.strength_color(0.95)),
+		"active wind meter color matches standalone policy")
+	game.set("wind", old_wind)
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
