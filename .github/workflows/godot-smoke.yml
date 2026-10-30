@@ -27,19 +27,19 @@ jobs:
           include-templates: false
 
       - name: Import assets and register script classes
-        run: godot --headless --path . --import
+        run: bash tests/check_godot_run.sh godot --headless --path . --import
 
       - name: Run lightweight contract checks
-        run: godot --headless --path . --script res://tests/smoke.gd
+        run: bash tests/check_godot_run.sh godot --headless --path . --script res://tests/smoke.gd
 
       - name: Test live scene, campaign navigation and hotseat firing
-        run: godot --headless --path . --script res://tests/runtime_integration.gd
+        run: bash tests/check_godot_run.sh godot --headless --path . --script res://tests/runtime_integration.gd
 
       - name: Test online packet and snapshot contracts
-        run: godot --headless --path . --script res://tests/network_contracts.gd
+        run: bash tests/check_godot_run.sh godot --headless --path . --script res://tests/network_contracts.gd
 
       - name: Test realtime AI, projectile launch and camera focus
-        run: godot --headless --path . --script res://tests/realtime_camera_integration.gd
+        run: bash tests/check_godot_run.sh godot --headless --path . --script res://tests/realtime_camera_integration.gd
 
       - name: Exercise real ENet duel across two headless Godot processes
         shell: bash
@@ -71,4 +71,4 @@ jobs:
           fi
 
       - name: Start the main scene (headless smoke)
-        run: godot --headless --path . --quit-after 3
+        run: bash tests/check_godot_run.sh godot --headless --path . --quit-after 3
