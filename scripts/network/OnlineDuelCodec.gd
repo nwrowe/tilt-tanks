@@ -23,22 +23,24 @@ static func pack_vec2_array(values: Array) -> Array:
 			packed.append(pack_vec2(value as Vector2))
 	return packed
 
-static func float_array(value: Variant, fallback: Array) -> Array:
-	var result: Array = []
+static func float_array(value: Variant, fallback: Array) -> Array[float]:
+	# Network deserialization returns untyped Arrays. Rebuild typed arrays
+	# because runtime player state declares Array[float] and rejects Array.
+	var result: Array[float] = []
+	var values: Array = fallback
 	if value is Array:
-		for entry: Variant in value:
-			result.append(float(entry))
-	else:
-		result = fallback.duplicate()
+		values = value as Array
+	for entry: Variant in values:
+		result.append(float(entry))
 	return result
 
-static func int_array(value: Variant, fallback: Array) -> Array:
-	var result: Array = []
+static func int_array(value: Variant, fallback: Array) -> Array[int]:
+	var result: Array[int] = []
+	var values: Array = fallback
 	if value is Array:
-		for entry: Variant in value:
-			result.append(int(entry))
-	else:
-		result = fallback.duplicate()
+		values = value as Array
+	for entry: Variant in values:
+		result.append(int(entry))
 	return result
 
 static func safe_requested_weapon(payload: Dictionary, loadout: WeaponLoadout, default_weapon: String) -> String:

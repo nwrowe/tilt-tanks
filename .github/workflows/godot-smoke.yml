@@ -38,5 +38,34 @@ jobs:
       - name: Test online packet and snapshot contracts
         run: godot --headless --path . --script res://tests/network_contracts.gd
 
+      - name: Exercise real ENet duel across two headless Godot processes
+        shell: bash
+        run: |
+          timeout 25s godot --headless --path . --script res://tests/online_enet_peer.gd -- --role=host > /tmp/tilt-host.log 2>&1 &
+          host_pid=$!
+          sleep 1
+          timeout 25s godot --headless --path . --script res://tests/online_enet_peer.gd -- --role=guest > /tmp/tilt-guest.log 2>&1 &
+          guest_pid=$!
+          set +e
+          wait "$host_pid"
+          host_status=$?
+          wait "$guest_pid"
+          guest_status=$?
+          set -e
+          echo "=== Host log ==="
+          cat /tmp/tilt-host.log
+          echo "=== Guest log ==="
+          cat /tmp/tilt-guest.log
+          # Godot can print runtime SCRIPT ERROR while still returning exit 0.
+          # Treat any engine error on either peer as a failed integration run.
+          if grep -Eq 'SCRIPT ERROR:|(^|[[:space:]])ERROR:|FATAL:' /tmp/tilt-host.log /tmp/tilt-guest.log; then
+            echo "Godot reported runtime errors during online test"
+            exit 1
+          fi
+          if [ "$host_status" -ne 0 ] || [ "$guest_status" -ne 0 ]; then
+            echo "Host exit: $host_status; guest exit: $guest_status"
+            exit 1
+          fi
+
       - name: Start the main scene (headless smoke)
         run: godot --headless --path . --quit-after 3
