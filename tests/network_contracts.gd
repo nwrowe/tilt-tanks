@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_typed_wire_arrays()
 	_test_interpolation_math()
 	_test_host_coordinator()
+	_test_guest_command_validation()
 	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
@@ -150,6 +151,41 @@ func _test_host_coordinator() -> void:
 	_check(not OnlineDuelHostCoordinator.can_advance(true, false, false, false, false, 0.0, 0.0), "game over blocks advance")
 	host.reset()
 	_check(host.fallback_owner == -1 and host.sync_remaining == 0.0, "disconnect resets host coordination")
+
+func _test_guest_command_validation() -> void:
+	_check(OnlineDuelCommandValidator.can_start_turn(42, 42, 1, 1, true), "connected guest can start its own turn")
+	_check(not OnlineDuelCommandValidator.can_start_turn(23, 42, 1, 1, true), "unrecognized sender cannot start turn")
+	_check(not OnlineDuelCommandValidator.can_start_turn(0, 0, 1, 1, true), "unset guest peer cannot issue turn commands")
+	_check(not OnlineDuelCommandValidator.can_start_turn(42, 42, 0, 1, true), "guest cannot start host turn")
+	_check(not OnlineDuelCommandValidator.can_start_turn(42, 42, 1, 1, false), "guest cannot bypass start prompt")
+	_check(OnlineDuelCommandValidator.can_fire(42, 42, 1, 1, false), "guest may fire during an unblocked turn")
+	_check(not OnlineDuelCommandValidator.can_fire(23, 42, 1, 1, false), "unrecognized sender cannot fire")
+	_check(not OnlineDuelCommandValidator.can_fire(42, 42, 0, 1, false), "guest cannot fire during host turn")
+	_check(not OnlineDuelCommandValidator.can_fire(42, 42, 1, 1, true), "guest cannot fire over active projectile or overlay")
+
+	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
+	var loadout: WeaponLoadout = WeaponLoadout.from_registry(definitions, WeaponCatalog.STANDARD)
+	var allowed: Dictionary = OnlineDuelCommandValidator.normalize_fire(
+		{"angle": 120.0, "power_percent": -5.0, "weapon": WeaponCatalog.CLUSTER_CHILD},
+		45.0, 50.0, 2.0, 94.0, 10.0, 100.0, loadout, WeaponCatalog.STANDARD
+	)
+	_check(is_equal_approx(float(allowed.get("angle", 0.0)), 94.0), "guest angle is clamped")
+	_check(is_equal_approx(float(allowed.get("power_percent", 0.0)), 10.0), "guest power is clamped")
+	_check(str(allowed.get("weapon", "")) == WeaponCatalog.STANDARD, "invalid child shell is replaced")
+	var defaults: Dictionary = OnlineDuelCommandValidator.normalize_fire(
+		{}, 45.0, 50.0, 2.0, 94.0, 10.0, 100.0, loadout, WeaponCatalog.STANDARD
+	)
+	_check(is_equal_approx(float(defaults.get("angle", 0.0)), 45.0), "guest missing angle uses default")
+	_check(is_equal_approx(float(defaults.get("power_percent", 0.0)), 50.0), "guest missing power uses default")
+	_check(OnlineDuelCommandValidator.normalize_fire(
+		{"angle": "invalid"}, 45.0, 50.0, 2.0, 94.0, 10.0, 100.0, loadout, WeaponCatalog.STANDARD
+	).is_empty(), "guest nonnumeric angle is rejected")
+	_check(OnlineDuelCommandValidator.normalize_fire(
+		{"power_percent": INF}, 45.0, 50.0, 2.0, 94.0, 10.0, 100.0, loadout, WeaponCatalog.STANDARD
+	).is_empty(), "guest infinite power is rejected")
+	_check(OnlineDuelCommandValidator.normalize_fire(
+		{"angle": NAN}, 45.0, 50.0, 2.0, 94.0, 10.0, 100.0, loadout, WeaponCatalog.STANDARD
+	).is_empty(), "guest NaN angle is rejected")
 
 func _test_sequencer_reset() -> void:
 	var seq: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
