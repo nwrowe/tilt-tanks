@@ -8,8 +8,6 @@ const TANK_PANEL_SIZE: Vector2 = Vector2(330.0, 318.0)
 const TANK_PANEL_POS: Vector2 = Vector2(548.0, 58.0)
 const TANK_SETUP_BUTTON_POS: Vector2 = Vector2(698.0, 12.0)
 const TANK_SETUP_BUTTON_SIZE: Vector2 = Vector2(76.0, 38.0)
-const CAMPAIGN_MAP_BG_PATH: String = "res://assets/menu/campaign_map_background_wide.png"
-const CAMPAIGN_MAP_SIZE: Vector2 = Vector2(2200.0, 540.0)
 const HOTSEAT_START_TURN_BUTTON_SIZE: Vector2 = Vector2(300.0, 68.0)
 const HOTSEAT_START_TURN_BUTTON_POS: Vector2 = Vector2(300.0, 238.0)
 
@@ -30,7 +28,6 @@ var tank_summary_label: Label = null
 var tank_setup_button: Button = null
 var tank_panel_player_index: int = 0
 var campaign_map_scroll: ScrollContainer = null
-var campaign_map_dragging: bool = false
 var hotseat_turn_start_pending: bool = false
 var hotseat_start_turn_button: Button = null
 
@@ -106,7 +103,6 @@ func _return_to_main_menu() -> void:
 
 func _clear_menu_controls() -> void:
 	campaign_map_scroll = null
-	campaign_map_dragging = false
 	online_join_host_field = null
 	online_join_port_field = null
 	super._clear_menu_controls()
@@ -582,149 +578,22 @@ func _show_campaign_hub_menu() -> void:
 	queue_redraw()
 
 func _build_campaign_map_scroll() -> void:
-	var viewport_size: Vector2 = get_viewport_rect().size
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.position = Vector2.ZERO
-	scroll.size = viewport_size
-	scroll.custom_minimum_size = viewport_size
-	scroll.mouse_filter = Control.MOUSE_FILTER_STOP
-	scroll.gui_input.connect(_on_campaign_map_scroll_gui_input)
-	campaign_map_scroll = scroll
-	menu_layer.add_child(scroll)
-	menu_buttons.append(scroll)
-
-	var map_root: Control = Control.new()
-	map_root.custom_minimum_size = CAMPAIGN_MAP_SIZE
-	map_root.size = CAMPAIGN_MAP_SIZE
-	map_root.mouse_filter = Control.MOUSE_FILTER_PASS
-	map_root.gui_input.connect(_on_campaign_map_scroll_gui_input)
-	scroll.add_child(map_root)
-
-	_add_campaign_map_background(map_root)
-	_add_campaign_route_segment(map_root, Vector2(175.0, 342.0), Vector2(500.0, 312.0))
-	_add_campaign_route_segment(map_root, Vector2(500.0, 312.0), Vector2(825.0, 365.0))
-	_add_campaign_route_segment(map_root, Vector2(825.0, 365.0), Vector2(1185.0, 295.0))
-	_add_campaign_route_segment(map_root, Vector2(1185.0, 295.0), Vector2(1545.0, 350.0))
-	_add_campaign_route_segment(map_root, Vector2(1545.0, 350.0), Vector2(1900.0, 270.0))
-	_add_campaign_level_node(map_root, 1, "Training\nGrounds", Vector2(175.0, 342.0), true)
-	_add_campaign_level_node(map_root, 2, "Ridge\nAmbush", Vector2(500.0, 312.0), false)
-	_add_campaign_level_node(map_root, 3, "Frozen\nPass", Vector2(825.0, 365.0), false)
-	_add_campaign_level_node(map_root, 4, "Factory\nSiege", Vector2(1185.0, 295.0), false)
-	_add_campaign_level_node(map_root, 5, "Canyon\nRun", Vector2(1545.0, 350.0), false)
-	_add_campaign_level_node(map_root, 6, "Final\nFortress", Vector2(1900.0, 270.0), false)
+	# Own only the navigation callback and menu lifecycle; all map UI and input
+	# behavior are implemented by CampaignMapView.
+	var view: CampaignMapView = CampaignMapView.new()
+	menu_layer.add_child(view)
+	view.configure(get_viewport_rect().size, _start_campaign_level)
+	campaign_map_scroll = view
+	menu_buttons.append(view)
 
 func _on_campaign_map_scroll_gui_input(event: InputEvent) -> void:
-	if campaign_map_scroll == null:
-		return
-	if event is InputEventScreenDrag:
-		var drag: InputEventScreenDrag = event as InputEventScreenDrag
-		_scroll_campaign_map_by(-drag.relative.x)
-		campaign_map_scroll.accept_event()
-	elif event is InputEventScreenTouch:
-		var touch: InputEventScreenTouch = event as InputEventScreenTouch
-		campaign_map_dragging = touch.pressed
-	elif event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT:
-			campaign_map_dragging = mb.pressed
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_scroll_campaign_map_by(-90.0)
-			campaign_map_scroll.accept_event()
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_scroll_campaign_map_by(90.0)
-			campaign_map_scroll.accept_event()
-	elif event is InputEventMouseMotion and campaign_map_dragging:
-		var motion: InputEventMouseMotion = event as InputEventMouseMotion
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			_scroll_campaign_map_by(-motion.relative.x)
-			campaign_map_scroll.accept_event()
-		else:
-			campaign_map_dragging = false
+	# Compatibility seam for callers/tests that still invoke the root hook.
+	if campaign_map_scroll is CampaignMapView:
+		(campaign_map_scroll as CampaignMapView).handle_scroll_input(event)
 
 func _scroll_campaign_map_by(delta_x: float) -> void:
-	if campaign_map_scroll == null:
-		return
-	var max_scroll: int = maxi(0, int(CAMPAIGN_MAP_SIZE.x - campaign_map_scroll.size.x))
-	campaign_map_scroll.scroll_horizontal = clampi(campaign_map_scroll.scroll_horizontal + int(round(delta_x)), 0, max_scroll)
-
-func _add_campaign_map_background(parent: Control) -> void:
-	if ResourceLoader.exists(CAMPAIGN_MAP_BG_PATH):
-		var texture_rect: TextureRect = TextureRect.new()
-		texture_rect.texture = load(CAMPAIGN_MAP_BG_PATH) as Texture2D
-		texture_rect.position = Vector2.ZERO
-		texture_rect.size = CAMPAIGN_MAP_SIZE
-		texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
-		texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		parent.add_child(texture_rect)
-		return
-
-	_add_map_color_band(parent, Color(0.08, 0.12, 0.24, 1.0), 0.0, 185.0)
-	_add_map_color_band(parent, Color(0.12, 0.20, 0.32, 1.0), 185.0, 155.0)
-	_add_map_color_band(parent, Color(0.20, 0.34, 0.18, 1.0), 340.0, 200.0)
-	_add_campaign_mountain(parent, Vector2(120.0, 270.0), 180.0, 96.0)
-	_add_campaign_mountain(parent, Vector2(420.0, 260.0), 230.0, 130.0)
-	_add_campaign_mountain(parent, Vector2(760.0, 282.0), 210.0, 106.0)
-	_add_campaign_mountain(parent, Vector2(1110.0, 250.0), 270.0, 148.0)
-	_add_campaign_mountain(parent, Vector2(1510.0, 286.0), 250.0, 118.0)
-	_add_campaign_mountain(parent, Vector2(1910.0, 246.0), 285.0, 150.0)
-
-func _add_map_color_band(parent: Control, color: Color, y: float, height: float) -> void:
-	var band: ColorRect = ColorRect.new()
-	band.color = color
-	band.position = Vector2(0.0, y)
-	band.size = Vector2(CAMPAIGN_MAP_SIZE.x, height)
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(band)
-
-func _add_campaign_mountain(parent: Control, center: Vector2, width: float, height: float) -> void:
-	var mountain: Polygon2D = Polygon2D.new()
-	mountain.polygon = PackedVector2Array([
-		center + Vector2(-width * 0.50, height * 0.55),
-		center + Vector2(-width * 0.20, -height * 0.35),
-		center + Vector2(0.0, -height * 0.55),
-		center + Vector2(width * 0.28, -height * 0.22),
-		center + Vector2(width * 0.55, height * 0.55)
-	])
-	mountain.color = Color(0.14, 0.13, 0.22, 0.92)
-	parent.add_child(mountain)
-
-func _add_campaign_route_segment(parent: Control, start: Vector2, finish: Vector2) -> void:
-	var route: Line2D = Line2D.new()
-	route.width = 11.0
-	route.default_color = Color(0.98, 0.78, 0.25, 0.78)
-	route.add_point(start)
-	route.add_point(finish)
-	parent.add_child(route)
-
-func _add_campaign_level_node(parent: Control, level_index: int, label_text: String, center: Vector2, unlocked: bool) -> void:
-	var button: Button = Button.new()
-	button.text = "%d\n%s" % [level_index, label_text]
-	button.position = center - Vector2(48.0, 48.0)
-	button.size = Vector2(96.0, 96.0)
-	button.focus_mode = Control.FOCUS_NONE
-	button.disabled = not unlocked
-	button.mouse_filter = Control.MOUSE_FILTER_PASS if unlocked else Control.MOUSE_FILTER_IGNORE
-	_style_campaign_level_button(button, unlocked)
-	parent.add_child(button)
-	if unlocked:
-		button.pressed.connect(func() -> void:
-			_start_campaign_level(level_index)
-		)
-
-func _style_campaign_level_button(button: Button, unlocked: bool) -> void:
-	var normal: StyleBoxFlat = StyleBoxFlat.new()
-	normal.bg_color = Color(0.12, 0.32, 0.20, 0.94) if unlocked else Color(0.16, 0.16, 0.18, 0.82)
-	normal.border_color = Color(1.0, 0.86, 0.25, 0.95) if unlocked else Color(0.62, 0.62, 0.66, 0.55)
-	normal.set_border_width_all(3)
-	normal.set_corner_radius_all(42)
-	var pressed: StyleBoxFlat = normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(0.20, 0.48, 0.28, 0.98)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", normal)
-	button.add_theme_stylebox_override("focus", normal)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_color_override("font_color", Color.WHITE if unlocked else Color(0.82, 0.82, 0.86, 0.75))
-	button.add_theme_font_size_override("font_size", 16)
+	if campaign_map_scroll is CampaignMapView:
+		(campaign_map_scroll as CampaignMapView).scroll_by(delta_x)
 
 func _show_tank_garage_menu() -> void:
 	menu_state = MENU_STATE_SINGLE_PLAYER
@@ -732,56 +601,24 @@ func _show_tank_garage_menu() -> void:
 	_hide_game_ui()
 	_close_tank_summary_panel()
 	_clear_menu_controls()
-	_add_text_label("Tank Garage", Vector2(0.5, 0.25), Vector2(520, 58), 32)
-	_add_multiline_menu_label(_garage_summary_text(0), Vector2(0.33, 0.55), Vector2(360, 260), 17)
-	_add_text_label("Available Upgrades", Vector2(0.70, 0.40), Vector2(310, 36), 22)
-	_add_upgrade_preview_buttons()
-	_add_plain_menu_button("Back", Vector2(0.5, 0.86), Vector2(210, 58), _show_campaign_hub_menu)
+	# Menu controls are kept in the root cleanup registry, but their presentation
+	# and data formatting live in the standalone garage builder.
+	var controls: Array[Control] = TankGarageView.build_ui(
+		menu_layer,
+		get_viewport_rect().size,
+		0,
+		_tank_build_for_player(0),
+		tank_classes,
+		tank_upgrades,
+		tank_crew,
+		_show_campaign_hub_menu
+	)
+	menu_buttons.append_array(controls)
 	queue_redraw()
 
 func _start_campaign_level(level_index: int) -> void:
 	_select_campaign_mode()
 	_start_game(true)
-
-func _garage_summary_text(player_index: int) -> String:
-	var build: TankBuildState = _tank_build_for_player(player_index)
-	var tank_class: TankClassDefinition = TankProgressionRegistry.get_tank_class(tank_classes, build.tank_class_id)
-	var stats: Dictionary = TankProgressionRegistry.effective_stats(build, tank_classes, tank_upgrades, tank_crew)
-	var lines: Array[String] = []
-	lines.append("Player %d Tank" % (player_index + 1))
-	lines.append("Class: %s  (Tier %d)" % [tank_class.display_name, tank_class.tier])
-	lines.append("Credits: %d" % build.credits)
-	lines.append("")
-	lines.append("Health: %.0f" % float(stats.get(TankProgressionRegistry.STAT_MAX_HEALTH, 100.0)))
-	lines.append("Armor: %.0f%%" % (100.0 * float(stats.get(TankProgressionRegistry.STAT_DAMAGE_RESIST, 0.0))))
-	lines.append("Fire Power: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_FIRE_POWER, 1.0)))
-	lines.append("Aim Stability: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_AIM_STABILITY, 1.0)))
-	lines.append("Reload: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_RELOAD_SPEED, 1.0)))
-	lines.append("Engine: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_ENGINE_POWER, 1.0)))
-	lines.append("Tracks: %.2fx" % float(stats.get(TankProgressionRegistry.STAT_TRACK_GRIP, 1.0)))
-	lines.append("")
-	lines.append("Installed: %s" % _upgrade_summary(build))
-	return "\n".join(lines)
-
-func _add_upgrade_preview_buttons() -> void:
-	var upgrade_ids: Array[String] = [
-		"stabilized_barrel_mk1",
-		"reinforced_armor_mk1",
-		"wide_tracks_mk1",
-		"engine_tune_mk1"
-	]
-	var y_anchor: float = 0.49
-	for upgrade_id: String in upgrade_ids:
-		var upgrade: TankUpgradeDefinition = TankProgressionRegistry.get_upgrade(tank_upgrades, upgrade_id)
-		if upgrade == null:
-			continue
-		_add_disabled_menu_button(
-			"%s  -  %d cr" % [upgrade.display_name, upgrade.purchase_cost],
-			Vector2(0.70, y_anchor),
-			Vector2(320, 44)
-		)
-		y_anchor += 0.085
-	_add_multiline_menu_label("Purchase flow coming next; this screen establishes the garage location and upgrade list.", Vector2(0.70, 0.78), Vector2(340, 64), 15)
 
 func _add_plain_menu_button(text: String, anchor: Vector2, size: Vector2, callback: Callable) -> Button:
 	var button: Button = Button.new()
@@ -793,14 +630,6 @@ func _add_plain_menu_button(text: String, anchor: Vector2, size: Vector2, callba
 	_style_menu_button(button)
 	menu_layer.add_child(button)
 	menu_buttons.append(button)
-	return button
-
-func _add_disabled_menu_button(text: String, anchor: Vector2, size: Vector2) -> Button:
-	var button: Button = _add_plain_menu_button(text, anchor, size, func() -> void:
-		return
-	)
-	button.disabled = true
-	button.modulate = Color(1.0, 1.0, 1.0, 0.62)
 	return button
 
 func _add_multiline_menu_label(text: String, anchor: Vector2, size: Vector2, font_size: int) -> Label:
