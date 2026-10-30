@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_legacy_input_motion_policy()
 	_test_composed_backdrop_geometry()
 	_test_main_menu_presentation()
+	_test_water_manager_world_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -285,6 +286,25 @@ func _test_main_menu_presentation() -> void:
 	var hill: PackedVector2Array = MainMenuPresentation.fallback_hill(wide)
 	_check(hill.size() == 32, "fallback hill retains thirty interior points")
 	_check(hill[0] == Vector2(0, 540) and hill[31] == Vector2(900, 540), "fallback hill meets viewport floor")
+
+func _test_water_manager_world_policy() -> void:
+	var points: Array[Vector2] = [
+		Vector2(0, 100), Vector2(10, 140), Vector2(20, 160),
+		Vector2(30, 140), Vector2(40, 100)
+	]
+	var volume: float = WaterManager.water_volume_for_range(points, 0, 4, 120.0, 10.0)
+	_check(is_equal_approx(volume, 800.0), "water manager retains expected volume integration")
+	var water_level: float = WaterManager.solve_water_level_for_volume(points, 0, 4, volume, 10.0, 28)
+	_check(absf(water_level - 120.0) < 0.001, "water level solver preserves target volume")
+	var pond: Dictionary = {"start_i": 0, "end_i": 4, "start_x": 0.0, "end_x": 40.0, "water_y": 120.0}
+	var ponds: Array[Dictionary] = [pond]
+	_check(not WaterManager.pond_at_x(ponds, points, 20.0, 10.0, 3.0).is_empty(), "submerged terrain registers pond")
+	_check(WaterManager.pond_at_x(ponds, points, 0.0, 10.0, 3.0).is_empty(), "dry pond edge is excluded")
+	_check(WaterManager.is_in_pond(ponds, points, Vector2(20, 130), 10.0, 3.0), "shell below water surface is submerged")
+	_check(not WaterManager.is_in_pond(ponds, points, Vector2(20, 110), 10.0, 3.0), "shell above water surface stays dry")
+	_check(is_equal_approx(WaterManager.tank_y_for_surface(ponds, points, 20.0, 10.0, 16.0, 3.0, 0.5), 128.0), "floating tank respects half-submergence")
+	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 20.0, 10.0, 3.0, 0.42), 0.42), "pond movement uses original water slowdown")
+	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 0.0, 10.0, 3.0, 0.42), 1.0), "dry ground retains normal speed")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
