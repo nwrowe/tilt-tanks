@@ -1,4 +1,25 @@
-extends "res://scripts/MainStableTweaks.gd"
+extends "res://scripts/Main.gd"
+
+# Compatibility constants and legacy scene fields required by later game
+# layers. Gameplay policies already live in separate independent components.
+
+const POWER_FORCE_MIN: float = 400.0
+const POWER_FORCE_MAX: float = 1200.0
+const POWER_PERCENT_DEFAULT: float = 50.0
+
+var power_percent: float = POWER_PERCENT_DEFAULT
+var player_power_percents: Array[float] = [POWER_PERCENT_DEFAULT, POWER_PERCENT_DEFAULT]
+
+
+const WORLD_WIDTH_MIN_TWEAK: float = 1500.0
+const WORLD_WIDTH_MAX_TWEAK: float = 2600.0
+const TRAJECTORY_DOT_COUNT: int = 7
+const TRAJECTORY_DOT_DT: float = 0.145
+const TRAJECTORY_DOT_RADIUS: float = 3.0
+const BOTTOM_FLOOR_SCREEN_MARGIN: float = 4.0
+
+var active_world_width: float = 1500.0
+var active_right_start_x: float = 1370.0
 
 # -----------------------------------------------------------------------------
 # Menu asset paths
@@ -31,20 +52,82 @@ var menu_bg_portrait_texture: Texture2D
 var single_player_mode: bool = false
 
 func _ready() -> void:
-	super._ready()
+	rng.randomize()
+	if terrain != null:
+		terrain.visible = false
+	if reset_button != null:
+		reset_button.visible = false
+		reset_button.focus_mode = Control.FOCUS_NONE
+	if fire_button != null:
+		fire_button.visible = false
+		fire_button.focus_mode = Control.FOCUS_NONE
+	if power_slider != null:
+		power_slider.min_value = 0.0
+		power_slider.max_value = 100.0
+		power_slider.step = 1.0
+		power_slider.focus_mode = Control.FOCUS_NONE
+	_build_overlay_ui()
+	reset_match()
 	_load_menu_assets()
 	_build_menu_layer()
 	_show_main_menu()
 
 func _process(delta: float) -> void:
 	if menu_state == MENU_STATE_GAME:
-		super._process(delta)
+		if Input.is_key_pressed(KEY_R):
+			reset_match()
+	
+		if Input.is_action_just_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE):
+			_on_fire_pressed()
+	
+		if not projectile_active and not game_over and not overlay_open:
+			_update_angle_from_input(delta)
+			_update_tank_movement(delta)
+			if power_slider != null:
+				power_percent = float(power_slider.value)
+			power = _power_from_percent(power_percent)
+			player_angles[current_player] = angle_deg
+			player_power_percents[current_player] = power_percent
+			player_powers[current_player] = power
+			turn_timer -= delta
+			if turn_timer <= 0.0:
+				_end_turn_without_shot()
+	
+		if projectile_active:
+			_update_projectile(delta)
+	
+		if explosion_timer > 0.0:
+			explosion_timer -= delta
+			if explosion_timer <= 0.0:
+				explosion_pos = Vector2.INF
+	
+		_update_camera(delta)
+		_update_ui()
+		queue_redraw()
 	else:
 		queue_redraw()
 
 func _draw() -> void:
 	if menu_state == MENU_STATE_GAME:
-		super._draw()
+		draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color(0.06, 0.07, 0.10), true)
+		_draw_distant_mountains()
+		_draw_ground_fill()
+		_draw_terrain_outline()
+		_draw_tank(0, Color(0.25, 0.9, 0.35))
+		_draw_tank(1, Color(0.95, 0.25, 0.25))
+		if not game_over:
+			_draw_trajectory_preview()
+			var base: Vector2 = _world_to_screen(tank_positions[current_player])
+			var facing: float = 1.0 if current_player == 0 else -1.0
+			var rad: float = deg_to_rad(angle_deg)
+			var tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(rad), -CANNON_LENGTH * CAMERA_SCALE * sin(rad))
+			draw_line(base, tip, Color.WHITE, 4.0)
+		if projectile_active:
+			draw_circle(_world_to_screen(projectile_pos), PROJECTILE_RADIUS * CAMERA_SCALE, Color(1.0, 0.92, 0.2))
+		if explosion_timer > 0.0 and explosion_pos != Vector2.INF:
+			_draw_explosion()
+		_draw_wind_widget()
+		_draw_turn_widget()
 		return
 	_draw_menu_background()
 
@@ -247,3 +330,75 @@ func _draw_fallback_menu_background(viewport_size: Vector2) -> void:
 		hill.append(Vector2(x, y))
 	hill.append(Vector2(viewport_size.x, viewport_size.y))
 	draw_colored_polygon(hill, Color(0.08, 0.25, 0.08, 1.0))
+
+# These are the remaining lower-runtime compatibility hooks needed by the
+# game. Unused legacy geometry, physics and reset overrides were not copied.
+func _update_angle_from_input(delta: float) -> void:
+	var gravity_vec: Vector3 = Input.get_gravity()
+	if gravity_vec.length() < 0.01:
+		var axis: float = 0.0
+		if Input.is_key_pressed(KEY_UP):
+			axis += 1.0
+		if Input.is_key_pressed(KEY_DOWN):
+			axis -= 1.0
+		angle_deg = LegacyInputMotionPolicy.keyboard_aim(
+			angle_deg, axis, delta, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+		)
+	else:
+		angle_deg = LegacyInputMotionPolicy.tilt_aim(
+			gravity_vec.x, current_player, MOBILE_TILT_FULL_SCALE,
+			MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+		)
+
+func _camera_target_x() -> float:
+	return LegacyInputMotionPolicy.camera_x(
+		tank_positions[current_player].x, projectile_active, projectile_pos.x,
+		explosion_timer, explosion_pos, VIEW_SIZE.x, CAMERA_SCALE,
+		active_world_width
+	)
+
+func _power_from_percent(percent: float) -> float:
+	return PowerControlPolicy.force_from_percent(percent, POWER_FORCE_MIN, POWER_FORCE_MAX)
+
+func _on_fire_pressed() -> void:
+	if projectile_active or game_over or overlay_open:
+		return
+	if power_slider != null:
+		power_slider.release_focus()
+	player_angles[current_player] = angle_deg
+	player_power_percents[current_player] = power_percent
+	player_powers[current_player] = power
+	var facing: float = 1.0
+	if current_player != 0:
+		facing = -1.0
+	var rad: float = deg_to_rad(angle_deg)
+	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
+	projectile_pos = tank_positions[current_player] + muzzle_offset
+	projectile_vel = Vector2(facing * power * cos(rad), -power * sin(rad))
+	projectile_active = true
+
+func _load_current_player_settings() -> void:
+	angle_deg = player_angles[current_player]
+	power_percent = player_power_percents[current_player]
+	power = _power_from_percent(power_percent)
+	if power_slider != null:
+		power_slider.value = power_percent
+		power_slider.release_focus()
+
+func _update_ui() -> void:
+	if angle_label != null:
+		angle_label.text = "Angle: %.1f" % angle_deg
+	if power_label != null:
+		power_label.text = "Power: %.0f%%" % power_percent
+	if status_label == null:
+		return
+	if game_over:
+		var winner: int = 0
+		if tank_health[0] <= 0:
+			winner = 1
+		status_label.text = "Player %d wins!  P1 HP: %d  P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
+	else:
+		status_label.text = "P1 HP: %d    P2 HP: %d" % [tank_health[0], tank_health[1]]
+
+func _draw_distant_mountains() -> void:
+	LegacyBackdropRenderer.draw_distant_mountains(self, VIEW_SIZE)
