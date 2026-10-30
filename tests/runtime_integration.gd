@@ -44,6 +44,7 @@ func _run() -> void:
 	_test_metadata_weapon_overrides()
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
+	_test_runtime_player_frame_bridge()
 
 	game.queue_free()
 	await process_frame
@@ -292,6 +293,27 @@ func _test_runtime_projectile_bridge() -> void:
 	_check(state.explosion_pos == Vector2.INF and is_zero_approx(state.explosion_timer), "controller explosion clears when runtime hold ends")
 	game.call("reset_match")
 	_check(not state.projectile_active and state.explosion_pos == Vector2.INF, "reset clears controller projectile lifecycle")
+
+func _test_runtime_player_frame_bridge() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var angles: Array[float] = [33.0, 68.0]
+	var powers: Array[float] = [710.0, 1080.0]
+	var percentages: Array[float] = [25.0, 85.0]
+	game.set("player_angles", angles)
+	game.set("player_powers", powers)
+	game.set("player_power_percents", percentages)
+	game.set("wind", -20.0)
+	game.set("turn_timer", 9.5)
+	game.call("_sync_match_state_from_runtime")
+	_check(state.player_angles == angles, "live player angles sync through controller")
+	_check(state.player_powers == powers, "live player power sync through controller")
+	_check(state.player_power_percents == percentages, "live power percentages sync through controller")
+	_check(is_equal_approx(state.wind, -20.0) and is_equal_approx(state.turn_timer, 9.5), "live frame adopts wind and turn timer")
+	_check(state.current_player == int(game.get("current_player")), "live frame matches turn owner")
+	_check(is_equal_approx(state.active_world_width, float(game.get("active_world_width"))), "live frame captures world width")
+	game.call("reset_match")
+	_check(state.player_angles == [45.0, 45.0], "live reset resynchronizes default player aim")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
