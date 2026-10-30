@@ -253,6 +253,8 @@ func _test_runtime_match_health_bridge() -> void:
 	var state: MatchState = game.get("match_state") as MatchState
 	var controller: MatchController = game.get("match_controller") as MatchController
 	_check(state != null and controller != null, "active scene exposes match controller and state")
+	var adapter: MatchRuntimeSynchronizer = game.get("match_runtime_sync") as MatchRuntimeSynchronizer
+	_check(adapter != null and adapter.state == state and adapter.controller == controller, "game composes match synchronizer instead of inheriting bridge")
 	var damaged: Array[int] = [87, 43]
 	game.set("tank_health", damaged)
 	game.call("_sync_match_state_from_runtime")
