@@ -50,6 +50,7 @@ func _test_campaign_navigation() -> void:
 	game.call("_on_campaign_pressed")
 	var scroll: ScrollContainer = game.get("campaign_map_scroll") as ScrollContainer
 	_check(scroll != null, "campaign creates a scrollable map")
+	_check(scroll is CampaignMapView, "campaign uses the extracted map view")
 	if scroll != null:
 		var nodes: Array[Node] = scroll.find_children("*", "Button", true, false)
 		var ready_count: int = 0
@@ -69,6 +70,21 @@ func _test_campaign_navigation() -> void:
 	if garage_button != null:
 		garage_button.emit_signal("pressed")
 		_check(game.get("campaign_map_scroll") == null, "garage replaces campaign map")
+		var garage_controls: Array = game.get("menu_buttons")
+		var disabled_upgrades: int = 0
+		for control: Variant in garage_controls:
+			if control is Button and (control as Button).disabled:
+				disabled_upgrades += 1
+		_check(disabled_upgrades >= 4, "extracted garage retains read-only upgrade previews")
+		var garage_text: String = TankGarageView.summary_text(
+			0,
+			game.call("_tank_build_for_player", 0),
+			game.get("tank_classes"),
+			game.get("tank_upgrades"),
+			game.get("tank_crew")
+		)
+		_check(garage_text.contains("Scout Tank"), "garage summary uses starting tank class")
+		_check(garage_text.contains("Credits: 0"), "garage summary preserves starting credits")
 		_check(_find_menu_button("Back") != null, "garage has Back action")
 		var back: Button = _find_menu_button("Back")
 		if back != null:
