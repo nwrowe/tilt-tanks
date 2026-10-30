@@ -1,4 +1,4 @@
-extends "res://scripts/modes/RealtimeAIAimingBridge.gd"
+extends "res://scripts/modes/WorldRuntimeBridge.gd"
 
 # Active weapon runtime bridge while MainGame.gd is being flattened.
 # Most newer behavior is already overridden in scripts/core/MainGame.gd. This
