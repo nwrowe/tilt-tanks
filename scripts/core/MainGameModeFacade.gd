@@ -1,8 +1,9 @@
-extends "res://scripts/core/MainGameDefinitionFacade.gd"
+extends "res://scripts/core/MainGameCameraHold.gd"
 
 # Top-level Phase C facade. This starts routing mode policy through explicit
 # ModeController objects while preserving the existing gameplay implementation.
 
+var player_weapon_selection: PlayerWeaponSelection = PlayerWeaponSelection.new()
 var mode_controllers: Dictionary = {}
 var active_mode_state: ActiveModeState = ActiveModeState.new()
 var hotseat_mode_controller: HotseatModeController = HotseatModeController.new()
@@ -14,8 +15,54 @@ func _ready() -> void:
 
 func reset_match() -> void:
 	_sync_active_mode_from_runtime()
+	player_weapon_selection.reset(WEAPON_STANDARD)
+	selected_weapon = WEAPON_STANDARD
 	super.reset_match()
 	_sync_active_mode_from_runtime()
+
+# Compatibility hooks formerly in MainGameDefinitionFacade. Per-player
+# choices now live in a standalone component, while weapon definitions and
+# split factories are inherited directly from WeaponDefinitionRuntimeBridge.
+func _save_runtime_current_player_settings() -> void:
+	_store_current_player_selected_weapon()
+	super._save_runtime_current_player_settings()
+
+func _load_current_player_settings() -> void:
+	super._load_current_player_settings()
+	_load_current_player_selected_weapon()
+
+func _build_weapon_ui() -> void:
+	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
+	weapon_button.pressed.connect(_toggle_weapon_menu)
+
+	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
+	WeaponSelectMenu.add_title(weapon_panel)
+	var weapon_list: VBoxContainer = WeaponSelectMenu.make_scroll_area(weapon_panel)
+
+	for weapon_id: String in active_weapon_loadout.weapon_ids:
+		var option_button: Button = WeaponSelectMenu.make_list_option_button(weapon_list, _weapon_display_name(weapon_id))
+		option_button.pressed.connect(func(id: String = weapon_id) -> void:
+			_set_selected_weapon_for_current_player(id)
+			_close_weapon_menu()
+		)
+
+	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 334))
+	close_button.pressed.connect(_close_weapon_menu)
+
+func _set_selected_weapon_for_current_player(weapon_id: String) -> void:
+	selected_weapon = _safe_selected_weapon(weapon_id)
+	_store_current_player_selected_weapon()
+
+func _store_current_player_selected_weapon() -> void:
+	player_weapon_selection.save(current_player, selected_weapon, WEAPON_STANDARD)
+
+func _load_current_player_selected_weapon() -> void:
+	selected_weapon = player_weapon_selection.load(current_player, active_weapon_loadout, WEAPON_STANDARD)
+
+func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
+	# The old definition facade also set the focus position during splitting.
+	super._split_turn_cluster_projectile(pos, vel)
+	turn_cluster_camera_pos = pos
 
 func _initialize_mode_controllers() -> void:
 	mode_controllers = ModeControllerRegistry.build_default_controllers(self, match_controller)
