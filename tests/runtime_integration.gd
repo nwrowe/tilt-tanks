@@ -506,8 +506,8 @@ func _test_weapon_bridge_retirement() -> void:
 func _test_power_percent_layer_retirement() -> void:
 	# Exercise the actual scene after retiring MainStablePowerPercent.gd.
 	game.call("_on_hotseat_pressed")
-	var policy_minimum: float = float(game.get("POWER_FORCE_MIN"))
-	var policy_maximum: float = float(game.get("POWER_FORCE_MAX"))
+	var policy_minimum: float = 400.0
+	var policy_maximum: float = 1200.0
 	_check(is_equal_approx(float(game.call("_power_from_percent", 0.0)), policy_minimum), "legacy launch method honors minimum power")
 	_check(is_equal_approx(float(game.call("_power_from_percent", 100.0)), policy_maximum), "legacy launch method honors maximum power")
 	_check(is_equal_approx(float(game.call("_power_from_percent", -20.0)), policy_minimum), "legacy launch method clamps negative power")
