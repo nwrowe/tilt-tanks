@@ -26,14 +26,16 @@ func _run() -> void:
 	_test_vector_round_trip()
 	_test_snapshot_shape()
 	_test_sequence_ordering()
+	_test_weapon_request_validation()
+	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
 	_finish()
 
 func _test_vector_round_trip() -> void:
 	var original: Vector2 = Vector2(123.25, -456.5)
-	var packed: Variant = game.call("_online_pack_vec2", original)
-	var restored: Vector2 = game.call("_online_unpack_vec2", packed)
+	var packed: Variant = OnlineDuelCodec.pack_vec2(original)
+	var restored: Vector2 = OnlineDuelCodec.unpack_vec2(packed)
 	_check(restored.distance_to(original) < 0.001, "network Vec2 pack/unpack round-trip")
 
 func _test_snapshot_shape() -> void:
@@ -46,8 +48,8 @@ func _test_snapshot_shape() -> void:
 	_check(not motion.has("terrain_points"), "lightweight motion snapshot omits terrain")
 
 func _test_sequence_ordering() -> void:
-	game.set("online_client_last_full_snapshot_seq", -1)
-	game.set("online_client_last_motion_snapshot_seq", -1)
+	var sequencer: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
+	sequencer.reset()
 	_check(bool(game.call("_online_accept_full_snapshot_seq", {"seq": 10})), "initial reliable snapshot accepted")
 	_check(not bool(game.call("_online_accept_full_snapshot_seq", {"seq": 9})), "older reliable snapshot rejected")
 	_check(bool(game.call("_online_accept_motion_snapshot_seq", {"seq": 11})), "new motion snapshot accepted")
@@ -57,6 +59,24 @@ func _test_sequence_ordering() -> void:
 	_check(not bool(game.call("_online_accept_fire_event_seq", {"seq": 11})), "late fire event cannot replay before full state")
 	_check(bool(game.call("_online_accept_fire_event_seq", {"seq": 13})), "new fire event accepted")
 	_check(not bool(game.call("_online_accept_motion_snapshot_seq", {"seq": 12})), "older motion cannot overwrite fire event")
+
+func _test_weapon_request_validation() -> void:
+	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
+	var loadout: WeaponLoadout = WeaponLoadout.from_registry(definitions, WeaponCatalog.STANDARD)
+	_check(OnlineDuelCodec.safe_requested_weapon({"weapon": WeaponCatalog.HEAVY}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.HEAVY, "valid guest weapon remains selected")
+	_check(OnlineDuelCodec.safe_requested_weapon({"weapon": "__invalid__"}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "invalid guest weapon falls back to allowed shell")
+	_check(OnlineDuelCodec.safe_requested_weapon({"weapon": WeaponCatalog.CLUSTER_CHILD}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "unselectable child shell rejected")
+	_check(OnlineDuelCodec.safe_requested_weapon({}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "missing guest weapon uses default")
+	_check(OnlineDuelCodec.safe_requested_weapon({}, null, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "missing loadout uses safe default")
+
+func _test_sequencer_reset() -> void:
+	var seq: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
+	_check(seq.next_outgoing_sequence() == 1, "outgoing sequence starts at 1")
+	_check(seq.next_outgoing_sequence() == 2, "outgoing sequence increases")
+	seq.reset()
+	_check(seq.next_outgoing_sequence() == 1, "reset restarts outgoing sequence")
+	_check(seq.accept_full({"seq": 1}), "reset clears received sequence history")
+	_check(not seq.accept_motion({"seq": 1}), "motion cannot overwrite same-seq reliable snapshot")
 
 func _check(condition: bool, description: String) -> void:
 	checks += 1
