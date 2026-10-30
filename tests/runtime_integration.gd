@@ -39,6 +39,7 @@ func _run() -> void:
 	_test_campaign_map_drag()
 	_test_campaign_level_launch()
 	_test_hotseat_weapons_turns_and_fire()
+	_test_cluster_split_runtime()
 
 	game.queue_free()
 	await process_frame
@@ -181,6 +182,33 @@ func _test_hotseat_weapons_turns_and_fire() -> void:
 	game.call("reset_match")
 	_check(int(game.get("current_player")) == 0, "reset returns turn to player 1")
 	_check(str(game.get("selected_weapon")) == WeaponCatalog.STANDARD, "reset restores default weapon")
+
+func _test_cluster_split_runtime() -> void:
+	# Exercise the legacy runtime entry points after removing their inheritance layer.
+	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, -20.0))), "cluster waits for descent")
+	_check(bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, 20.0))), "cluster splits during descent")
+	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, true, Vector2(0.0, 20.0))), "cluster cannot split twice")
+	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.STANDARD, false, Vector2(0.0, 20.0))), "standard shell does not split")
+	var children: Array = game.call("_make_split_children", 0, WeaponCatalog.CLUSTER, Vector2(300.0, 200.0), Vector2(20.0, 10.0))
+	_check(children.size() == 3, "cluster definition spawns three child shells")
+	var no_children: Array = game.call("_make_split_children", 0, WeaponCatalog.STANDARD, Vector2(300.0, 200.0), Vector2(20.0, 10.0))
+	_check(no_children.is_empty(), "non-splitting weapon creates no child projectiles")
+
+	game.call("_on_hotseat_pressed")
+	game.call("_on_hotseat_start_turn_pressed")
+	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.CLUSTER)
+	game.set("hotseat_release_in_progress", true)
+	game.call("_on_fire_pressed")
+	game.set("hotseat_release_in_progress", false)
+	_check(bool(game.get("projectile_active")), "cluster launches as a live shell")
+	# Force the projectile into descent and call the actual game update.
+	# This deterministically tests cluster splitting without waiting for an apex.
+	game.set("projectile_vel", Vector2(120.0, 10.0))
+	game.call("_update_projectile", 0.016)
+	_check(not bool(game.get("projectile_active")), "descending cluster parent is replaced")
+	_check(bool(game.get("turn_projectile_split_done")), "cluster marks split completed")
+	var turn_children: Array = game.get("turn_projectiles")
+	_check(turn_children.size() == 3, "live cluster creates exactly three turn children")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
