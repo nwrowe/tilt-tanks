@@ -113,6 +113,16 @@ func _test_player_frame_adoption() -> void:
 	_check(is_equal_approx(state.player_powers[0], 700.0), "controller frame does not alias power arrays")
 	_check(is_equal_approx(state.player_power_percents[0], 24.0), "controller frame does not alias percentages")
 	_check(state.tank_health == [100, 100] and not state.game_over, "player frame adoption does not change match health")
+	controller.set_wind(22.5)
+	_check(is_equal_approx(state.wind, 22.5), "level wind updates through controller")
+	var first_build: TankBuildState = TankProgressionRegistry.default_player_build(0)
+	var second_build: TankBuildState = TankProgressionRegistry.default_player_build(1)
+	first_build.credits = 120
+	var builds: Array[TankBuildState] = [first_build, second_build]
+	controller.sync_tank_builds(builds)
+	_check(state.tank_build_for_player(0).credits == 120, "controller adopts player 1 progression build")
+	_check(state.tank_build_for_player(1).tank_class_id == second_build.tank_class_id, "controller preserves player 2 tank class")
+
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
