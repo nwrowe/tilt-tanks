@@ -56,6 +56,7 @@ func _run() -> void:
 	_test_retired_tweaks_runtime_hooks()
 	_test_menu_layout_policy_live()
 	_test_composed_menu_view()
+	_test_menu_layer_retirement()
 
 	game.queue_free()
 	await process_frame
@@ -591,6 +592,27 @@ func _test_composed_menu_view() -> void:
 	_check(view.controls.size() == 3, "view clears old controls before home-menu rebuild")
 	_check(game.get("menu_buttons") == view.controls, "legacy control array remains linked after clear")
 	_check(view.layer != null and is_instance_valid(view.layer), "menu view keeps one attached canvas")
+
+func _test_menu_layer_retirement() -> void:
+	# Verify mode runtime now provides all menu contracts without the
+	# removed MainWithMenus ancestor.
+	game.call("_show_main_menu")
+	_check(int(game.get("menu_state")) == 0, "retired menu layer still opens home")
+	game.call("_on_single_player_pressed")
+	_check(int(game.get("menu_state")) == 1, "single player navigation still works")
+	_check((game.get("menu_buttons") as Array).size() == 3, "single player menu retains Quick/Campaign/Back")
+	game.call("_show_main_menu")
+	game.call("_on_multiplayer_pressed")
+	_check(int(game.get("menu_state")) == 3, "multiplayer navigation still works")
+	_check((game.get("menu_buttons") as Array).size() == 3, "multiplayer menu preserves three actions")
+	game.call("_show_main_menu")
+	game.call("_on_options_pressed")
+	_check((game.get("menu_buttons") as Array).size() == 3, "options placeholder retains title, notice and back")
+	game.call("_show_main_menu")
+	game.call("_on_hotseat_pressed")
+	_check(int(game.get("menu_state")) == 4, "hotseat still launches through menu coordinator")
+	_check(game.get("menu_view") is MainMenuView, "mode runtime composes menu view after inheritance retirement")
+	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "gameplay setup retains charge defaults")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
