@@ -15,7 +15,6 @@ var online_host_wait_port: int = ONLINE_DUEL_DEFAULT_PORT
 
 var online_interpolation: OnlineDuelInterpolation = OnlineDuelInterpolation.new()
 var online_snapshot_sequencer: OnlineSnapshotSequencer = OnlineSnapshotSequencer.new()
-var online_host_coordinator: OnlineDuelHostCoordinator = OnlineDuelHostCoordinator.new()
 
 func _process(delta: float) -> void:
 	if _is_online_host_waiting_screen_active():
