@@ -1,0 +1,36 @@
+name: Godot smoke checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  godot-smoke:
+    name: Godot 4.6.3 headless
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.3
+          use-dotnet: false
+          include-templates: false
+
+      - name: Import assets and register script classes
+        run: godot --headless --path . --import
+
+      - name: Run lightweight contract checks
+        run: godot --headless --path . --script res://tests/smoke.gd
+
+      - name: Start the main scene (headless smoke)
+        run: godot --headless --path . --quit-after 3
