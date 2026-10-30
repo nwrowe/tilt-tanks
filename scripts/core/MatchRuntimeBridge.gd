@@ -88,14 +88,12 @@ func _save_runtime_current_player_settings() -> void:
 	match_controller.save_current_player_settings(angle_deg, power, power_percent if "power_percent" in self else 0.0)
 
 func _sync_projectile_state_to_match_controller() -> void:
-	if projectile_active:
-		match_controller.begin_projectile(projectile_pos, projectile_vel)
-	elif explosion_pos != Vector2.INF and explosion_timer > 0.0:
-		match_controller.finish_projectile_with_explosion(explosion_pos, explosion_timer)
-	else:
-		match_controller.finish_projectile()
-		if explosion_timer <= 0.0:
-			match_controller.clear_explosion()
+	# Legacy physics still advances the projectile in game runtime; the
+	# controller owns how a complete frame changes MatchState lifecycle.
+	match_controller.sync_projectile_frame(
+		projectile_active, projectile_pos, projectile_vel,
+		explosion_pos, explosion_timer
+	)
 
 func _sync_health_state_to_match_controller() -> void:
 	# Transfer the runtime health values as one transaction. The controller
