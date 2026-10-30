@@ -8,9 +8,9 @@ gameplay entry points and overridable UI clear/hide hooks, but delegates
 screen-specific button and label creation to `MainMenuView`.
 
 This change keeps all screen captions, viewport-relative anchors, sizes,
-texture paths and pressed callbacks unchanged. In particular, the online
-placeholder still returns to multiplayer whereas the options/campaign
-placeholders return home. The caller clears controls before repopulating
+texture paths and pressed callbacks unchanged. The compatibility online fallback still points back to multiplayer, but
+active Online Duel navigation has replaced that placeholder with real hosting
+and connection controls. Options/campaign fallbacks continue to return home. The caller clears controls before repopulating
 them, preserving the existing inherited clear-disconnect behavior.
 
 Active-scene tests cover positions and callback-driven screen transitions
