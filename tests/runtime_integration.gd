@@ -58,6 +58,7 @@ func _run() -> void:
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
 	_test_water_manager_world_delegation()
+	_test_turn_ai_planner_live()
 
 	game.queue_free()
 	await process_frame
@@ -638,6 +639,24 @@ func _test_water_manager_world_delegation() -> void:
 	_check(is_equal_approx(float(game.call("_movement_speed_mult_at_x", 0.0)), 1.0), "active movement retains dry terrain speed")
 	game.set("terrain_points", saved_points)
 	game.set("ponds", saved_ponds)
+
+func _test_turn_ai_planner_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var ai_position: Vector2 = (game.get("tank_positions") as Array)[1]
+	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
+	var config: Dictionary = game.call("_turn_ai_search_config")
+	_check(config.has("move_offsets") and config.has("score_randomness"), "game exposes current AI search policy")
+	rng.seed = 1937
+	var plan: Dictionary = game.call("_find_ai_plan")
+	_check(plan.has("angle") and plan.has("power_percent") and plan.has("move_x"), "live planner produces complete move and shot")
+	_check(float(plan["angle"]) >= 12.0 and float(plan["angle"]) <= 84.0, "live AI aim uses configured limits")
+	_check(float(plan["power_percent"]) >= 15.0 and float(plan["power_percent"]) <= 100.0, "live AI power uses configured limits")
+	_check(float(plan["move_x"]) >= 70.0 and float(plan["move_x"]) <= float(game.get("active_world_width")) - 70.0, "live AI move stays inside safe bounds")
+	_check((game.get("tank_positions") as Array)[1] == ai_position, "AI planning does not move tank before shot")
+	rng.seed = 1937
+	var repeated: Dictionary = game.call("_find_ai_plan")
+	_check(plan == repeated, "same terrain and RNG seed reproduce identical AI plan")
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
