@@ -64,6 +64,7 @@ func _run() -> void:
 	_test_steam_puff_effect_live()
 	_test_realtime_cooldown_policy_live()
 	_test_wind_meter_policy_live()
+	_test_turn_ai_session_live()
 
 	game.queue_free()
 	await process_frame
@@ -774,6 +775,36 @@ func _test_wind_meter_policy_live() -> void:
 		"active wind meter color matches standalone policy")
 	game.set("wind", old_wind)
 	game.call("reset_match")
+
+func _test_turn_ai_session_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var session: TurnAITurnSession = game.get("turn_ai_session") as TurnAITurnSession
+	_check(session != null, "active game composes turn AI state owner")
+	game.set("ai_pending_turn", true)
+	game.set("ai_think_timer", 0.6)
+	_check(session.pending and is_equal_approx(session.think_timer, 0.6),
+		"legacy AI phase properties forward writes into session")
+	session.begin(1.75)
+	_check(bool(game.get("ai_pending_turn")) and
+		is_equal_approx(float(game.get("ai_think_timer")), 1.75),
+		"legacy AI phase properties read state from session")
+	game.set("game_mode", 1)
+	game.set("current_player", 1)
+	game.set("projectile_active", false)
+	game.set("game_over", false)
+	game.set("overlay_open", false)
+	game.set("explosion_timer", 0.0)
+	_check(bool(game.call("_is_ai_turn_active")),
+		"active game routes quick-game AI turn eligibility through session")
+	game.set("explosion_timer", 0.3)
+	_check(bool(game.call("_is_ai_turn_waiting_for_explosion")),
+		"active game delegates AI explosion wait eligibility")
+	game.call("_process_ai_turn_waiting_for_explosion", 0.35)
+	_check(is_zero_approx(float(game.get("explosion_timer"))) and not session.pending,
+		"AI explosion expiry clears composed turn pending state")
+	game.call("reset_match")
+	_check(not session.pending and is_zero_approx(session.think_timer),
+		"runtime reset clears the same composed session")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
