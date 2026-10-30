@@ -392,7 +392,7 @@ func _online_request_fire(payload: Dictionary) -> void:
 	angle_deg = clampf(float(payload.get("angle", 45.0)), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
 	power_percent = clampf(float(payload.get("power_percent", POWER_PERCENT_DEFAULT)), HOTSEAT_CHARGE_MIN_PERCENT, HOTSEAT_CHARGE_MAX_PERCENT)
 	power = _power_from_percent(power_percent)
-	selected_weapon = str(payload.get("weapon", WEAPON_STANDARD))
+	selected_weapon = OnlineDuelCodec.safe_requested_weapon(payload, active_weapon_loadout, WEAPON_STANDARD)
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
@@ -419,9 +419,9 @@ func _online_make_snapshot() -> Dictionary:
 	return {
 		"active_world_width": active_world_width,
 		"active_right_start_x": active_right_start_x,
-		"terrain_points": _online_pack_vec2_array(terrain_points),
+		"terrain_points": OnlineDuelCodec.pack_vec2_array(terrain_points),
 		"ponds": ponds.duplicate(true),
-		"tank_positions": _online_pack_vec2_array(tank_positions),
+		"tank_positions": OnlineDuelCodec.pack_vec2_array(tank_positions),
 		"tank_health": tank_health.duplicate(),
 		"player_angles": player_angles.duplicate(),
 		"player_power_percents": player_power_percents.duplicate(),
@@ -435,15 +435,15 @@ func _online_make_snapshot() -> Dictionary:
 		"game_over": game_over,
 		"selected_weapon": selected_weapon,
 		"projectile_active": projectile_active,
-		"projectile_pos": _online_pack_vec2(projectile_pos),
-		"projectile_vel": _online_pack_vec2(projectile_vel),
+		"projectile_pos": OnlineDuelCodec.pack_vec2(projectile_pos),
+		"projectile_vel": OnlineDuelCodec.pack_vec2(projectile_vel),
 		"turn_projectiles": turn_projectiles.duplicate(true),
-		"explosion_pos": _online_pack_vec2(explosion_pos),
+		"explosion_pos": OnlineDuelCodec.pack_vec2(explosion_pos),
 		"explosion_timer": explosion_timer,
 		"hotseat_turn_start_pending": hotseat_turn_start_pending,
 		"pending_advance_after_explosion_hold": pending_advance_after_explosion_hold,
 		"cluster_camera_hold_timer": cluster_camera_hold_timer,
-		"cluster_camera_hold_pos": _online_pack_vec2(cluster_camera_hold_pos)
+		"cluster_camera_hold_pos": OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos)
 	}
 
 func _online_apply_snapshot(snapshot: Dictionary) -> void:
@@ -451,7 +451,7 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	active_right_start_x = float(snapshot.get("active_right_start_x", active_right_start_x))
 	terrain_points.clear()
 	for packed_point: Variant in snapshot.get("terrain_points", []):
-		terrain_points.append(_online_unpack_vec2(packed_point))
+		terrain_points.append(OnlineDuelCodec.unpack_vec2(packed_point))
 	if not terrain_points.is_empty():
 		_refresh_terrain_line()
 	ponds.clear()
@@ -460,13 +460,13 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 			ponds.append((pond as Dictionary).duplicate(true))
 	tank_positions.clear()
 	for packed_tank: Variant in snapshot.get("tank_positions", []):
-		tank_positions.append(_online_unpack_vec2(packed_tank))
+		tank_positions.append(OnlineDuelCodec.unpack_vec2(packed_tank))
 	if tank_positions.size() < 2:
 		tank_positions = [Vector2(TANK_START_LEFT_X, 0.0), Vector2(active_right_start_x, 0.0)]
-	tank_health = _online_int_array(snapshot.get("tank_health", tank_health), tank_health)
-	player_angles = _online_float_array(snapshot.get("player_angles", player_angles), player_angles)
-	player_power_percents = _online_float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
-	player_powers = _online_float_array(snapshot.get("player_powers", player_powers), player_powers)
+	tank_health = OnlineDuelCodec.int_array(snapshot.get("tank_health", tank_health), tank_health)
+	player_angles = OnlineDuelCodec.float_array(snapshot.get("player_angles", player_angles), player_angles)
+	player_power_percents = OnlineDuelCodec.float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
+	player_powers = OnlineDuelCodec.float_array(snapshot.get("player_powers", player_powers), player_powers)
 	current_player = int(snapshot.get("current_player", current_player))
 	angle_deg = float(snapshot.get("angle_deg", angle_deg))
 	power_percent = float(snapshot.get("power_percent", power_percent))
@@ -476,18 +476,18 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	game_over = bool(snapshot.get("game_over", game_over))
 	selected_weapon = str(snapshot.get("selected_weapon", selected_weapon))
 	projectile_active = bool(snapshot.get("projectile_active", projectile_active))
-	projectile_pos = _online_unpack_vec2(snapshot.get("projectile_pos", projectile_pos))
-	projectile_vel = _online_unpack_vec2(snapshot.get("projectile_vel", projectile_vel))
+	projectile_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", projectile_pos))
+	projectile_vel = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", projectile_vel))
 	turn_projectiles.clear()
 	for shell: Variant in snapshot.get("turn_projectiles", []):
 		if shell is Dictionary:
 			turn_projectiles.append((shell as Dictionary).duplicate(true))
-	explosion_pos = _online_unpack_vec2(snapshot.get("explosion_pos", explosion_pos))
+	explosion_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("explosion_pos", explosion_pos))
 	explosion_timer = float(snapshot.get("explosion_timer", explosion_timer))
 	hotseat_turn_start_pending = bool(snapshot.get("hotseat_turn_start_pending", hotseat_turn_start_pending))
 	pending_advance_after_explosion_hold = bool(snapshot.get("pending_advance_after_explosion_hold", pending_advance_after_explosion_hold))
 	cluster_camera_hold_timer = float(snapshot.get("cluster_camera_hold_timer", cluster_camera_hold_timer))
-	cluster_camera_hold_pos = _online_unpack_vec2(snapshot.get("cluster_camera_hold_pos", cluster_camera_hold_pos))
+	cluster_camera_hold_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("cluster_camera_hold_pos", cluster_camera_hold_pos))
 	online_client_waiting_for_authority = false
 	if current_player >= 0 and current_player < player_angles.size():
 		angle_deg = player_angles[current_player]
@@ -499,44 +499,6 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	_sync_match_state_from_runtime()
 	_update_hotseat_start_turn_button()
 	queue_redraw()
-
-func _online_pack_vec2(value: Vector2) -> Dictionary:
-	if value == Vector2.INF:
-		return {"x": INF, "y": INF}
-	return {"x": value.x, "y": value.y}
-
-func _online_unpack_vec2(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value as Vector2
-	if value is Dictionary:
-		var data: Dictionary = value as Dictionary
-		return Vector2(float(data.get("x", 0.0)), float(data.get("y", 0.0)))
-	return Vector2.ZERO
-
-func _online_pack_vec2_array(values: Array) -> Array:
-	var packed: Array = []
-	for value: Variant in values:
-		if value is Vector2:
-			packed.append(_online_pack_vec2(value as Vector2))
-	return packed
-
-func _online_float_array(value: Variant, fallback: Array) -> Array:
-	var result: Array = []
-	if value is Array:
-		for entry: Variant in value:
-			result.append(float(entry))
-	else:
-		result = fallback.duplicate()
-	return result
-
-func _online_int_array(value: Variant, fallback: Array) -> Array:
-	var result: Array = []
-	if value is Array:
-		for entry: Variant in value:
-			result.append(int(entry))
-	else:
-		result = fallback.duplicate()
-	return result
 
 func _update_online_duel_status_ui() -> void:
 	if status_label == null or power_label == null:
