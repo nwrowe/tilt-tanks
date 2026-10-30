@@ -46,6 +46,7 @@ func _run() -> void:
 	_test_runtime_projectile_bridge()
 	_test_runtime_player_frame_bridge()
 	_test_level_and_build_state_bridge()
+	_test_level_session_configs()
 	_test_runtime_radial_damage()
 	_test_runtime_turn_completion()
 
@@ -131,7 +132,7 @@ func _test_campaign_level_launch() -> void:
 		first.emit_signal("pressed")
 		_check(int(game.get("menu_state")) == GAME_MENU_STATE, "Level 1 launches an actual match")
 		_check(bool(game.get("single_player_mode")), "campaign starts in single-player mode")
-		_check(game.get("active_level_definition") != null, "launched match has a level definition")
+		_check((game.get("level_session") as LevelSession).definition != null, "launched match has a level definition")
 
 func _test_hotseat_weapons_turns_and_fire() -> void:
 	game.call("_on_hotseat_pressed")
@@ -403,6 +404,50 @@ func _test_runtime_turn_completion() -> void:
 	_check(is_equal_approx(float(game.get("angle_deg")), expected_angle), "saved player angle is restored after handoff")
 	_check(is_equal_approx(float(game.get("power_percent")), expected_charge), "saved charge is restored after handoff")
 	_check(str(game.get("selected_weapon")) == WeaponCatalog.HEAVY, "outgoing weapon choice remains independent of turn controller")
+
+func _test_level_session_configs() -> void:
+	game.call("_on_hotseat_pressed")
+	var session: LevelSession = game.get("level_session") as LevelSession
+	_check(session != null, "active game composes a level session")
+	_check(session.definitions.size() == 4, "level session provides all four existing level profiles")
+
+	game.call("_select_level", LevelRegistry.LEVEL_WIDE_HILLS)
+	game.call("reset_match")
+	_check(session.selected_id == LevelRegistry.LEVEL_WIDE_HILLS, "wide hills selection persists across reset")
+	_check(game.call("_active_level_name") == "Wide Hills", "active level name uses level session")
+	var width: float = float(game.get("active_world_width"))
+	_check(width >= session.definition.world_width_min and width <= session.definition.world_width_max, "world generation respects wide-hills width bounds")
+	_check(is_equal_approx(float(game.get("wind")), (game.get("match_state") as MatchState).wind), "wide hills wind remains controller-synchronized")
+
+	game.call("_select_level", LevelRegistry.LEVEL_SNOWY_RIDGE)
+	game.call("reset_match")
+	_check(session.selected_id == LevelRegistry.LEVEL_SNOWY_RIDGE, "snowy ridge selection persists")
+	_check(is_equal_approx(float(game.call("_level_snow_line_y")), session.definition.snow_line_y), "snow line matches selected definition")
+	_check(game.call("_active_level_name") == "Snowy Ridge", "snowy level display name preserved")
+
+	game.call("_select_level", LevelRegistry.LEVEL_WATER_BASIN)
+	game.call("reset_match")
+	_check(is_equal_approx(session.pond_chance(0.0), 1.0), "water basin retains guaranteed pond generation attempt")
+	_check(game.call("_active_level_name") == "Water Basin", "water level name preserved")
+
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	game.call("reset_match")
+	_check(game.call("_active_level_name") == "Default Hills", "default level is restored")
+	_check(session.restricted_loadout() == null, "unrestricted default level uses standard weapon set")
+
+	var custom_id: String = "restricted_test"
+	session.definitions[custom_id] = LevelDefinition.new({
+		"id": custom_id,
+		"default_weapon_ids": [WeaponCatalog.STANDARD, WeaponCatalog.HEAVY]
+	})
+	game.call("_select_level", custom_id)
+	var loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
+	_check(loadout.weapon_ids.size() == 2, "custom level applies explicit weapon restrictions")
+	_check(not loadout.has_weapon(WeaponCatalog.CLUSTER), "restricted level excludes Cluster")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	game.call("reset_match")
+	_check((game.get("active_weapon_loadout") as WeaponLoadout).has_weapon(WeaponCatalog.CLUSTER), "default level restores full weapon loadout")
+	session.definitions.erase(custom_id)
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")

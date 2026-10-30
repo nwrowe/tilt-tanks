@@ -1,4 +1,4 @@
-extends "res://scripts/core/MainGameLevelFacade.gd"
+extends "res://scripts/core/MainGameModeFacade.gd"
 
 # Implements special weapon behaviors added after the data-driven weapon pass.
 # Standard, Heavy, and Cluster continue through the existing runtime path.
