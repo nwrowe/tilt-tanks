@@ -15,8 +15,7 @@ var online_host_wait_port: int = ONLINE_DUEL_DEFAULT_PORT
 
 var online_interpolation: OnlineDuelInterpolation = OnlineDuelInterpolation.new()
 var online_snapshot_sequencer: OnlineSnapshotSequencer = OnlineSnapshotSequencer.new()
-var online_turn_advance_fallback_timer: float = 0.0
-var online_turn_advance_fallback_owner: int = -1
+var online_host_coordinator: OnlineDuelHostCoordinator = OnlineDuelHostCoordinator.new()
 
 func _process(delta: float) -> void:
 	if _is_online_host_waiting_screen_active():
@@ -44,6 +43,7 @@ func _online_disconnect() -> void:
 	online_host_wait_seconds = 0.0
 	online_host_wait_label = null
 	online_snapshot_sequencer.reset()
+	online_host_coordinator.reset()
 	_online_clear_client_smoothing()
 	_online_clear_turn_advance_fallback()
 
@@ -163,7 +163,7 @@ func _advance_turn() -> void:
 	super._advance_turn()
 	_online_clear_turn_advance_fallback()
 	if _is_online_duel_active() and online_is_host:
-		online_sync_timer = 0.0
+		online_host_coordinator.force_next_sync()
 		_online_send_snapshot(true)
 
 func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
@@ -172,8 +172,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	if _is_online_duel_active() and online_is_host:
 		_online_send_snapshot(true)
 		if advance_after and not game_over and current_player == owner_before_explosion:
-			online_turn_advance_fallback_owner = owner_before_explosion
-			online_turn_advance_fallback_timer = ONLINE_DUEL_TURN_ADVANCE_FALLBACK_DELAY
+			online_host_coordinator.arm_fallback(owner_before_explosion, ONLINE_DUEL_TURN_ADVANCE_FALLBACK_DELAY)
 
 func _maybe_advance_after_explosion_hold() -> void:
 	var player_before: int = current_player
@@ -185,14 +184,14 @@ func _maybe_advance_after_explosion_hold() -> void:
 			_online_send_snapshot(true)
 
 func _online_process_host_sync(delta: float) -> void:
-	if online_remote_peer_id == 0:
-		return
-	online_sync_timer -= delta
-	if online_sync_timer > 0.0:
-		return
-	var active_motion: bool = _online_has_active_authoritative_motion()
-	online_sync_timer = ONLINE_DUEL_ACTIVE_SYNC_INTERVAL if active_motion else ONLINE_DUEL_IDLE_SYNC_INTERVAL
-	_online_send_snapshot(false)
+	if online_host_coordinator.due_for_sync(
+		delta,
+		online_remote_peer_id != 0,
+		_online_has_active_authoritative_motion(),
+		ONLINE_DUEL_ACTIVE_SYNC_INTERVAL,
+		ONLINE_DUEL_IDLE_SYNC_INTERVAL
+	):
+		_online_send_snapshot(false)
 
 func _online_send_snapshot(force: bool) -> void:
 	if not _is_online_duel_active() or not online_is_host:
@@ -406,18 +405,19 @@ func _online_has_active_authoritative_motion() -> bool:
 		or cluster_camera_hold_timer > 0.0
 	)
 
+func _online_turn_is_clear_to_advance() -> bool:
+	return OnlineDuelHostCoordinator.can_advance(
+		game_over,
+		projectile_active,
+		not turn_projectiles.is_empty(),
+		machine_gun_active,
+		machine_gun_turn_waiting_for_shells,
+		explosion_timer,
+		cluster_camera_hold_timer
+	)
+
 func _online_process_turn_advance_fallback(delta: float) -> void:
-	if online_turn_advance_fallback_owner < 0:
-		return
-	if current_player != online_turn_advance_fallback_owner:
-		_online_clear_turn_advance_fallback()
-		return
-	online_turn_advance_fallback_timer = maxf(0.0, online_turn_advance_fallback_timer - delta)
-	if online_turn_advance_fallback_timer > 0.0:
-		return
-	if game_over or projectile_active or not turn_projectiles.is_empty() or machine_gun_active or machine_gun_turn_waiting_for_shells:
-		return
-	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+	if not online_host_coordinator.fallback_due(delta, current_player, _online_turn_is_clear_to_advance()):
 		return
 	pending_advance_after_explosion_hold = false
 	machine_gun_camera_active = false
@@ -426,17 +426,12 @@ func _online_process_turn_advance_fallback(delta: float) -> void:
 	_online_send_snapshot(true)
 
 func _online_clear_turn_advance_fallback() -> void:
-	online_turn_advance_fallback_timer = 0.0
-	online_turn_advance_fallback_owner = -1
+	online_host_coordinator.clear_fallback()
 
 func _online_maybe_force_pending_turn_advance() -> void:
 	if not _is_online_duel_active() or not online_is_host:
 		return
-	if not pending_advance_after_explosion_hold:
-		return
-	if game_over or projectile_active or not turn_projectiles.is_empty() or machine_gun_active or machine_gun_turn_waiting_for_shells:
-		return
-	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+	if not pending_advance_after_explosion_hold or not _online_turn_is_clear_to_advance():
 		return
 	pending_advance_after_explosion_hold = false
 	machine_gun_camera_active = false
