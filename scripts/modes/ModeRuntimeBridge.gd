@@ -203,18 +203,19 @@ func _show_multiplayer_menu() -> void:
 	menu_navigation.open_multiplayer()
 	_hide_game_ui()
 	_clear_menu_controls()
-	_add_menu_button("Hotseat", BUTTON_HOTSEAT_PATH, Vector2(0.5, 0.58), Vector2(310, 72), _on_hotseat_pressed)
-	_add_menu_button("Online", BUTTON_ONLINE_PATH, Vector2(0.5, 0.69), Vector2(310, 72), _on_online_pressed)
-	_add_menu_button("Back", BUTTON_BACK_PATH, Vector2(0.5, 0.82), Vector2(210, 58), _show_main_menu)
+	menu_view.build_multiplayer(
+		get_viewport_rect().size, BUTTON_HOTSEAT_PATH, BUTTON_ONLINE_PATH,
+		BUTTON_BACK_PATH, _on_hotseat_pressed, _on_online_pressed, _show_main_menu
+	)
 	queue_redraw()
 
 func _on_online_pressed() -> void:
 	menu_navigation.show_online()
 	_hide_game_ui()
 	_clear_menu_controls()
-	_add_text_label("Online", Vector2(0.5, 0.54), Vector2(420, 60), 28)
-	_add_text_label("Coming soon", Vector2(0.5, 0.62), Vector2(420, 44), 20)
-	_add_menu_button("Back", BUTTON_BACK_PATH, Vector2(0.5, 0.76), Vector2(210, 58), _show_multiplayer_menu)
+	menu_view.build_placeholder(
+		get_viewport_rect().size, "Online", BUTTON_BACK_PATH, _show_multiplayer_menu
+	)
 	queue_redraw()
 
 func _on_quick_game_pressed() -> void:
@@ -682,26 +683,28 @@ func _show_main_menu() -> void:
 	menu_navigation.open_main()
 	_hide_game_ui()
 	_clear_menu_controls()
-	_add_menu_button("Single Player", BUTTON_SINGLE_PLAYER_PATH, Vector2(0.5, 0.54), Vector2(310, 72), _on_single_player_pressed)
-	_add_menu_button("Multiplayer", BUTTON_MULTIPLAYER_PATH, Vector2(0.5, 0.65), Vector2(310, 72), _on_multiplayer_pressed)
-	_add_menu_button("Options", BUTTON_OPTIONS_PATH, Vector2(0.5, 0.76), Vector2(310, 72), _on_options_pressed)
+	menu_view.build_home(
+		get_viewport_rect().size, BUTTON_SINGLE_PLAYER_PATH, BUTTON_MULTIPLAYER_PATH,
+		BUTTON_OPTIONS_PATH, _on_single_player_pressed, _on_multiplayer_pressed, _on_options_pressed
+	)
 	queue_redraw()
 
 func _show_single_player_menu() -> void:
 	menu_navigation.open_single_player()
 	_hide_game_ui()
 	_clear_menu_controls()
-	_add_menu_button("Quick Game", BUTTON_QUICK_GAME_PATH, Vector2(0.5, 0.58), Vector2(310, 72), _on_quick_game_pressed)
-	_add_menu_button("Campaign", BUTTON_CAMPAIGN_PATH, Vector2(0.5, 0.69), Vector2(310, 72), _on_campaign_pressed)
-	_add_menu_button("Back", BUTTON_BACK_PATH, Vector2(0.5, 0.82), Vector2(210, 58), _show_main_menu)
+	menu_view.build_single_player(
+		get_viewport_rect().size, BUTTON_QUICK_GAME_PATH, BUTTON_CAMPAIGN_PATH,
+		BUTTON_BACK_PATH, _on_quick_game_pressed, _on_campaign_pressed, _show_main_menu
+	)
 	queue_redraw()
 
 func _show_placeholder_menu(title: String) -> void:
 	_hide_game_ui()
 	_clear_menu_controls()
-	_add_text_label(title, Vector2(0.5, 0.54), Vector2(420, 60), 28)
-	_add_text_label("Coming soon", Vector2(0.5, 0.62), Vector2(420, 44), 20)
-	_add_menu_button("Back", BUTTON_BACK_PATH, Vector2(0.5, 0.76), Vector2(210, 58), _show_main_menu)
+	menu_view.build_placeholder(
+		get_viewport_rect().size, title, BUTTON_BACK_PATH, _show_main_menu
+	)
 	queue_redraw()
 
 func _on_single_player_pressed() -> void:
