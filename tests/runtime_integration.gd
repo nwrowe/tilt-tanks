@@ -58,7 +58,7 @@ func _test_campaign_navigation() -> void:
 			var button: Button = node as Button
 			if button == null:
 				continue
-			if button.text.begins_with("1\\n") and not button.disabled:
+			if button.text.begins_with("1") and not button.disabled:
 				ready_count += 1
 			elif button.disabled:
 				locked_count += 1
@@ -98,7 +98,7 @@ func _test_campaign_level_launch() -> void:
 	var first: Button = null
 	for node: Node in buttons:
 		var button: Button = node as Button
-		if button != null and button.text.begins_with("1\\n"):
+		if button != null and button.text.begins_with("1"):
 			first = button
 			break
 	_check(first != null, "Level 1 button exists")
