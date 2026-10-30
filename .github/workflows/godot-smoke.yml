@@ -56,6 +56,12 @@ jobs:
           cat /tmp/tilt-host.log
           echo "=== Guest log ==="
           cat /tmp/tilt-guest.log
+          # Godot can print runtime SCRIPT ERROR while still returning exit 0.
+          # Treat any engine error on either peer as a failed integration run.
+          if grep -Eq 'SCRIPT ERROR:|(^|[[:space:]])ERROR:|FATAL:' /tmp/tilt-host.log /tmp/tilt-guest.log; then
+            echo "Godot reported runtime errors during online test"
+            exit 1
+          fi
           if [ "$host_status" -ne 0 ] || [ "$guest_status" -ne 0 ]; then
             echo "Host exit: $host_status; guest exit: $guest_status"
             exit 1
