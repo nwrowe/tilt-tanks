@@ -52,6 +52,7 @@ func _run() -> void:
 	_test_runtime_radial_damage()
 	_test_runtime_turn_completion()
 	_test_power_percent_layer_retirement()
+	_test_active_world_movement_policy()
 
 	game.queue_free()
 	await process_frame
@@ -524,6 +525,24 @@ func _test_power_percent_layer_retirement() -> void:
 	game.call("reset_match")
 	_check(is_equal_approx(float(game.get("power_percent")), 50.0), "power percentage resets to default")
 	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "both player power settings reset")
+
+func _test_active_world_movement_policy() -> void:
+	game.call("_on_hotseat_pressed")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	game.call("reset_match")
+	var positions: Array = game.get("tank_positions")
+	var before_x: float = (positions[0] as Vector2).x
+	var other_x: float = (positions[1] as Vector2).x
+	var width: float = float(game.get("active_world_width"))
+	game.set("mobile_right_pressed", true)
+	game.call("_update_tank_movement", 0.10)
+	game.set("mobile_right_pressed", false)
+	var after_x: float = ((game.get("tank_positions") as Array)[0] as Vector2).x
+	_check(after_x >= before_x, "right movement respects positive input direction")
+	_check(after_x <= width - 45.0, "active world movement honors horizontal boundary")
+	_check(LegacyInputMotionPolicy.can_move_without_overlap(after_x, other_x), "active world movement keeps tanks separated")
+	_check(after_x > before_x, "active movement callback actually moves the tank")
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
