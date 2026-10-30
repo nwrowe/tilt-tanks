@@ -44,6 +44,24 @@ func save_current_player_settings(angle: float, power: float, power_percent: flo
 	state.player_powers[player] = power
 	state.player_power_percents[player] = power_percent
 
+## Receive the current legacy projectile/explosion frame as one controller
+## operation. Retains the prior runtime bridge's exact transition behavior.
+func sync_projectile_frame(
+	active: bool,
+	pos: Vector2,
+	vel: Vector2,
+	active_explosion_pos: Vector2,
+	active_explosion_timer: float
+) -> void:
+	if active:
+		begin_projectile(pos, vel)
+	elif active_explosion_pos != Vector2.INF and active_explosion_timer > 0.0:
+		finish_projectile_with_explosion(active_explosion_pos, active_explosion_timer)
+	else:
+		finish_projectile()
+		if active_explosion_timer <= 0.0:
+			clear_explosion()
+
 func begin_projectile(pos: Vector2, vel: Vector2) -> void:
 	set_projectile(pos, vel)
 	clear_explosion()

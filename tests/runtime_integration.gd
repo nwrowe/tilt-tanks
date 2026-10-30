@@ -43,6 +43,7 @@ func _run() -> void:
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
 	_test_runtime_match_health_bridge()
+	_test_runtime_projectile_bridge()
 
 	game.queue_free()
 	await process_frame
@@ -266,6 +267,31 @@ func _test_runtime_match_health_bridge() -> void:
 	_check((game.get("tank_health") as Array) == [100, 100], "runtime reset restores both tank health values")
 	_check(state.tank_health == [100, 100], "match state reset restores both tank health values")
 	_check(not controller.is_game_over() and controller.winner_index() == -1, "reset clears winner and terminal state")
+
+func _test_runtime_projectile_bridge() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var flight_pos: Vector2 = Vector2(350.0, 130.0)
+	var flight_vel: Vector2 = Vector2(120.0, -30.0)
+	game.set("projectile_active", true)
+	game.set("projectile_pos", flight_pos)
+	game.set("projectile_vel", flight_vel)
+	game.call("_sync_projectile_state_to_match_controller")
+	_check(state.projectile_active and state.projectile_pos == flight_pos, "active game projectile mirrors into MatchState")
+	_check(state.projectile_vel == flight_vel, "active game projectile velocity mirrors into MatchState")
+	var impact_pos: Vector2 = Vector2(510.0, 420.0)
+	game.set("projectile_active", false)
+	game.set("explosion_pos", impact_pos)
+	game.set("explosion_timer", 0.45)
+	game.call("_sync_projectile_state_to_match_controller")
+	_check(not state.projectile_active, "impact clears controller projectile")
+	_check(state.explosion_pos == impact_pos and is_equal_approx(state.explosion_timer, 0.45), "impact starts controller explosion state")
+	game.set("explosion_pos", Vector2.INF)
+	game.set("explosion_timer", 0.0)
+	game.call("_sync_projectile_state_to_match_controller")
+	_check(state.explosion_pos == Vector2.INF and is_zero_approx(state.explosion_timer), "controller explosion clears when runtime hold ends")
+	game.call("reset_match")
+	_check(not state.projectile_active and state.explosion_pos == Vector2.INF, "reset clears controller projectile lifecycle")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
