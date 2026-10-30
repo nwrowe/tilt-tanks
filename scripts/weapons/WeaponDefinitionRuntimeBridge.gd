@@ -86,3 +86,25 @@ func _weapon_crater_depth(weapon: String) -> float:
 
 func _weapon_projectile_scale(weapon: String) -> float:
 	return float(_weapon_value(weapon, "projectile_scale", 1.0))
+
+# Compatibility entry points for callers still in the older game runtime.
+# Split decisions and projectile child construction live in WeaponSplitLogic.
+func _weapon_should_split_on_descent(weapon: String, split_done: bool, vel: Vector2) -> bool:
+	return WeaponSplitLogic.should_split(weapon_definitions, weapon, split_done, vel)
+
+func _make_split_children(owner: int, weapon: String, pos: Vector2, vel: Vector2) -> Array[Dictionary]:
+	return WeaponSplitLogic.make_children(
+		weapon_definitions, owner, weapon, pos, vel,
+		CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y
+	)
+
+func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
+	projectile_active = false
+	turn_projectile_split_done = true
+	turn_projectiles.clear()
+	turn_projectiles = _make_split_children(current_player, turn_projectile_weapon, pos, vel)
+
+func _spawn_realtime_cluster_children(owner: int, pos: Vector2, vel: Vector2) -> void:
+	var children: Array[Dictionary] = _make_split_children(owner, WEAPON_CLUSTER, pos, vel)
+	for child: Dictionary in children:
+		rt_projectiles.append(child)
