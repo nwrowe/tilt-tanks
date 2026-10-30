@@ -4,8 +4,11 @@ extends "res://scripts/weapons/WeaponRuntimeBridge.gd"
 # This keeps the existing weapon runtime intact while routing weapon stat,
 # display, menu, and loadout lookups through WeaponRegistry / WeaponDefinition.
 
-var weapon_definitions: Dictionary = WeaponRegistry.build_default_definitions()
-var active_weapon_loadout: WeaponLoadout = WeaponLoadout.from_registry(weapon_definitions, WeaponCatalog.STANDARD)
+var weapon_definition_session: WeaponDefinitionSession = WeaponDefinitionSession.new()
+# Existing UI/weapon scripts still read these fields. Keep them as compatibility
+# references while the session owns the registry and current permitted loadout.
+var weapon_definitions: Dictionary = weapon_definition_session.definitions
+var active_weapon_loadout: WeaponLoadout = weapon_definition_session.loadout
 
 func reset_match() -> void:
 	selected_weapon = _safe_selected_weapon(selected_weapon)
@@ -32,39 +35,39 @@ func _build_weapon_ui() -> void:
 	close_button.pressed.connect(_close_weapon_menu)
 
 func _set_active_weapon_loadout(loadout: WeaponLoadout) -> void:
-	if loadout == null:
+	if not weapon_definition_session.set_loadout(loadout):
 		return
-	active_weapon_loadout = loadout
+	active_weapon_loadout = weapon_definition_session.loadout
 	selected_weapon = _safe_selected_weapon(selected_weapon)
 
 func _reset_default_weapon_loadout() -> void:
-	_set_active_weapon_loadout(WeaponLoadout.from_registry(weapon_definitions, WeaponCatalog.STANDARD))
+	weapon_definition_session.reset_default()
+	active_weapon_loadout = weapon_definition_session.loadout
+	selected_weapon = _safe_selected_weapon(selected_weapon)
 
 func _safe_selected_weapon(weapon: String) -> String:
-	if active_weapon_loadout == null:
-		return weapon
-	return active_weapon_loadout.safe_weapon(weapon)
+	return weapon_definition_session.safe_weapon(weapon)
 
 func _weapon_definition(weapon: String) -> WeaponDefinition:
-	return WeaponRegistry.get_definition(weapon_definitions, weapon)
+	return weapon_definition_session.definition(weapon)
 
 func _weapon_display_name(weapon: String) -> String:
-	return WeaponRegistry.display_name(weapon_definitions, weapon)
+	return weapon_definition_session.display_name(weapon)
 
 func _weapon_value(weapon: String, key: String, fallback: Variant) -> Variant:
-	return WeaponRegistry.value(weapon_definitions, weapon, key, fallback)
+	return weapon_definition_session.value(weapon, key, fallback)
 
 func _weapon_split_behavior(weapon: String) -> String:
-	return _weapon_definition(weapon).split_behavior
+	return weapon_definition_session.split_behavior(weapon)
 
 func _weapon_child_id(weapon: String) -> String:
-	return _weapon_definition(weapon).child_weapon_id
+	return weapon_definition_session.child_id(weapon)
 
 func _weapon_child_count(weapon: String) -> int:
-	return _weapon_definition(weapon).child_count
+	return weapon_definition_session.child_count(weapon)
 
 func _weapon_has_split_behavior(weapon: String) -> bool:
-	return _weapon_definition(weapon).has_split_behavior()
+	return weapon_definition_session.has_split_behavior(weapon)
 
 func _weapon_explosion_radius(weapon: String) -> float:
 	return float(_weapon_value(weapon, "explosion_radius", EXPLOSION_RADIUS))
@@ -90,12 +93,11 @@ func _weapon_projectile_scale(weapon: String) -> float:
 # Compatibility entry points for callers still in the older game runtime.
 # Split decisions and projectile child construction live in WeaponSplitLogic.
 func _weapon_should_split_on_descent(weapon: String, split_done: bool, vel: Vector2) -> bool:
-	return WeaponSplitLogic.should_split(weapon_definitions, weapon, split_done, vel)
+	return weapon_definition_session.should_split_on_descent(weapon, split_done, vel)
 
 func _make_split_children(owner: int, weapon: String, pos: Vector2, vel: Vector2) -> Array[Dictionary]:
-	return WeaponSplitLogic.make_children(
-		weapon_definitions, owner, weapon, pos, vel,
-		CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y
+	return weapon_definition_session.make_split_children(
+		owner, weapon, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y
 	)
 
 func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:

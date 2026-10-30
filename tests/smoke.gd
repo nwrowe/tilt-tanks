@@ -15,6 +15,7 @@ func _run() -> void:
 	_test_player_frame_adoption()
 	_test_complete_turn_with_settings()
 	_test_weapon_catalog()
+	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
 	if failures.is_empty():
@@ -168,39 +169,29 @@ func _test_complete_turn_with_settings() -> void:
 	_check(is_equal_approx(state.turn_timer, 30.0), "turn completion resets timer")
 	_check(state.tank_health == [100, 100] and not state.game_over, "turn completion leaves health and winner intact")
 
-func _test_composed_match_runtime_synchronizer() -> void:
-	var state: MatchState = MatchState.new()
-	var controller: MatchController = MatchController.new(state)
-	var adapter: MatchRuntimeSynchronizer = MatchRuntimeSynchronizer.new(controller)
-	_check(adapter.state == state and adapter.controller == controller, "composed match adapter shares controller and state")
-	adapter.start_match(
-		0, 1500.0, 30.0, 45.0, 800.0, 50.0,
-		Vector2(100, 300), Vector2(1400, 300), 0.0
+func _test_weapon_definition_session() -> void:
+	var session: WeaponDefinitionSession = WeaponDefinitionSession.new()
+	_check(session.definitions.has(WeaponCatalog.STANDARD), "session owns standard weapon definition")
+	_check(session.loadout.has_weapon(WeaponCatalog.HEAVY), "session default loadout includes Heavy")
+	_check(session.display_name(WeaponCatalog.HEAVY) != "", "session displays registry weapon names")
+	_check(session.value(WeaponCatalog.HEAVY, "direct_damage", -1) != -1, "session reads definition metadata")
+	_check(session.has_split_behavior(WeaponCatalog.CLUSTER), "session recognizes Cluster split behavior")
+	_check(session.should_split_on_descent(WeaponCatalog.CLUSTER, false, Vector2(10, 12)), "session permits descending cluster split")
+	_check(not session.should_split_on_descent(WeaponCatalog.CLUSTER, true, Vector2(10, 12)), "session blocks duplicate cluster split")
+	var children: Array[Dictionary] = session.make_split_children(
+		0, WeaponCatalog.CLUSTER, Vector2(100, 200), Vector2(20, 12),
+		115.0, 58.0
 	)
-	var positions: Array[Vector2] = [Vector2(120, 300), Vector2(1350, 290)]
-	var angles: Array[float] = [35.0, 55.0]
-	var powers: Array[float] = [700.0, 950.0]
-	var charges: Array[float] = [25.0, 73.0]
-	var health: Array[int] = [100, 65]
-	var over: bool = adapter.sync_frame(
-		1, positions, angles, powers, charges,
-		17.0, 14.0, 0, 1550.0,
-		true, Vector2(350, 100), Vector2(100, -20),
-		Vector2.INF, 0.0, health
+	_check(children.size() == 3, "session constructs registry-specified cluster children")
+	var restricted: WeaponLoadout = WeaponLoadout.new(
+		[WeaponCatalog.STANDARD, WeaponCatalog.HEAVY], WeaponCatalog.STANDARD
 	)
-	_check(not over and state.current_player == 1, "adapter adopts controller turn and game-over state")
-	_check(state.player_angles == angles and state.player_power_percents == charges, "adapter adopts player settings")
-	_check(state.projectile_active and state.projectile_pos == Vector2(350, 100), "adapter adopts flight state")
-	_check(state.tank_health == [100, 65], "adapter synchronizes complete health frame")
-	adapter.sync_projectile(false, Vector2.ZERO, Vector2.ZERO, Vector2(350, 310), 0.5)
-	_check(not state.projectile_active and state.explosion_pos == Vector2(350, 310), "adapter forwards impact transition")
-	var updated: Array[int] = adapter.apply_radial_damage(
-		[100, 65], [Vector2(350, 310), Vector2(1200, 310)],
-		Vector2(350, 310), 12.0, 90.0, 75, 50, 4
-	)
-	_check(updated == [25, 65] and state.tank_health == updated, "adapter returns authoritative damage state")
-	_check(not adapter.sync_health([100, 0]) == false, "adapter reports game-over after lethal health sync")
-	_check(controller.winner_index() == 0, "adapter retains controller winner decision")
+	_check(session.set_loadout(restricted), "session adopts level-restricted weapon loadout")
+	_check(session.safe_weapon(WeaponCatalog.CLUSTER) == WeaponCatalog.STANDARD, "session rejects restricted Cluster")
+	_check(not session.set_loadout(null), "session rejects missing loadout")
+	_check(session.loadout == restricted, "rejected loadout preserves current allowed weapons")
+	session.reset_default()
+	_check(session.safe_weapon(WeaponCatalog.CLUSTER) == WeaponCatalog.CLUSTER, "session reset restores full weapon set")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()

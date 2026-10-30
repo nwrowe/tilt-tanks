@@ -42,6 +42,7 @@ func _run() -> void:
 	_test_cluster_split_runtime()
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
+	_test_composed_weapon_definition_session()
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
 	_test_runtime_player_frame_bridge()
@@ -450,6 +451,26 @@ func _test_level_session_configs() -> void:
 	game.call("reset_match")
 	_check((game.get("active_weapon_loadout") as WeaponLoadout).has_weapon(WeaponCatalog.CLUSTER), "default level restores full weapon loadout")
 	session.definitions.erase(custom_id)
+
+func _test_composed_weapon_definition_session() -> void:
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	_check(session != null, "active scene composes a weapon-definition session")
+	_check(game.get("weapon_definitions") == session.definitions, "legacy weapon registry mirrors session definitions")
+	_check(game.get("active_weapon_loadout") == session.loadout, "legacy loadout points to session owner")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	_check(session.loadout.has_weapon(WeaponCatalog.CLUSTER), "default level allows Cluster in composed session")
+	var level_id: String = "weapon_session_restricted"
+	var level_session: LevelSession = game.get("level_session") as LevelSession
+	level_session.definitions[level_id] = LevelDefinition.new({
+		"id": level_id,
+		"default_weapon_ids": [WeaponCatalog.STANDARD, WeaponCatalog.HEAVY]
+	})
+	game.call("_select_level", level_id)
+	_check(not session.loadout.has_weapon(WeaponCatalog.CLUSTER), "restricted level updates composed weapon loadout")
+	_check(game.get("active_weapon_loadout") == session.loadout, "legacy menu reads same restricted loadout")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	level_session.definitions.erase(level_id)
+	_check(session.loadout.has_weapon(WeaponCatalog.CLUSTER), "default level restores composed loadout")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
