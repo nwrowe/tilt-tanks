@@ -861,15 +861,17 @@ func _test_composed_menu_screen_layouts_live() -> void:
 	_check(view.controls.size() == 3 and view.controls[1].position == MainMenuPresentation.anchored_position(
 		viewport_size, Vector2(0.5, 0.69), Vector2(310, 72)),
 		"composed multiplayer menu retains online option placement")
-	game.call("_on_online_pressed")
-	_check(view.controls.size() == 3 and (view.controls[0] as Label).text == "Online" and
+	# Active online navigation is overridden by the full multiplayer facade.
+	# Exercise the reusable fallback placeholder directly.
+	game.call("_show_placeholder_menu", "Options")
+	_check(view.controls.size() == 3 and (view.controls[0] as Label).text == "Options" and
 		(view.controls[1] as Label).text == "Coming soon",
-		"composed placeholder retains online title and unavailable notice")
-	var online_back: BaseButton = view.controls[2] as BaseButton
-	if online_back != null:
-		online_back.pressed.emit()
-	_check(int(game.get("menu_state")) == 3 and view.controls.size() == 3,
-		"online placeholder back action returns to multiplayer menu")
+		"composed placeholder retains its title and unavailable notice")
+	var placeholder_back: BaseButton = view.controls[2] as BaseButton
+	if placeholder_back != null:
+		placeholder_back.pressed.emit()
+	_check(int(game.get("menu_state")) == 0 and view.controls.size() == 3,
+		"composed fallback placeholder back action returns home")
 	game.call("_show_main_menu")
 
 func _find_menu_button(text_to_find: String) -> Button:
