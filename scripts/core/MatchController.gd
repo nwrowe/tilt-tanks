@@ -134,6 +134,28 @@ func sync_health_values(values: Array[int]) -> void:
 		state.tank_health[player] = maxi(0, values[player])
 	_update_winner_from_health()
 
+## Damage directly in MatchState and publish one winner decision for all
+## impacted players. Caller must first sync any legacy health writes.
+func apply_radial_damage(
+	impact: Vector2,
+	target_positions: Array[Vector2],
+	direct_radius: float,
+	blast_radius: float,
+	direct_damage: int,
+	splash_damage: int,
+	minimum_splash: int
+) -> void:
+	if target_positions.size() != state.tank_health.size():
+		return
+	var after: Array[int] = state.tank_health.duplicate()
+	for player: int in range(target_positions.size()):
+		var amount: int = MatchDamagePolicy.radial_damage(
+			impact, target_positions[player], direct_radius, blast_radius,
+			direct_damage, splash_damage, minimum_splash
+		)
+		after[player] = maxi(0, after[player] - amount)
+	sync_health_values(after)
+
 func apply_damage(player: int, amount: int) -> void:
 	if player < 0 or player >= state.tank_health.size():
 		return
