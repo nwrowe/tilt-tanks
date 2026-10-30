@@ -26,6 +26,7 @@ func _run() -> void:
 	_test_vector_round_trip()
 	_test_snapshot_shape()
 	_test_shared_snapshot_fields()
+	_test_shared_decoder()
 	_test_sequence_ordering()
 	_test_weapon_request_validation()
 	_test_typed_wire_arrays()
@@ -80,6 +81,32 @@ func _test_shared_snapshot_fields() -> void:
 	var motion_hp: Array = motion["tank_health"] as Array
 	motion_hp[0] = original_health - 1
 	_check(int((game.get("tank_health") as Array)[0]) == original_health, "motion packet health is copied")
+
+func _test_shared_decoder() -> void:
+	var full: Dictionary = game.call("_online_make_snapshot")
+	var motion: Dictionary = game.call("_online_make_motion_snapshot")
+	var fallback: Dictionary = game.call("_online_runtime_snapshot_data")
+	var decoded_full: Dictionary = OnlineDuelSnapshotDecoder.decode_common(full, fallback)
+	var decoded_motion: Dictionary = OnlineDuelSnapshotDecoder.decode_common(motion, fallback)
+	for field: String in decoded_full:
+		_check(decoded_full[field] == decoded_motion[field], "full/motion decoded " + field + " consistently")
+	_check(decoded_full["tank_health"] is Array[int], "health decoder returns typed int array")
+	_check(decoded_full["player_angles"] is Array[float], "angle decoder returns typed float array")
+	_check(decoded_full["player_powers"] is Array[float], "power decoder returns typed float array")
+	_check(decoded_full["explosion_pos"] is Vector2, "explosion target decodes into Vector2")
+	var changed: Dictionary = full.duplicate(true)
+	changed["tank_health"] = [91, 72]
+	changed["player_angles"] = [35.0, 67.0]
+	changed["current_player"] = 1
+	changed["explosion_pos"] = OnlineDuelCodec.pack_vec2(Vector2(125.0, 250.0))
+	var decoded: Dictionary = OnlineDuelSnapshotDecoder.decode_common(changed, fallback)
+	_check(decoded["tank_health"] == [91, 72], "decoder preserves changed health")
+	_check(decoded["player_angles"] == [35.0, 67.0], "decoder preserves changed aim")
+	_check(int(decoded["current_player"]) == 1, "decoder preserves turn owner")
+	_check(decoded["explosion_pos"] == Vector2(125.0, 250.0), "decoder unpacks explosion position")
+	var missing: Dictionary = OnlineDuelSnapshotDecoder.decode_common({}, fallback)
+	_check(missing["tank_health"] == fallback["tank_health"], "missing health retains runtime fallback")
+	_check(missing["player_power_percents"] == fallback["player_power_percents"], "missing player power retains fallback")
 
 func _test_sequence_ordering() -> void:
 	var sequencer: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
