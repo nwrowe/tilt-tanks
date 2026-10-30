@@ -86,16 +86,19 @@ func reset_match() -> void:
 func _update_angle_from_input(delta: float) -> void:
 	var gravity_vec: Vector3 = Input.get_gravity()
 	if gravity_vec.length() < 0.01:
+		var axis: float = 0.0
 		if Input.is_key_pressed(KEY_UP):
-			angle_deg += 75.0 * delta
+			axis += 1.0
 		if Input.is_key_pressed(KEY_DOWN):
-			angle_deg -= 75.0 * delta
+			axis -= 1.0
+		angle_deg = LegacyInputMotionPolicy.keyboard_aim(
+			angle_deg, axis, delta, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+		)
 	else:
-		var roll: float = clampf(gravity_vec.x / 9.8, -MOBILE_TILT_FULL_SCALE, MOBILE_TILT_FULL_SCALE)
-		var aiming_roll: float = -roll if current_player == 0 else roll
-		var normalized_roll: float = (aiming_roll / MOBILE_TILT_FULL_SCALE + 1.0) * 0.5
-		angle_deg = lerpf(MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE, normalized_roll)
-	angle_deg = clampf(angle_deg, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
+		angle_deg = LegacyInputMotionPolicy.tilt_aim(
+			gravity_vec.x, current_player, MOBILE_TILT_FULL_SCALE,
+			MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+		)
 
 func _update_tank_movement(delta: float) -> void:
 	var direction: float = 0.0
@@ -105,9 +108,12 @@ func _update_tank_movement(delta: float) -> void:
 		direction += 1.0
 	if direction == 0.0:
 		return
-	var new_x: float = clampf(tank_positions[current_player].x + direction * TANK_MOVE_SPEED * delta, 45.0, active_world_width - 45.0)
+	var new_x: float = LegacyInputMotionPolicy.next_tank_x(
+		tank_positions[current_player].x, direction, TANK_MOVE_SPEED,
+		delta, active_world_width
+	)
 	var other_player: int = 1 - current_player
-	if absf(new_x - tank_positions[other_player].x) < 90.0:
+	if not LegacyInputMotionPolicy.can_move_without_overlap(new_x, tank_positions[other_player].x):
 		return
 	tank_positions[current_player].x = new_x
 	tank_positions[current_player].y = _ground_y_at_x(new_x) - TANK_RADIUS
@@ -141,13 +147,11 @@ func _apply_crater(pos: Vector2) -> void:
 	_refresh_terrain_line()
 
 func _camera_target_x() -> float:
-	var focus_x: float = tank_positions[current_player].x
-	if projectile_active:
-		focus_x = projectile_pos.x
-	elif explosion_timer > 0.0 and explosion_pos != Vector2.INF:
-		focus_x = explosion_pos.x
-	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+	return LegacyInputMotionPolicy.camera_x(
+		tank_positions[current_player].x, projectile_active, projectile_pos.x,
+		explosion_timer, explosion_pos, VIEW_SIZE.x, CAMERA_SCALE,
+		active_world_width
+	)
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color(0.06, 0.07, 0.10), true)
