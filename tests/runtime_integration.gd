@@ -58,6 +58,7 @@ func _run() -> void:
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
 	_test_water_manager_world_delegation()
+	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
 
 	game.queue_free()
@@ -656,6 +657,37 @@ func _test_turn_ai_planner_live() -> void:
 	rng.seed = 1937
 	var repeated: Dictionary = game.call("_find_ai_plan")
 	_check(plan == repeated, "same terrain and RNG seed reproduce identical AI plan")
+	game.call("reset_match")
+
+func _test_turn_ai_ballistic_scorer_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var positions: Array = game.get("tank_positions")
+	var shooter_pos: Vector2 = positions[1]
+	var human_pos: Vector2 = positions[0]
+	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
+	rng.seed = 5512
+	var target_pos: Vector2 = human_pos + Vector2(
+		rng.randf_range(-28.0, 28.0), rng.randf_range(-8.0, 8.0)
+	)
+	var config: Dictionary = {
+		"cannon_length": 48.0, "sim_dt": 0.055,
+		"max_time": 5.5, "gravity": float(game.get("gravity")),
+		"wind": float(game.get("wind")),
+		"world_width": float(game.get("active_world_width")),
+		"floor_y": float(game.call("_bottom_floor_y"))
+	}
+	var expected: float = TurnAIBallisticScorer.score(
+		shooter_pos, target_pos, 45.0,
+		float(game.call("_power_from_percent", 55.0)),
+		Callable(game, "_ground_y_at_x"), config
+	)
+	rng.seed = 5512
+	var actual: float = float(game.call("_score_ai_shot_from_position", shooter_pos, 45.0, 55.0))
+	_check(is_equal_approx(actual, expected), "live AI scorer preserves jittered target and ballistic trajectory")
+	rng.seed = 5512
+	var repeated: float = float(game.call("_score_ai_shot_from_position", shooter_pos, 45.0, 55.0))
+	_check(is_equal_approx(actual, repeated), "live trajectory scoring preserves RNG reproducibility")
+	_check(actual >= 0.0 and is_finite(actual), "live scorer returns a finite nonnegative miss distance")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
