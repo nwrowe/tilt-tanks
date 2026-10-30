@@ -14,6 +14,7 @@ func _run() -> void:
 	_test_player_frame_adoption()
 	_test_complete_turn_with_settings()
 	_test_weapon_catalog()
+	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
 	if failures.is_empty():
@@ -166,6 +167,30 @@ func _test_complete_turn_with_settings() -> void:
 	_check(is_equal_approx(state.player_power_percents[1], 68.0), "turn completion preserves player 2 charge")
 	_check(is_equal_approx(state.turn_timer, 30.0), "turn completion resets timer")
 	_check(state.tank_health == [100, 100] and not state.game_over, "turn completion leaves health and winner intact")
+
+func _test_weapon_definition_session() -> void:
+	var session: WeaponDefinitionSession = WeaponDefinitionSession.new()
+	_check(session.definitions.has(WeaponCatalog.STANDARD), "session owns standard weapon definition")
+	_check(session.loadout.has_weapon(WeaponCatalog.HEAVY), "session default loadout includes Heavy")
+	_check(session.display_name(WeaponCatalog.HEAVY) != "", "session displays registry weapon names")
+	_check(session.value(WeaponCatalog.HEAVY, "direct_damage", -1) != -1, "session reads definition metadata")
+	_check(session.has_split_behavior(WeaponCatalog.CLUSTER), "session recognizes Cluster split behavior")
+	_check(session.should_split_on_descent(WeaponCatalog.CLUSTER, false, Vector2(10, 12)), "session permits descending cluster split")
+	_check(not session.should_split_on_descent(WeaponCatalog.CLUSTER, true, Vector2(10, 12)), "session blocks duplicate cluster split")
+	var children: Array[Dictionary] = session.make_split_children(
+		0, WeaponCatalog.CLUSTER, Vector2(100, 200), Vector2(20, 12),
+		115.0, 58.0
+	)
+	_check(children.size() == 3, "session constructs registry-specified cluster children")
+	var restricted: WeaponLoadout = WeaponLoadout.new(
+		[WeaponCatalog.STANDARD, WeaponCatalog.HEAVY], WeaponCatalog.STANDARD
+	)
+	_check(session.set_loadout(restricted), "session adopts level-restricted weapon loadout")
+	_check(session.safe_weapon(WeaponCatalog.CLUSTER) == WeaponCatalog.STANDARD, "session rejects restricted Cluster")
+	_check(not session.set_loadout(null), "session rejects missing loadout")
+	_check(session.loadout == restricted, "rejected loadout preserves current allowed weapons")
+	session.reset_default()
+	_check(session.safe_weapon(WeaponCatalog.CLUSTER) == WeaponCatalog.CLUSTER, "session reset restores full weapon set")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
