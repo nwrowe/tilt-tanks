@@ -33,8 +33,8 @@ func _apply_level_wind_after_reset() -> void:
 	if active_level_definition == null:
 		return
 	wind = rng.randf_range(-active_level_definition.wind_max_accel, active_level_definition.wind_max_accel)
-	if match_state != null:
-		match_state.wind = wind
+	if match_controller != null:
+		match_controller.set_wind(wind)
 
 func _generate_random_terrain() -> void:
 	# Keep terrain generation algorithm unchanged, but allow the active level to
