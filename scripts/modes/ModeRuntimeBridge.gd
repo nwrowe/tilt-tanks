@@ -322,11 +322,11 @@ func _advance_turn() -> void:
 func _process_ai_turn(delta: float) -> void:
 	if not ai_pending_turn:
 		_begin_ai_turn()
-	turn_ai_session.step(delta)
+	var ready_to_fire: bool = turn_ai_session.step(delta)
 	_update_camera(delta)
 	_update_ui()
 	queue_redraw()
-	if ai_think_timer <= 0.0:
+	if ready_to_fire:
 		turn_ai_session.cancel()
 		_take_ai_shot()
 
