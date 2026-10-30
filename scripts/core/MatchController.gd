@@ -52,6 +52,15 @@ func sync_runtime_player_frame(
 	state.game_mode = mode
 	state.active_world_width = world_width
 
+## All MatchState writes should pass through this controller. Level setup
+## supplies a new wind value after reset and progression supplies tank builds.
+func set_wind(value: float) -> void:
+	state.wind = value
+
+func sync_tank_builds(builds: Array[TankBuildState]) -> void:
+	for player: int in range(builds.size()):
+		state.set_tank_build_for_player(player, builds[player])
+
 func advance_turn(turn_time_limit: float) -> int:
 	state.current_player = 1 - state.current_player
 	state.turn_timer = turn_time_limit
