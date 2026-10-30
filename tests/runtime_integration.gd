@@ -51,6 +51,7 @@ func _run() -> void:
 	_test_level_session_configs()
 	_test_runtime_radial_damage()
 	_test_runtime_turn_completion()
+	_test_power_percent_layer_retirement()
 
 	game.queue_free()
 	await process_frame
@@ -501,6 +502,28 @@ func _test_weapon_bridge_retirement() -> void:
 	level_session.definitions.erase(custom)
 	game.call("reset_match")
 	_check(game.get("active_weapon_loadout") == session.loadout, "match reset keeps legacy loadout alias synchronized")
+
+func _test_power_percent_layer_retirement() -> void:
+	# Exercise the actual scene after retiring MainStablePowerPercent.gd.
+	game.call("_on_hotseat_pressed")
+	var policy_minimum: float = 400.0
+	var policy_maximum: float = 1200.0
+	_check(is_equal_approx(float(game.call("_power_from_percent", 0.0)), policy_minimum), "legacy launch method honors minimum power")
+	_check(is_equal_approx(float(game.call("_power_from_percent", 100.0)), policy_maximum), "legacy launch method honors maximum power")
+	_check(is_equal_approx(float(game.call("_power_from_percent", -20.0)), policy_minimum), "legacy launch method clamps negative power")
+	_check(is_equal_approx(float(game.call("_power_from_percent", 150.0)), policy_maximum), "legacy launch method clamps power above 100 percent")
+	var charge: float = 64.0
+	game.set("power_percent", charge)
+	game.set("power", float(game.call("_power_from_percent", charge)))
+	game.call("_end_turn_without_shot")
+	_check(int(game.get("current_player")) == 1, "power handoff advances to second player")
+	game.call("_end_turn_without_shot")
+	_check(int(game.get("current_player")) == 0, "power handoff returns to original player")
+	_check(is_equal_approx(float(game.get("power_percent")), charge), "legacy power percentage survives roundtrip")
+	_check(is_equal_approx(float(game.get("power")), float(game.call("_power_from_percent", charge))), "launch power restored consistently")
+	game.call("reset_match")
+	_check(is_equal_approx(float(game.get("power_percent")), 50.0), "power percentage resets to default")
+	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "both player power settings reset")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")

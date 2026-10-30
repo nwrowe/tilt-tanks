@@ -15,6 +15,7 @@ func _run() -> void:
 	_test_player_frame_adoption()
 	_test_complete_turn_with_settings()
 	_test_weapon_catalog()
+	_test_power_control_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -226,6 +227,14 @@ func _test_composed_match_runtime_synchronizer() -> void:
 	_check(updated == [25, 65] and state.tank_health == updated, "adapter applies controller radial damage")
 	_check(adapter.sync_health([100, 0]), "adapter reports terminal health state")
 	_check(controller.winner_index() == 0, "adapter retains controller winner result")
+
+func _test_power_control_policy() -> void:
+	_check(is_equal_approx(PowerControlPolicy.force_from_percent(0.0, 400.0, 1200.0), 400.0), "zero percent uses minimum launch force")
+	_check(is_equal_approx(PowerControlPolicy.force_from_percent(50.0, 400.0, 1200.0), 800.0), "fifty percent maps to midpoint force")
+	_check(is_equal_approx(PowerControlPolicy.force_from_percent(100.0, 400.0, 1200.0), 1200.0), "hundred percent uses maximum force")
+	_check(is_equal_approx(PowerControlPolicy.force_from_percent(-10.0, 400.0, 1200.0), 400.0), "negative percentage is clamped")
+	_check(is_equal_approx(PowerControlPolicy.force_from_percent(140.0, 400.0, 1200.0), 1200.0), "above maximum percentage is clamped")
+	_check(is_equal_approx(PowerControlPolicy.clamp_percent(42.0), 42.0), "valid percentage is unchanged")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
