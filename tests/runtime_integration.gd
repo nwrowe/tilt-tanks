@@ -42,6 +42,7 @@ func _run() -> void:
 	_test_cluster_split_runtime()
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
+	_test_runtime_match_health_bridge()
 
 	game.queue_free()
 	await process_frame
@@ -240,6 +241,31 @@ func _test_metadata_weapon_overrides() -> void:
 	game.call("_split_turn_cluster_projectile", cluster_pos, Vector2(50.0, 30.0))
 	_check(game.get("turn_cluster_camera_pos") == cluster_pos, "split retains cluster camera position")
 	_check((game.get("turn_projectiles") as Array).size() == 3, "split retains registry-driven child count")
+
+func _test_runtime_match_health_bridge() -> void:
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var controller: MatchController = game.get("match_controller") as MatchController
+	_check(state != null and controller != null, "active scene exposes match controller and state")
+	var damaged: Array[int] = [87, 43]
+	game.set("tank_health", damaged)
+	game.call("_sync_match_state_from_runtime")
+	_check(state.tank_health == [87, 43], "live health sync updates both tanks")
+	_check(not controller.is_game_over() and state.winner_index == -1, "damage without destruction keeps match alive")
+	var host_wins: Array[int] = [87, 0]
+	game.set("tank_health", host_wins)
+	game.call("_sync_health_state_to_match_controller")
+	_check(bool(game.get("game_over")), "runtime game over follows controller")
+	_check(controller.winner_index() == 0, "controller selects surviving player 1")
+	var draw: Array[int] = [0, 0]
+	game.set("tank_health", draw)
+	game.call("_sync_match_state_from_runtime")
+	_check(controller.is_game_over() and controller.winner_index() == -1, "live simultaneous defeat produces a draw")
+	_check(state.tank_health == [0, 0], "controller preserves the complete health snapshot")
+	game.call("reset_match")
+	_check((game.get("tank_health") as Array) == [100, 100], "runtime reset restores both tank health values")
+	_check(state.tank_health == [100, 100], "match state reset restores both tank health values")
+	_check(not controller.is_game_over() and controller.winner_index() == -1, "reset clears winner and terminal state")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
