@@ -27,6 +27,7 @@ func _run() -> void:
 	_test_snapshot_shape()
 	_test_sequence_ordering()
 	_test_weapon_request_validation()
+	_test_typed_wire_arrays()
 	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
@@ -68,6 +69,14 @@ func _test_weapon_request_validation() -> void:
 	_check(OnlineDuelCodec.safe_requested_weapon({"weapon": WeaponCatalog.CLUSTER_CHILD}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "unselectable child shell rejected")
 	_check(OnlineDuelCodec.safe_requested_weapon({}, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "missing guest weapon uses default")
 	_check(OnlineDuelCodec.safe_requested_weapon({}, null, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "missing loadout uses safe default")
+
+func _test_typed_wire_arrays() -> void:
+	var ints: Array[int] = OnlineDuelCodec.int_array([100, 77], [50, 50])
+	_check(ints == [100, 77], "network health decodes to typed int array")
+	var floats: Array[float] = OnlineDuelCodec.float_array([45, 31.5], [0.0, 0.0])
+	_check(floats.size() == 2 and is_equal_approx(floats[1], 31.5), "player aim decodes to typed float array")
+	var missing_health: Array[int] = OnlineDuelCodec.int_array(null, [100, 100])
+	_check(missing_health == [100, 100], "typed health fallback for missing wire field")
 
 func _test_sequencer_reset() -> void:
 	var seq: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
