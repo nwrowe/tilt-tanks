@@ -43,6 +43,7 @@ func _run() -> void:
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
 	_test_composed_weapon_definition_session()
+	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
 	_test_runtime_player_frame_bridge()
@@ -471,6 +472,35 @@ func _test_composed_weapon_definition_session() -> void:
 	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
 	level_session.definitions.erase(level_id)
 	_check(session.loadout.has_weapon(WeaponCatalog.CLUSTER), "default level restores composed loadout")
+
+func _test_weapon_bridge_retirement() -> void:
+	# The scene must retain its weapon metadata/selection API without
+	# inheriting the deleted WeaponDefinitionRuntimeBridge.
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	_check(session != null, "active game owns composed weapon-definition session")
+	_check(game.call("_weapon_definition", WeaponCatalog.HEAVY) == session.definition(WeaponCatalog.HEAVY), "compatibility weapon lookup resolves to composed registry")
+	_check(game.call("_weapon_display_name", WeaponCatalog.CLUSTER) == session.display_name(WeaponCatalog.CLUSTER), "weapon display names still resolve")
+	_check(game.call("_weapon_has_split_behavior", WeaponCatalog.CLUSTER), "legacy cluster split metadata remains available")
+	_check(not game.call("_weapon_has_split_behavior", WeaponCatalog.STANDARD), "standard weapon still has no split behavior")
+	_check(game.call("_weapon_child_count", WeaponCatalog.CLUSTER) == 3, "cluster child count remains definition-driven")
+	_check(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, 10.0)), "descending cluster split remains available")
+	_check(not game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, true, Vector2(0.0, 10.0)), "repeat split is suppressed")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.CLUSTER)
+	_check(str(game.get("selected_weapon")) == WeaponCatalog.CLUSTER, "normal loadout permits cluster selection")
+	var custom: String = "bridge_retire_restricted"
+	var level_session: LevelSession = game.get("level_session") as LevelSession
+	level_session.definitions[custom] = LevelDefinition.new({
+		"id": custom,
+		"default_weapon_ids": [WeaponCatalog.STANDARD, WeaponCatalog.HEAVY]
+	})
+	game.call("_select_level", custom)
+	_check(not session.loadout.has_weapon(WeaponCatalog.CLUSTER), "session restricts cluster on custom level")
+	_check(str(game.get("selected_weapon")) == WeaponCatalog.STANDARD, "legacy selected weapon is sanitized by new loadout")
+	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
+	level_session.definitions.erase(custom)
+	game.call("reset_match")
+	_check(game.get("active_weapon_loadout") == session.loadout, "match reset keeps legacy loadout alias synchronized")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
