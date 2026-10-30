@@ -40,6 +40,8 @@ func _run() -> void:
 	_test_campaign_level_launch()
 	_test_hotseat_weapons_turns_and_fire()
 	_test_cluster_split_runtime()
+	_test_player_weapon_selection_component()
+	_test_metadata_weapon_overrides()
 
 	game.queue_free()
 	await process_frame
@@ -209,6 +211,35 @@ func _test_cluster_split_runtime() -> void:
 	_check(bool(game.get("turn_projectile_split_done")), "cluster marks split completed")
 	var turn_children: Array = game.get("turn_projectiles")
 	_check(turn_children.size() == 3, "live cluster creates exactly three turn children")
+	_check(game.get("turn_cluster_camera_pos") != Vector2.INF, "cluster split retains camera focus position")
+
+func _test_player_weapon_selection_component() -> void:
+	var selections: PlayerWeaponSelection = PlayerWeaponSelection.new()
+	selections.reset(WeaponCatalog.STANDARD)
+	_check(selections.choices.size() == 2, "new match stores both player weapon slots")
+	var registry: Dictionary = WeaponRegistry.build_default_definitions()
+	var loadout: WeaponLoadout = WeaponLoadout.from_registry(registry, WeaponCatalog.STANDARD)
+	selections.save(0, WeaponCatalog.HEAVY, WeaponCatalog.STANDARD)
+	selections.save(1, WeaponCatalog.CLUSTER, WeaponCatalog.STANDARD)
+	_check(selections.load(0, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.HEAVY, "player 1 weapon persists")
+	_check(selections.load(1, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.CLUSTER, "player 2 weapon persists")
+	_check(selections.load(2, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "missing player defaults to Standard")
+	selections.save(-1, WeaponCatalog.HEAVY, WeaponCatalog.STANDARD)
+	_check(selections.choices.size() == 2, "negative player index is ignored")
+	selections.reset(WeaponCatalog.STANDARD)
+	_check(selections.load(0, loadout, WeaponCatalog.STANDARD) == WeaponCatalog.STANDARD, "new match resets per-player loadout")
+	_check(game.get("player_weapon_selection") is PlayerWeaponSelection, "active game composes weapon selection component")
+
+func _test_metadata_weapon_overrides() -> void:
+	var definitions: Dictionary = game.get("weapon_definitions")
+	var heavy_radius: float = float(WeaponRegistry.value(definitions, WeaponCatalog.HEAVY, "explosion_radius", 62.0))
+	var heavy_damage: int = int(WeaponRegistry.value(definitions, WeaponCatalog.HEAVY, "direct_damage", 75))
+	_check(is_equal_approx(float(game.call("_weapon_explosion_radius", WeaponCatalog.HEAVY)), heavy_radius), "active explosion radius uses weapon registry")
+	_check(int(game.call("_weapon_direct_damage", WeaponCatalog.HEAVY)) == heavy_damage, "active direct damage uses weapon registry")
+	var cluster_pos: Vector2 = Vector2(400.0, 300.0)
+	game.call("_split_turn_cluster_projectile", cluster_pos, Vector2(50.0, 30.0))
+	_check(game.get("turn_cluster_camera_pos") == cluster_pos, "split retains cluster camera position")
+	_check((game.get("turn_projectiles") as Array).size() == 3, "split retains registry-driven child count")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
