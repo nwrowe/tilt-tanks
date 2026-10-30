@@ -38,6 +38,9 @@ jobs:
       - name: Test online packet and snapshot contracts
         run: godot --headless --path . --script res://tests/network_contracts.gd
 
+      - name: Test realtime AI, projectile launch and camera focus
+        run: godot --headless --path . --script res://tests/realtime_camera_integration.gd
+
       - name: Exercise real ENet duel across two headless Godot processes
         shell: bash
         run: |
