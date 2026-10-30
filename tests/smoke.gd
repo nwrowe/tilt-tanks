@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_composed_backdrop_geometry()
 	_test_main_menu_presentation()
 	_test_water_manager_world_policy()
+	_test_turn_ai_ballistic_scorer()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -305,6 +306,40 @@ func _test_water_manager_world_policy() -> void:
 	_check(is_equal_approx(WaterManager.tank_y_for_surface(ponds, points, 20.0, 10.0, 16.0, 3.0, 0.5), 128.0), "floating tank respects half-submergence")
 	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 20.0, 10.0, 3.0, 0.42), 0.42), "pond movement uses original water slowdown")
 	_check(is_equal_approx(WaterManager.movement_speed_mult_at_x(ponds, points, 0.0, 10.0, 3.0, 0.42), 1.0), "dry ground retains normal speed")
+
+func _ai_test_high_ground(_x: float) -> float:
+	return 1000.0
+
+func _ai_test_low_ground(_x: float) -> float:
+	return 30.0
+
+func _test_turn_ai_ballistic_scorer() -> void:
+	var config: Dictionary = {
+		"cannon_length": 0.0, "sim_dt": 1.0, "max_time": 2.0,
+		"gravity": 10.0, "wind": 0.0, "world_width": 500.0,
+		"floor_y": 1000.0
+	}
+	var scorer: Callable = Callable(self, "_ai_test_high_ground")
+	var hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(180, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_zero_approx(hit), "trajectory scorer includes first simulated impact position")
+	config["max_time"] = 0.0
+	var static_distance: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(180, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_equal_approx(static_distance, sqrt(500.0)), "zero simulated time scores muzzle distance")
+	config["max_time"] = 2.0
+	var ground_hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(160, 30), 0.0, 20.0,
+		Callable(self, "_ai_test_low_ground"), config
+	)
+	_check(is_zero_approx(ground_hit), "ground contact includes closest terrain impact")
+	config["wind"] = 10.0
+	var wind_hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(190, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_zero_approx(wind_hit), "wind changes the projectile trajectory before distance evaluation")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
