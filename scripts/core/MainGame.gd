@@ -1,4 +1,4 @@
-extends "res://scripts/core/MatchRuntimeBridge.gd"
+extends "res://scripts/weapons/WeaponDefinitionRuntimeBridge.gd"
 
 # CLEAN ACTIVE ENTRY POINT
 # ------------------------
@@ -28,6 +28,10 @@ const MUZZLE_SMOKE_RISE_SPEED: float = 26.0
 const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
 const MUZZLE_SMOKE_START_RADIUS: float = 3.0
 const MUZZLE_SMOKE_END_RADIUS: float = 10.0
+
+var match_state: MatchState = MatchState.new()
+var match_controller: MatchController = MatchController.new(match_state)
+var match_runtime_sync: MatchRuntimeSynchronizer = MatchRuntimeSynchronizer.new(match_controller)
 
 var realtime_cluster_focus_count: int = 0
 var realtime_cluster_focus_pos: Vector2 = Vector2.INF
@@ -79,6 +83,8 @@ func reset_match() -> void:
 	barrel_recoil_angles = [45.0, 45.0]
 	muzzle_smoke_puffs.clear()
 	super.reset_match()
+	_initialize_match_controller_from_runtime_reset()
+	_sync_match_state_from_runtime()
 	_update_power_slider_visibility()
 	_relayout_three_line_menu()
 
@@ -93,6 +99,7 @@ func _process(delta: float) -> void:
 		if manual_camera_timer <= 0.0:
 			manual_camera_active = false
 	super._process(delta)
+	_sync_match_state_from_runtime()
 	_update_muzzle_effects(delta)
 
 func _show_game_ui() -> void:
@@ -1124,3 +1131,148 @@ func _camera_target_x() -> float:
 		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
 		return clampf(cluster_camera_hold_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
 	return super._camera_target_x()
+
+# Existing gameplay callbacks remain on the game node; pure state sync
+# and combat transitions are owned by MatchRuntimeSynchronizer/MatchController.
+func _advance_turn() -> void:
+	_sync_match_state_from_runtime()
+	match_controller.advance_turn(TURN_TIME_LIMIT)
+	_apply_post_turn_match_state()
+
+func _end_turn_without_shot() -> void:
+	_sync_match_state_from_runtime()
+	_save_runtime_current_player_settings()
+	match_controller.complete_turn_without_shot(
+		TURN_TIME_LIMIT, angle_deg, power,
+		power_percent if "power_percent" in self else 0.0
+	)
+	_apply_post_turn_match_state()
+
+func _explode(pos: Vector2) -> void:
+	super._explode(pos)
+	_sync_match_state_from_runtime()
+
+func _apply_explosion_damage(pos: Vector2) -> void:
+	# Classic explosions previously used the base script's direct/splash loop.
+	# The controller now applies that same six-HP-minimum profile to its state.
+	_apply_controller_radial_damage(
+		pos, DIRECT_HIT_RADIUS, EXPLOSION_RADIUS,
+		DIRECT_HIT_DAMAGE, MAX_SPLASH_DAMAGE, 6
+	)
+
+func _apply_weapon_damage(pos: Vector2, weapon: String) -> void:
+	# Registry-defined weapon stats use the original four-HP splash floor.
+	_apply_controller_radial_damage(
+		pos, _weapon_direct_radius(weapon), _weapon_explosion_radius(weapon),
+		_weapon_direct_damage(weapon), _weapon_splash_damage(weapon), 4
+	)
+
+func _apply_controller_radial_damage(
+	pos: Vector2,
+	direct_radius: float,
+	blast_radius: float,
+	direct_damage: int,
+	splash_damage: int,
+	minimum_splash: int
+) -> void:
+	tank_health = match_runtime_sync.apply_radial_damage(
+		tank_health, tank_positions, pos, direct_radius, blast_radius,
+		direct_damage, splash_damage, minimum_splash
+	)
+	_sync_game_over_state_from_match_controller()
+
+func _initialize_match_controller_from_runtime_reset() -> void:
+	var default_angle: float = angle_deg
+	var default_power: float = power
+	var default_power_percent: float = power_percent if "power_percent" in self else 50.0
+	var mode: int = game_mode if "game_mode" in self else 0
+	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	var left_start: Vector2 = tank_positions[0] if tank_positions.size() > 0 else Vector2.ZERO
+	var right_start: Vector2 = tank_positions[1] if tank_positions.size() > 1 else Vector2.ZERO
+	match_runtime_sync.start_match(
+		mode,
+		world_width,
+		TURN_TIME_LIMIT,
+		default_angle,
+		default_power,
+		default_power_percent,
+		left_start,
+		right_start,
+		wind
+	)
+
+func _apply_post_turn_match_state() -> void:
+	_apply_match_state_to_runtime_basics()
+	_load_current_player_settings()
+	_clear_turn_input_state()
+	_sync_match_state_from_runtime()
+
+func _clear_turn_input_state() -> void:
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	if mobile_left_button != null:
+		mobile_left_button.release_focus()
+	if mobile_right_button != null:
+		mobile_right_button.release_focus()
+
+func _save_runtime_current_player_settings() -> void:
+	if current_player < 0 or current_player >= player_angles.size():
+		return
+	player_angles[current_player] = angle_deg
+	player_powers[current_player] = power
+	if "player_power_percents" in self:
+		player_power_percents[current_player] = power_percent
+
+func _sync_projectile_state_to_match_controller() -> void:
+	# Legacy physics still advances the projectile in game runtime; the
+	# controller owns how a complete frame changes MatchState lifecycle.
+	match_runtime_sync.sync_projectile(
+		projectile_active, projectile_pos, projectile_vel,
+		explosion_pos, explosion_timer
+	)
+
+func _sync_health_state_to_match_controller() -> void:
+	# Transfer the runtime health values as one transaction. The controller
+	# computes game-over/winner only after both tank values have been updated.
+	match_runtime_sync.sync_health(tank_health)
+	_sync_game_over_state_from_match_controller()
+
+func _sync_game_over_state_from_match_controller() -> void:
+	game_over = match_state.game_over
+	# Keep the runtime health array as the rendering/UI source during transition.
+	# The controller owns winner detection, while the existing UI still reads
+	# game_over and tank_health directly.
+
+func _sync_match_state_from_runtime() -> void:
+	var frame_percents: Array[float] = player_power_percents if "player_power_percents" in self else match_state.player_power_percents
+	var mode: int = game_mode if "game_mode" in self else 0
+	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	game_over = match_runtime_sync.sync_frame(
+		current_player, tank_positions, player_angles, player_powers,
+		frame_percents, wind, turn_timer, mode, world_width,
+		projectile_active, projectile_pos, projectile_vel,
+		explosion_pos, explosion_timer, tank_health
+	)
+
+func _apply_match_state_to_runtime_basics() -> void:
+	current_player = match_state.current_player
+	turn_timer = match_state.turn_timer
+	wind = match_state.wind
+	game_over = match_state.game_over
+	if match_state.tank_positions.size() == tank_positions.size():
+		tank_positions = match_state.tank_positions.duplicate()
+	if match_state.tank_health.size() == tank_health.size():
+		tank_health = match_state.tank_health.duplicate()
+	if match_state.player_angles.size() == player_angles.size():
+		player_angles = match_state.player_angles.duplicate()
+	if match_state.player_powers.size() == player_powers.size():
+		player_powers = match_state.player_powers.duplicate()
+	if "player_power_percents" in self and match_state.player_power_percents.size() == player_power_percents.size():
+		player_power_percents = match_state.player_power_percents.duplicate()
+
+func _apply_match_projectile_state_to_runtime() -> void:
+	projectile_active = match_state.projectile_active
+	projectile_pos = match_state.projectile_pos
+	projectile_vel = match_state.projectile_vel
+	explosion_pos = match_state.explosion_pos
+	explosion_timer = match_state.explosion_timer
