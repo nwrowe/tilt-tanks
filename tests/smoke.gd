@@ -23,6 +23,7 @@ func _run() -> void:
 	_test_turn_ai_ballistic_scorer()
 	_test_turn_ai_shot_planner()
 	_test_realtime_ai_movement_planner()
+	_test_steam_puff_effect()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -81,6 +82,27 @@ func _test_realtime_ai_movement_planner() -> void:
 	_check(is_equal_approx(
 		RealtimeAIMovementPlanner.choose_target_x(rng, ai_pos, human_pos, 1200.0, ground, score, config), ai_pos.x
 	), "realtime AI retains position when all movement candidates are unsafe")
+
+func _test_steam_puff_effect() -> void:
+	var puff: Dictionary = {"pos": Vector2(100.0, 200.0), "age": 0.0, "life": 0.95, "drift": 10.0}
+	var puffs: Array[Dictionary] = [puff]
+	var updated: Array[Dictionary] = SteamPuffEffect.advance(puffs, 0.2, 34.0, 0.95)
+	_check(updated.size() == 1, "steam puff remains active before expiry")
+	_check(is_equal_approx(float(puff.get("age")), 0.2), "steam effect keeps mutable puff identity")
+	_check((puff.get("pos") as Vector2).distance_to(Vector2(102.0, 193.2)) < 0.0001,
+		"steam puff keeps drift and rise integration")
+	var look: Dictionary = SteamPuffEffect.appearance(puff, 0.95, 4.0, 13.0, 0.66)
+	_check(look["pos"] == puff["pos"], "steam render policy uses simulated position")
+	_check(is_equal_approx(float(look["radius"]), lerpf(4.0, 13.0, 0.2 / 0.95) * 0.66),
+		"steam effect preserves interpolated render radius")
+	_check(is_equal_approx((look["color"] as Color).a, 0.52 * (1.0 - 0.2 / 0.95)),
+		"steam effect preserves fade alpha")
+	_check(SteamPuffEffect.advance(updated, 0.75, 34.0, 0.95).is_empty(),
+		"steam puff expires at original lifetime boundary")
+	var bare: Array[Dictionary] = [{"pos": Vector2.ZERO}]
+	var defaults: Array[Dictionary] = SteamPuffEffect.advance(bare, 0.1, 34.0, 0.95)
+	_check(defaults.size() == 1 and is_equal_approx(float(defaults[0]["age"]), 0.1),
+		"steam puff preserves default lifetime and missing fields")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
