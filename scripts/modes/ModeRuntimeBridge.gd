@@ -460,16 +460,17 @@ func _fire_realtime_projectile(owner: int) -> void:
 	return
 
 func _update_realtime_cooldowns(delta: float) -> void:
-	rt_player_fire_cooldown = maxf(0.0, rt_player_fire_cooldown - delta)
-	rt_ai_fire_cooldown = maxf(0.0, rt_ai_fire_cooldown - delta)
-	rt_ai_move_cooldown = maxf(0.0, rt_ai_move_cooldown - delta)
-	if rt_movement_exhaust_cooldown > 0.0:
-		rt_movement_exhaust_cooldown = maxf(0.0, rt_movement_exhaust_cooldown - delta)
-		movement_was_overheated = true
-		if rt_movement_exhaust_cooldown <= 0.0:
-			rt_movement_energy = maxf(rt_movement_energy, RT_MOVEMENT_ENERGY_MAX * 0.25)
-	else:
-		movement_was_overheated = false
+	var result: Dictionary = RealtimeCooldownPolicy.advance(
+		rt_player_fire_cooldown, rt_ai_fire_cooldown, rt_ai_move_cooldown,
+		rt_movement_exhaust_cooldown, rt_movement_energy,
+		RT_MOVEMENT_ENERGY_MAX, delta
+	)
+	rt_player_fire_cooldown = float(result["player_fire"])
+	rt_ai_fire_cooldown = float(result["ai_fire"])
+	rt_ai_move_cooldown = float(result["ai_move"])
+	rt_movement_exhaust_cooldown = float(result["exhaust"])
+	rt_movement_energy = float(result["energy"])
+	movement_was_overheated = bool(result["was_overheated"])
 
 func _update_realtime_ai(delta: float) -> void:
 	if game_over or overlay_open:
