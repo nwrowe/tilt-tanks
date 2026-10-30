@@ -24,6 +24,7 @@ func _run() -> void:
 	_test_turn_ai_shot_planner()
 	_test_realtime_ai_movement_planner()
 	_test_steam_puff_effect()
+	_test_realtime_cooldown_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -103,6 +104,23 @@ func _test_steam_puff_effect() -> void:
 	var defaults: Array[Dictionary] = SteamPuffEffect.advance(bare, 0.1, 34.0, 0.95)
 	_check(defaults.size() == 1 and is_equal_approx(float(defaults[0]["age"]), 0.1),
 		"steam puff preserves default lifetime and missing fields")
+
+func _test_realtime_cooldown_policy() -> void:
+	var warm: Dictionary = RealtimeCooldownPolicy.advance(0.5, 1.0, 2.0, 0.3, 0.10, 3.0, 0.1)
+	_check(is_equal_approx(float(warm["player_fire"]), 0.4) and is_equal_approx(float(warm["ai_fire"]), 0.9),
+		"realtime cooldowns subtract delta from player and AI firing timers")
+	_check(is_equal_approx(float(warm["ai_move"]), 1.9) and is_equal_approx(float(warm["exhaust"]), 0.2),
+		"realtime movement timers decrement in the same frame")
+	_check(bool(warm["was_overheated"]) and is_equal_approx(float(warm["energy"]), 0.10),
+		"realtime overheat retains energy before the cooldown expires")
+	var expiry: Dictionary = RealtimeCooldownPolicy.advance(0.01, 0.01, 0.01, 0.05, 0.10, 3.0, 0.1)
+	_check(is_zero_approx(float(expiry["exhaust"])) and is_equal_approx(float(expiry["energy"]), 0.75),
+		"the expiry frame restores at least one-quarter movement energy")
+	_check(bool(expiry["was_overheated"]) and is_zero_approx(float(expiry["player_fire"])),
+		"the expiry frame is still marked overheated and fire cooldowns clamp at zero")
+	var clear: Dictionary = RealtimeCooldownPolicy.advance(0.0, 0.0, 0.0, 0.0, 0.80, 3.0, 0.1)
+	_check(not bool(clear["was_overheated"]) and is_equal_approx(float(clear["energy"]), 0.80),
+		"the frame after expiry clears the overheat flag without losing movement energy")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
