@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_composed_backdrop_geometry()
 	_test_main_menu_presentation()
 	_test_water_manager_world_policy()
+	_test_turn_ai_ballistic_scorer()
 	_test_turn_ai_shot_planner()
 	_test_weapon_definition_session()
 	_test_level_definitions()
@@ -353,6 +354,40 @@ func _test_turn_ai_shot_planner() -> void:
 	)
 	_check(is_equal_approx(float(blocked["move_x"]), 500.0), "unsafe movement candidates are rejected")
 	_check(is_equal_approx(float(blocked["angle"]), 45.0), "no valid candidate retains default angle")
+
+func _ai_test_high_ground(_x: float) -> float:
+	return 1000.0
+
+func _ai_test_low_ground(_x: float) -> float:
+	return 30.0
+
+func _test_turn_ai_ballistic_scorer() -> void:
+	var config: Dictionary = {
+		"cannon_length": 0.0, "sim_dt": 1.0, "max_time": 2.0,
+		"gravity": 10.0, "wind": 0.0, "world_width": 500.0,
+		"floor_y": 1000.0
+	}
+	var scorer: Callable = Callable(self, "_ai_test_high_ground")
+	var hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(180, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_zero_approx(hit), "trajectory scorer includes first simulated impact position")
+	config["max_time"] = 0.0
+	var static_distance: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(180, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_equal_approx(static_distance, sqrt(500.0)), "zero simulated time scores muzzle distance")
+	config["max_time"] = 2.0
+	var ground_hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(160, 30), 0.0, 20.0,
+		Callable(self, "_ai_test_low_ground"), config
+	)
+	_check(is_zero_approx(ground_hit), "ground contact includes closest terrain impact")
+	config["wind"] = 10.0
+	var wind_hit: float = TurnAIBallisticScorer.score(
+		Vector2(200, 0), Vector2(190, 10), 0.0, 20.0, scorer, config
+	)
+	_check(is_zero_approx(wind_hit), "wind changes the projectile trajectory before distance evaluation")
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
