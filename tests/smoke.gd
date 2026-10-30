@@ -26,6 +26,7 @@ func _run() -> void:
 	_test_steam_puff_effect()
 	_test_realtime_cooldown_policy()
 	_test_wind_meter_policy()
+	_test_turn_ai_session()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -148,6 +149,36 @@ func _test_wind_meter_policy() -> void:
 		"negative wind reverses the arrowhead geometry")
 	_check(WindMeterPolicy.arrow_points(Vector2.ZERO, 0.0).is_empty(),
 		"zero-direction wind arrow renders no polygon")
+
+func _test_turn_ai_session() -> void:
+	var session: TurnAITurnSession = TurnAITurnSession.new()
+	_check(not session.pending and is_zero_approx(session.think_timer), "AI turn session starts idle")
+	session.begin(1.75)
+	_check(session.pending and is_equal_approx(session.think_timer, 1.75),
+		"AI turn session owns pending state and initial delay")
+	_check(not session.step(0.60) and session.pending and is_equal_approx(session.think_timer, 1.15),
+		"AI turn session decrements think timer without firing early")
+	_check(session.step(1.20) and session.pending, "AI turn session reports elapsed think delay")
+	session.cancel()
+	_check(not session.pending and session.think_timer < 0.0,
+		"cancelling an AI turn preserves the original elapsed timer")
+	session.reset()
+	_check(not session.pending and is_zero_approx(session.think_timer),
+		"match reset clears AI turn session completely")
+	_check(TurnAITurnSession.can_act(true, true, false, false, false),
+		"quick game AI can act while idle")
+	_check(not TurnAITurnSession.can_act(true, true, true, false, false),
+		"AI turn waits for projectile completion")
+	_check(not TurnAITurnSession.can_act(false, true, false, false, false),
+		"hotseat turns never trigger turn AI")
+	_check(not TurnAITurnSession.can_act(true, true, false, true, false),
+		"game over blocks AI turns")
+	_check(not TurnAITurnSession.can_act(true, true, false, false, true),
+		"open overlays block AI turns")
+	_check(TurnAITurnSession.waiting_for_explosion(true, true, false, false, false, 0.1),
+		"AI waits while impact effect remains active")
+	_check(not TurnAITurnSession.waiting_for_explosion(true, true, false, false, false, 0.0),
+		"completed explosion releases AI waiting state")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
