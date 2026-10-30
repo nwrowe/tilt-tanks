@@ -29,6 +29,16 @@ jobs:
       - name: Enforce active inheritance depth budget
         run: python3 tests/check_inheritance_depth.py --max-depth 10
 
+      - name: Diagnose scene ancestor script parsing
+        shell: bash
+        run: |
+          set +e
+          for script in scripts/MainWithMenus.gd scripts/modes/ModeRuntimeBridge.gd scripts/modes/WorldRuntimeBridge.gd scripts/weapons/WeaponRuntimeBridge.gd scripts/core/MainGame.gd; do
+            echo "=== Diagnostic: $script ==="
+            godot --headless --path . --check-only --script "res://$script" 2>&1 | tail -30
+          done
+          exit 0
+
       - name: Import assets and register script classes
         run: bash tests/check_godot_run.sh godot --headless --path . --import
 
