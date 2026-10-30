@@ -60,6 +60,19 @@ func _test_match_controller() -> void:
 	_check(state.explosion_timer > 0.0, "explosion timer is set")
 	controller.apply_damage(1, 100)
 	_check(controller.is_game_over() and controller.winner_index() == 0, "destroying player 2 ends match")
+	# A complete health snapshot has one winner decision, never a transient
+	# winner from applying two lethal health values in succession.
+	controller.sync_health_values([0, 0])
+	_check(controller.is_game_over() and controller.winner_index() == -1, "simultaneous destruction is game over without winner")
+	_check(state.tank_health == [0, 0], "controller holds both destroyed tank values")
+	controller.sync_health_values([72, 100])
+	_check(not controller.is_game_over() and controller.winner_index() == -1, "restored health clears winner")
+	_check(state.tank_health == [72, 100], "controller accepts one atomic damage snapshot")
+	controller.sync_health_values([-5, 42])
+	_check(state.tank_health[0] == 0 and controller.winner_index() == 1, "controller clamps negative health and awards player 2")
+	controller.sync_health_values([100])
+	_check(state.tank_health == [0, 42], "malformed health count does not partially update state")
+
 
 func _test_weapon_catalog() -> void:
 	var definitions: Dictionary = WeaponRegistry.build_default_definitions()
