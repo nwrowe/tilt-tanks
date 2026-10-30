@@ -28,6 +28,7 @@ func _run() -> void:
 	_test_sequence_ordering()
 	_test_weapon_request_validation()
 	_test_typed_wire_arrays()
+	_test_interpolation_math()
 	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
@@ -77,6 +78,21 @@ func _test_typed_wire_arrays() -> void:
 	_check(floats.size() == 2 and is_equal_approx(floats[1], 31.5), "player aim decodes to typed float array")
 	var missing_health: Array[int] = OnlineDuelCodec.int_array(null, [100, 100])
 	_check(missing_health == [100, 100], "typed health fallback for missing wire field")
+
+func _test_interpolation_math() -> void:
+	var smoother: OnlineDuelInterpolation = OnlineDuelInterpolation.new()
+	var positions: Array[Vector2] = [Vector2.ZERO, Vector2(100, 20)]
+	smoother.tank_targets = [Vector2(100, 0), Vector2(200, 20)]
+	smoother.interpolate_tanks(positions, 0.07, 0.14)
+	_check(is_equal_approx(positions[0].x, 50.0), "tank interpolation reaches midpoint in half smooth time")
+	_check(is_equal_approx(positions[1].x, 150.0), "tank interpolation applies independently to both tanks")
+	smoother.projectile_target = Vector2(200, 0)
+	var half_projectile: Vector2 = smoother.interpolate_projectile(Vector2.ZERO, true, 0.025, 0.05)
+	_check(is_equal_approx(half_projectile.x, 100.0), "projectile interpolation respects duration")
+	var frozen: Vector2 = smoother.interpolate_projectile(Vector2(10, 20), false, 0.025, 0.05)
+	_check(frozen == Vector2(10, 20), "inactive projectile is not smoothed")
+	smoother.reset()
+	_check(smoother.tank_targets.is_empty() and smoother.projectile_target == Vector2.INF, "reset discards client targets")
 
 func _test_sequencer_reset() -> void:
 	var seq: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
