@@ -41,14 +41,23 @@ const MENU_STATE_OPTIONS: int = 2
 const MENU_STATE_MULTIPLAYER: int = 3
 const MENU_STATE_GAME: int = 4
 
-var menu_state: int = MENU_STATE_MAIN
+var menu_navigation: MainMenuNavigationSession = MainMenuNavigationSession.new()
+var menu_state: int:
+	get:
+		return menu_navigation.screen
+	set(value):
+		menu_navigation.screen = value
 var menu_layer: CanvasLayer
 var menu_buttons: Array[Control] = []
 var menu_view: MainMenuView = MainMenuView.new()
 var menu_logo_texture: Texture2D
 var menu_bg_landscape_texture: Texture2D
 var menu_bg_portrait_texture: Texture2D
-var single_player_mode: bool = false
+var single_player_mode: bool:
+	get:
+		return menu_navigation.single_player
+	set(value):
+		menu_navigation.single_player = value
 
 
 # Consolidated mode/runtime bridge while flattening the legacy chain.
@@ -191,8 +200,7 @@ func _on_multiplayer_pressed() -> void:
 	_show_multiplayer_menu()
 
 func _show_multiplayer_menu() -> void:
-	menu_state = MENU_STATE_MULTIPLAYER
-	single_player_mode = false
+	menu_navigation.open_multiplayer()
 	_hide_game_ui()
 	_clear_menu_controls()
 	_add_menu_button("Hotseat", BUTTON_HOTSEAT_PATH, Vector2(0.5, 0.58), Vector2(310, 72), _on_hotseat_pressed)
@@ -201,7 +209,7 @@ func _show_multiplayer_menu() -> void:
 	queue_redraw()
 
 func _on_online_pressed() -> void:
-	menu_state = MENU_STATE_MULTIPLAYER
+	menu_navigation.show_online()
 	_hide_game_ui()
 	_clear_menu_controls()
 	_add_text_label("Online", Vector2(0.5, 0.54), Vector2(420, 60), 28)
@@ -218,9 +226,9 @@ func _on_hotseat_pressed() -> void:
 	_start_game(false)
 
 func _start_game(is_single_player: bool) -> void:
-	single_player_mode = is_single_player
+	menu_navigation.choose_single_player(is_single_player)
 	_clear_menu_controls()
-	menu_state = MENU_STATE_GAME
+	menu_navigation.enter_game()
 	_show_game_ui()
 	reset_match()
 	queue_redraw()
@@ -671,8 +679,7 @@ func _build_menu_layer() -> void:
 	menu_buttons = menu_view.controls
 
 func _show_main_menu() -> void:
-	menu_state = MENU_STATE_MAIN
-	single_player_mode = false
+	menu_navigation.open_main()
 	_hide_game_ui()
 	_clear_menu_controls()
 	_add_menu_button("Single Player", BUTTON_SINGLE_PLAYER_PATH, Vector2(0.5, 0.54), Vector2(310, 72), _on_single_player_pressed)
@@ -681,8 +688,7 @@ func _show_main_menu() -> void:
 	queue_redraw()
 
 func _show_single_player_menu() -> void:
-	menu_state = MENU_STATE_SINGLE_PLAYER
-	single_player_mode = true
+	menu_navigation.open_single_player()
 	_hide_game_ui()
 	_clear_menu_controls()
 	_add_menu_button("Quick Game", BUTTON_QUICK_GAME_PATH, Vector2(0.5, 0.58), Vector2(310, 72), _on_quick_game_pressed)
@@ -702,7 +708,7 @@ func _on_single_player_pressed() -> void:
 	_show_single_player_menu()
 
 func _on_options_pressed() -> void:
-	menu_state = MENU_STATE_OPTIONS
+	menu_navigation.open_options()
 	_show_placeholder_menu("Options")
 
 func _on_campaign_pressed() -> void:
