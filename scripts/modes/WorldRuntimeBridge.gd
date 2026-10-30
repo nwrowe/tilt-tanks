@@ -1,5 +1,8 @@
 extends "res://scripts/modes/ModeRuntimeBridge.gd"
 
+var realtime_ai_aim: RealtimeAIAimingSession = RealtimeAIAimingSession.new()
+
+
 # Consolidated world/runtime bridge while flattening the legacy chain.
 # This body was moved from MainHybridModes12.gd and owns terrain/water/snow
 # runtime constants, realtime fire-charge state, in-game draw composition, and
@@ -68,8 +71,11 @@ func _setup_realtime_single_player() -> void:
 	_resize_mobile_action_buttons()
 	_show_realtime_power_ui(false)
 	_update_fire_button_charge_style(0.0)
+	_clear_realtime_ai_visual_plan()
+	_choose_realtime_ai_visual_plan()
 
 func reset_match() -> void:
+	_clear_realtime_ai_visual_plan()
 	super.reset_match()
 	rt_player_shell_active = false
 	rt_fire_button_held = false
@@ -497,3 +503,50 @@ func _move_realtime_ai(delta: float) -> void:
 		return
 	tank_positions[AI_PLAYER_INDEX].x = new_x
 	tank_positions[AI_PLAYER_INDEX].y = _tank_y_for_surface(AI_PLAYER_INDEX, new_x)
+
+# Previously in RealtimeAIAimingBridge. The planning state and noisy aim
+# policy now live entirely in the composed RealtimeAIAimingSession.
+func _clear_realtime_ai_visual_plan() -> void:
+	realtime_ai_aim.clear()
+
+func _choose_realtime_ai_visual_plan() -> void:
+	var aim: Dictionary = _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
+	realtime_ai_aim.choose_plan(
+		aim, rng, RT_AI_AIM_ERROR_ANGLE, RT_AI_AIM_ERROR_POWER,
+		MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+	)
+
+func _update_realtime_ai(delta: float) -> void:
+	if game_over or overlay_open:
+		return
+
+	if rt_ai_move_cooldown <= 0.0:
+		_choose_realtime_ai_move_target()
+		rt_ai_move_cooldown = realtime_ai_aim.next_move_cooldown(rng, RT_AI_MOVE_COOLDOWN_MAX)
+		_clear_realtime_ai_visual_plan()
+
+	_move_realtime_ai(delta)
+
+	if not realtime_ai_aim.has_plan:
+		_choose_realtime_ai_visual_plan()
+
+	_update_realtime_ai_visual_aim(delta)
+
+	if rt_ai_fire_cooldown <= 0.0:
+		if not realtime_ai_aim.ready_to_fire(player_angles[AI_PLAYER_INDEX]):
+			return
+
+		player_angles[AI_PLAYER_INDEX] = realtime_ai_aim.target_angle
+		player_power_percents[AI_PLAYER_INDEX] = realtime_ai_aim.target_power_percent
+		player_powers[AI_PLAYER_INDEX] = _power_from_percent(realtime_ai_aim.target_power_percent)
+		_fire_realtime_projectile(AI_PLAYER_INDEX)
+		rt_ai_fire_cooldown = realtime_ai_aim.next_fire_cooldown(rng, RT_AI_FIRE_COOLDOWN_MAX)
+		_clear_realtime_ai_visual_plan()
+
+func _update_realtime_ai_visual_aim(delta: float) -> void:
+	if player_angles.size() <= AI_PLAYER_INDEX:
+		return
+	player_angles[AI_PLAYER_INDEX] = realtime_ai_aim.next_angle(
+		player_angles[AI_PLAYER_INDEX], delta
+	)
+
