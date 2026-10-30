@@ -17,9 +17,7 @@ var online_client_has_authoritative_state: bool = false
 var online_client_tank_targets: Array = []
 var online_client_projectile_target: Vector2 = Vector2.INF
 var online_client_was_projectile_active: bool = false
-var online_snapshot_seq: int = 0
-var online_client_last_full_snapshot_seq: int = -1
-var online_client_last_motion_snapshot_seq: int = -1
+var online_snapshot_sequencer: OnlineSnapshotSequencer = OnlineSnapshotSequencer.new()
 var online_turn_advance_fallback_timer: float = 0.0
 var online_turn_advance_fallback_owner: int = -1
 
@@ -48,9 +46,7 @@ func _online_disconnect() -> void:
 	super._online_disconnect()
 	online_host_wait_seconds = 0.0
 	online_host_wait_label = null
-	online_snapshot_seq = 0
-	online_client_last_full_snapshot_seq = -1
-	online_client_last_motion_snapshot_seq = -1
+	online_snapshot_sequencer.reset()
 	_online_clear_client_smoothing()
 	_online_clear_turn_advance_fallback()
 
@@ -220,7 +216,7 @@ func _online_send_snapshot(force: bool) -> void:
 
 func _online_make_motion_snapshot() -> Dictionary:
 	return {
-		"tank_positions": _online_pack_vec2_array(tank_positions),
+		"tank_positions": OnlineDuelCodec.pack_vec2_array(tank_positions),
 		"tank_health": tank_health.duplicate(),
 		"player_angles": player_angles.duplicate(),
 		"player_power_percents": player_power_percents.duplicate(),
@@ -234,49 +230,29 @@ func _online_make_motion_snapshot() -> Dictionary:
 		"game_over": game_over,
 		"selected_weapon": selected_weapon,
 		"projectile_active": projectile_active,
-		"projectile_pos": _online_pack_vec2(projectile_pos),
-		"projectile_vel": _online_pack_vec2(projectile_vel),
+		"projectile_pos": OnlineDuelCodec.pack_vec2(projectile_pos),
+		"projectile_vel": OnlineDuelCodec.pack_vec2(projectile_vel),
 		"turn_projectiles": turn_projectiles.duplicate(true),
-		"explosion_pos": _online_pack_vec2(explosion_pos),
+		"explosion_pos": OnlineDuelCodec.pack_vec2(explosion_pos),
 		"explosion_timer": explosion_timer,
 		"hotseat_turn_start_pending": hotseat_turn_start_pending,
 		"pending_advance_after_explosion_hold": pending_advance_after_explosion_hold,
 		"cluster_camera_hold_timer": cluster_camera_hold_timer,
-		"cluster_camera_hold_pos": _online_pack_vec2(cluster_camera_hold_pos),
-		"turn_cluster_camera_pos": _online_pack_vec2(turn_cluster_camera_pos)
+		"cluster_camera_hold_pos": OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos),
+		"turn_cluster_camera_pos": OnlineDuelCodec.pack_vec2(turn_cluster_camera_pos)
 	}
 
 func _online_next_snapshot_seq() -> int:
-	online_snapshot_seq += 1
-	return online_snapshot_seq
+	return online_snapshot_sequencer.next_outgoing_sequence()
 
 func _online_accept_full_snapshot_seq(snapshot: Dictionary) -> bool:
-	var seq: int = int(snapshot.get("seq", -1))
-	if seq < 0:
-		return true
-	if seq <= online_client_last_full_snapshot_seq:
-		return false
-	online_client_last_full_snapshot_seq = seq
-	online_client_last_motion_snapshot_seq = maxi(online_client_last_motion_snapshot_seq, seq)
-	return true
+	return online_snapshot_sequencer.accept_full(snapshot)
 
 func _online_accept_motion_snapshot_seq(snapshot: Dictionary) -> bool:
-	var seq: int = int(snapshot.get("seq", -1))
-	if seq < 0:
-		return true
-	if seq <= online_client_last_motion_snapshot_seq:
-		return false
-	online_client_last_motion_snapshot_seq = seq
-	return true
+	return online_snapshot_sequencer.accept_motion(snapshot)
 
 func _online_accept_fire_event_seq(event: Dictionary) -> bool:
-	var seq: int = int(event.get("seq", -1))
-	if seq < 0:
-		return true
-	if seq <= online_client_last_full_snapshot_seq:
-		return false
-	online_client_last_motion_snapshot_seq = maxi(online_client_last_motion_snapshot_seq, seq)
-	return true
+	return online_snapshot_sequencer.accept_fire_event(event)
 
 @rpc("authority", "reliable")
 func _online_receive_snapshot(snapshot: Dictionary) -> void:
@@ -327,17 +303,17 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 
 	var authoritative_tanks: Array = []
 	for packed_tank: Variant in snapshot.get("tank_positions", []):
-		authoritative_tanks.append(_online_unpack_vec2(packed_tank))
+		authoritative_tanks.append(OnlineDuelCodec.unpack_vec2(packed_tank))
 	if authoritative_tanks.size() == tank_positions.size():
 		online_client_tank_targets = authoritative_tanks.duplicate()
 		if not online_client_has_authoritative_state:
 			tank_positions = authoritative_tanks.duplicate()
 			online_client_has_authoritative_state = true
 
-	tank_health = _online_int_array(snapshot.get("tank_health", tank_health), tank_health)
-	player_angles = _online_float_array(snapshot.get("player_angles", player_angles), player_angles)
-	player_power_percents = _online_float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
-	player_powers = _online_float_array(snapshot.get("player_powers", player_powers), player_powers)
+	tank_health = OnlineDuelCodec.int_array(snapshot.get("tank_health", tank_health), tank_health)
+	player_angles = OnlineDuelCodec.float_array(snapshot.get("player_angles", player_angles), player_angles)
+	player_power_percents = OnlineDuelCodec.float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
+	player_powers = OnlineDuelCodec.float_array(snapshot.get("player_powers", player_powers), player_powers)
 	current_player = int(snapshot.get("current_player", current_player))
 	angle_deg = float(snapshot.get("angle_deg", angle_deg))
 	power_percent = float(snapshot.get("power_percent", power_percent))
@@ -348,8 +324,8 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	selected_weapon = str(snapshot.get("selected_weapon", selected_weapon))
 
 	projectile_active = bool(snapshot.get("projectile_active", projectile_active))
-	var authoritative_projectile_pos: Vector2 = _online_unpack_vec2(snapshot.get("projectile_pos", _online_pack_vec2(projectile_pos)))
-	var authoritative_projectile_vel: Vector2 = _online_unpack_vec2(snapshot.get("projectile_vel", _online_pack_vec2(projectile_vel)))
+	var authoritative_projectile_pos: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", OnlineDuelCodec.pack_vec2(projectile_pos)))
+	var authoritative_projectile_vel: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", OnlineDuelCodec.pack_vec2(projectile_vel)))
 	if projectile_active:
 		online_client_projectile_target = authoritative_projectile_pos
 		projectile_vel = authoritative_projectile_vel
@@ -368,13 +344,13 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	if not turn_projectiles.is_empty() and previous_turn_projectile_count == 0:
 		_trigger_fire_fx(current_player, angle_deg)
 
-	explosion_pos = _online_unpack_vec2(snapshot.get("explosion_pos", _online_pack_vec2(explosion_pos)))
+	explosion_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("explosion_pos", OnlineDuelCodec.pack_vec2(explosion_pos)))
 	explosion_timer = float(snapshot.get("explosion_timer", explosion_timer))
 	hotseat_turn_start_pending = bool(snapshot.get("hotseat_turn_start_pending", hotseat_turn_start_pending))
 	pending_advance_after_explosion_hold = bool(snapshot.get("pending_advance_after_explosion_hold", pending_advance_after_explosion_hold))
 	cluster_camera_hold_timer = float(snapshot.get("cluster_camera_hold_timer", cluster_camera_hold_timer))
-	cluster_camera_hold_pos = _online_unpack_vec2(snapshot.get("cluster_camera_hold_pos", _online_pack_vec2(cluster_camera_hold_pos)))
-	turn_cluster_camera_pos = _online_unpack_vec2(snapshot.get("turn_cluster_camera_pos", _online_pack_vec2(turn_cluster_camera_pos)))
+	cluster_camera_hold_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("cluster_camera_hold_pos", OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos)))
+	turn_cluster_camera_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("turn_cluster_camera_pos", OnlineDuelCodec.pack_vec2(turn_cluster_camera_pos)))
 	online_client_waiting_for_authority = false
 
 	if current_player >= 0 and current_player < player_angles.size():
@@ -399,7 +375,7 @@ func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: 
 		"power_percent": shot_power_percent,
 		"power": _power_from_percent(shot_power_percent),
 		"weapon": weapon,
-		"projectile_pos": _online_pack_vec2(pos),
+		"projectile_pos": OnlineDuelCodec.pack_vec2(pos),
 		"wind": wind
 	}
 	_online_receive_fire_event.rpc_id(online_remote_peer_id, event)
@@ -424,7 +400,7 @@ func _online_receive_fire_event(event: Dictionary) -> void:
 		player_angles[owner] = shot_angle
 		player_power_percents[owner] = shot_power_percent
 		player_powers[owner] = shot_power
-	projectile_pos = _online_unpack_vec2(event.get("projectile_pos", _online_pack_vec2(projectile_pos)))
+	projectile_pos = OnlineDuelCodec.unpack_vec2(event.get("projectile_pos", OnlineDuelCodec.pack_vec2(projectile_pos)))
 	projectile_vel = _online_projectile_velocity_for(owner, shot_angle, shot_power)
 	projectile_active = true
 	turn_projectiles.clear()
