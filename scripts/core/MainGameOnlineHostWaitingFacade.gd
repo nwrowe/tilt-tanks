@@ -281,20 +281,8 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 			tank_positions = authoritative_tanks.duplicate()
 			online_interpolation.has_authoritative_state = true
 
-	tank_health = OnlineDuelCodec.int_array(snapshot.get("tank_health", tank_health), tank_health)
-	player_angles = OnlineDuelCodec.float_array(snapshot.get("player_angles", player_angles), player_angles)
-	player_power_percents = OnlineDuelCodec.float_array(snapshot.get("player_power_percents", player_power_percents), player_power_percents)
-	player_powers = OnlineDuelCodec.float_array(snapshot.get("player_powers", player_powers), player_powers)
-	current_player = int(snapshot.get("current_player", current_player))
-	angle_deg = float(snapshot.get("angle_deg", angle_deg))
-	power_percent = float(snapshot.get("power_percent", power_percent))
-	power = float(snapshot.get("power", power))
-	wind = float(snapshot.get("wind", wind))
-	turn_timer = float(snapshot.get("turn_timer", turn_timer))
-	game_over = bool(snapshot.get("game_over", game_over))
-	selected_weapon = str(snapshot.get("selected_weapon", selected_weapon))
-
-	projectile_active = bool(snapshot.get("projectile_active", projectile_active))
+	_online_apply_shared_snapshot_fields(snapshot)
+	
 	var authoritative_projectile_pos: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", OnlineDuelCodec.pack_vec2(projectile_pos)))
 	var authoritative_projectile_vel: Vector2 = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", OnlineDuelCodec.pack_vec2(projectile_vel)))
 	if projectile_active:
@@ -315,12 +303,6 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 	if not turn_projectiles.is_empty() and previous_turn_projectile_count == 0:
 		_trigger_fire_fx(current_player, angle_deg)
 
-	explosion_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("explosion_pos", OnlineDuelCodec.pack_vec2(explosion_pos)))
-	explosion_timer = float(snapshot.get("explosion_timer", explosion_timer))
-	hotseat_turn_start_pending = bool(snapshot.get("hotseat_turn_start_pending", hotseat_turn_start_pending))
-	pending_advance_after_explosion_hold = bool(snapshot.get("pending_advance_after_explosion_hold", pending_advance_after_explosion_hold))
-	cluster_camera_hold_timer = float(snapshot.get("cluster_camera_hold_timer", cluster_camera_hold_timer))
-	cluster_camera_hold_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("cluster_camera_hold_pos", OnlineDuelCodec.pack_vec2(cluster_camera_hold_pos)))
 	turn_cluster_camera_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("turn_cluster_camera_pos", OnlineDuelCodec.pack_vec2(turn_cluster_camera_pos)))
 	online_client_waiting_for_authority = false
 
