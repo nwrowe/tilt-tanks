@@ -370,8 +370,10 @@ func _test_runtime_radial_damage() -> void:
 	_check(state.tank_health == game.get("tank_health"), "heavy splash matches controller health state")
 	_check(not controller.is_game_over(), "nonlethal splash keeps the match active")
 
-	game.set("tank_positions", [impact, impact] as Array[Vector2])
-	game.set("tank_health", [1, 1] as Array[int])
+	var both_positions: Array[Vector2] = [impact, impact]
+	var both_health: Array[int] = [1, 1]
+	game.set("tank_positions", both_positions)
+	game.set("tank_health", both_health)
 	game.call("_apply_explosion_damage", impact)
 	_check((game.get("tank_health") as Array) == [0, 0], "legacy explosion can destroy both tanks")
 	_check(controller.is_game_over() and controller.winner_index() == -1, "live dual destruction is a draw")
