@@ -112,8 +112,19 @@ const STEAM_PUFF_START_RADIUS: float = 4.0
 const STEAM_PUFF_END_RADIUS: float = 13.0
 
 var game_mode: int = GAME_MODE_HOTSEAT
-var ai_pending_turn: bool = false
-var ai_think_timer: float = 0.0
+var turn_ai_session: TurnAITurnSession = TurnAITurnSession.new()
+# Preserve legacy property access for descendant scripts.
+var ai_pending_turn: bool:
+	get:
+		return turn_ai_session.pending
+	set(value):
+		turn_ai_session.pending = value
+
+var ai_think_timer: float:
+	get:
+		return turn_ai_session.think_timer
+	set(value):
+		turn_ai_session.think_timer = value
 
 var rt_player_fire_cooldown: float = 0.0
 var rt_ai_fire_cooldown: float = 2.2
@@ -258,8 +269,7 @@ func reset_match() -> void:
 	game_over = false
 	mobile_left_pressed = false
 	mobile_right_pressed = false
-	ai_pending_turn = false
-	ai_think_timer = 0.0
+	turn_ai_session.reset()
 
 	tank_positions = [Vector2(TANK_START_LEFT_X, 0.0), Vector2(TANK_START_LEFT_X + 300.0, 0.0)]
 	_generate_random_terrain()
@@ -291,27 +301,33 @@ func _process(delta: float) -> void:
 	_process_legacy_gameplay_frame(delta)
 
 func _is_ai_turn_active() -> bool:
-	return game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and current_player == AI_PLAYER_INDEX and not projectile_active and not game_over and not overlay_open
+	return TurnAITurnSession.can_act(
+		game_mode == GAME_MODE_SINGLE_PLAYER_QUICK, current_player == AI_PLAYER_INDEX,
+		projectile_active, game_over, overlay_open
+	)
 
 func _is_ai_turn_waiting_for_explosion() -> bool:
-	return game_mode == GAME_MODE_SINGLE_PLAYER_QUICK and current_player == AI_PLAYER_INDEX and not projectile_active and not game_over and not overlay_open and explosion_timer > 0.0
+	return TurnAITurnSession.waiting_for_explosion(
+		game_mode == GAME_MODE_SINGLE_PLAYER_QUICK, current_player == AI_PLAYER_INDEX,
+		projectile_active, game_over, overlay_open, explosion_timer
+	)
 
 func _advance_turn() -> void:
 	super._advance_turn()
 	if _is_ai_turn_active():
 		_begin_ai_turn()
 	else:
-		ai_pending_turn = false
+		turn_ai_session.cancel()
 
 func _process_ai_turn(delta: float) -> void:
 	if not ai_pending_turn:
 		_begin_ai_turn()
-	ai_think_timer -= delta
+	turn_ai_session.step(delta)
 	_update_camera(delta)
 	_update_ui()
 	queue_redraw()
 	if ai_think_timer <= 0.0:
-		ai_pending_turn = false
+		turn_ai_session.cancel()
 		_take_ai_shot()
 
 func _process_ai_turn_waiting_for_explosion(delta: float) -> void:
@@ -319,14 +335,13 @@ func _process_ai_turn_waiting_for_explosion(delta: float) -> void:
 	if explosion_timer <= 0.0:
 		explosion_timer = 0.0
 		explosion_pos = Vector2.INF
-		ai_pending_turn = false
+		turn_ai_session.cancel()
 	_update_camera(delta)
 	_update_ui()
 	queue_redraw()
 
 func _begin_ai_turn() -> void:
-	ai_pending_turn = true
-	ai_think_timer = AI_THINK_TIME_SLOWER
+	turn_ai_session.begin(AI_THINK_TIME_SLOWER)
 	mobile_left_pressed = false
 	mobile_right_pressed = false
 	if power_slider != null:
