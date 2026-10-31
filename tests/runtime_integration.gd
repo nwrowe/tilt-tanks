@@ -70,6 +70,7 @@ func _run() -> void:
 	_test_mode_runtime_ancestor_retirement()
 	_test_destroyed_smoke_session_live()
 	_test_turn_ai_visual_aim_session_live()
+	_test_identical_method_override_cleanup()
 
 	game.queue_free()
 	await process_frame
@@ -954,6 +955,56 @@ func _test_turn_ai_visual_aim_session_live() -> void:
 		"active turn AI barrel animation uses composed session slew policy")
 	game.call("reset_match")
 	_check(session.plan.is_empty(), "match reset clears the composed turn AI visual plan")
+
+func _test_identical_method_override_cleanup() -> void:
+	# MainGame no longer declares copies of its parent weapon/projectile hooks.
+	# Active registry overrides and the inherited projectile implementation
+	# must still behave as they did before the removal.
+	var main_script: Script = load("res://scripts/core/MainGame.gd") as Script
+	var weapon_script: Script = load("res://scripts/weapons/WeaponRuntimeBridge.gd") as Script
+	_check(main_script != null and weapon_script != null, "deduplicated scripts remain loadable")
+	if main_script == null or weapon_script == null:
+		return
+	var inherited_names: Array[String] = [
+		"_update_projectile", "_spawn_destroyed_smoke_puff",
+		"_draw_destroyed_smoke_puffs", "_weapon_direct_damage",
+		"_weapon_explosion_radius", "_has_active_realtime_shell_for_owner"
+	]
+	for name: String in inherited_names:
+		var parent_declares: bool = false
+		for entry: Dictionary in weapon_script.get_script_method_list():
+			if str(entry.get("name", "")) == name:
+				parent_declares = true
+				break
+		_check(parent_declares, "weapon runtime retains inherited method " + name)
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var heavy: WeaponDefinition = session.definition(WeaponCatalog.HEAVY)
+	var old_damage: int = heavy.direct_damage
+	heavy.direct_damage = old_damage + 17
+	_check(int(game.call("_weapon_direct_damage", WeaponCatalog.HEAVY)) == old_damage + 17,
+		"active weapon stats still resolve from mutable definition session, not legacy catalog")
+	heavy.direct_damage = old_damage
+
+	game.call("_on_hotseat_pressed")
+	var initial_pos: Vector2 = Vector2(320.0, 30.0)
+	var initial_vel: Vector2 = Vector2(40.0, -20.0)
+	var delta: float = 0.016
+	var expected: Dictionary = ProjectileManager.step_legacy_projectile(
+		initial_pos, initial_vel, float(game.get("gravity")), float(game.get("wind")), delta
+	)
+	game.set("current_player", 0)
+	game.set("projectile_active", true)
+	game.set("turn_projectile_weapon", WeaponCatalog.STANDARD)
+	game.set("turn_projectile_split_done", false)
+	game.set("projectile_pos", initial_pos)
+	game.set("projectile_vel", initial_vel)
+	game.call("_update_projectile", delta)
+	_check((game.get("projectile_pos") as Vector2).is_equal_approx(expected["pos"]) and
+		(game.get("projectile_vel") as Vector2).is_equal_approx(expected["vel"]),
+		"special-weapons super call reaches identical inherited projectile integrator")
+	_check(bool(game.get("projectile_active")),
+		"deduplicated projectile update does not prematurely terminate a shell")
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
