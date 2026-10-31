@@ -941,6 +941,7 @@ func _test_destroyed_smoke_session_live() -> void:
 	game.set("destroyed_smoke_puffs", replacement_puffs)
 	_check(session.puffs == replacement_puffs,
 		"legacy smoke puff property writes reach the same composed session")
+	game.set("destroyed_smoke_timer", 0.02)
 	game.call("_update_destroyed_smoke", 0.1)
 	_check(session.puffs.size() == 2 and
 		(game.get("destroyed_smoke_puffs") as Array) == session.puffs,
