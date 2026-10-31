@@ -79,9 +79,9 @@ This count is a static screening result, not a behavioral equivalence proof.
    integer mode IDs, the compatibility runtime has `GAME_MODE_*` integer
    constants, and `ModeControllerRegistry` uses string IDs.
    `MainGameModeFacade` maps between them. Prefer one canonical mode
-   identity and an explicit, tested legacy adapter. `GameMode.gd` had
-   no direct `GameMode.` callers in a repository search; verify with a
-   full reference check before considering deletion.
+   identity and an explicit, tested legacy adapter. **Resolved in cleanup PR #68:** the unused `GameMode.gd`
+   enum was deleted. Active string IDs still require the explicit legacy
+   integer-mode adapter until a separate behavior-parity migration.
 7. **Some façade names underdescribe their actual roles.**
    `MainGameProgressionFacade` also owns campaign/menu and substantial
    online-duel connection state. `MainGameOnlineHostWaitingFacade`
@@ -89,10 +89,10 @@ This count is a static screening result, not a behavioral equivalence proof.
    Repartition responsibility before renaming. A broad rename alone
    would not reduce complexity.
 8. **Visual AI code is split by path.** `TurnAIVisualAimSession` lives
-   under `scripts/ai`, but `RealtimeAIAimingSession` lives under
-   `scripts/modes`. Their interfaces and timing differ; do **not**
-   merge them indiscriminately. Put AI-domain session/policy objects in
-   a consistent directory once references are inventoried.
+   under `scripts/ai`, but `RealtimeAIAimingSession` previously lived under
+   `scripts/modes`. **Resolved in cleanup PR #68:** the two AI aiming
+   sessions now both live under `scripts/ai`. Their APIs and timing differ;
+   do **not** merge them indiscriminately.
 
 ### P2: consistent naming, folders and documentation
 
@@ -157,3 +157,12 @@ ENet, and main scene startup green. A lower inheritance count by itself
 is **not** acceptance: total duplicated active logic, API ownership,
 and readability must improve. Android on-device validation remains a
 separate release gate.
+
+## Cleanup checkpoint
+
+- **PR #67:** Removed twelve identical inherited method declarations from
+  `MainGame.gd` and added a CI guard against identical active ancestor
+  implementations. The eight-layer hierarchy is unchanged.
+- **PR #68:** Removes an unused mode enum class and colocates the realtime
+  visual AI aiming session with other AI sessions. Its mode controller
+  remains under `scripts/modes`; no runtime API changes.
