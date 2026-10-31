@@ -43,6 +43,7 @@ func _run() -> void:
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
 	_test_single_weapon_metadata_owner()
+	_test_pruned_weapon_collision_dispatch_live()
 	_test_composed_weapon_definition_session()
 	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
@@ -1163,6 +1164,46 @@ func _test_single_weapon_metadata_owner() -> void:
 		WeaponRegistry.WEAPON_BOUNCER, "bounce_damping_x", 0.78)), 0.31),
 		"canonical metadata session also owns special weapon extension values")
 	bouncer.extra_fields["bounce_damping_x"] = original_damping
+
+func _test_pruned_weapon_collision_dispatch_live() -> void:
+	# Both turn and realtime shell checks now use the inherited weapon bridge
+	# implementations rather than equivalent copies in MainGame.
+	# Godot's get_script_method_list includes inherited methods, so inspect
+	# only local declarations in the stored MainGame source instead.
+	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
+	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
+	for method_name: String in [
+		"_build_weapon_ui", "_split_turn_cluster_projectile",
+		"_update_turn_weapon_projectiles", "_fire_realtime_projectile",
+		"_spawn_realtime_cluster_children",
+		"_turn_shell_should_explode", "_realtime_projectile_should_explode"
+	]:
+		_check(not main_source.contains("\nfunc " + method_name + "("),
+			"MainGame does not redeclare shadowed weapon override " + method_name)
+
+	game.call("_on_hotseat_pressed")
+	var old_ponds: Array[Dictionary] = game.get("ponds")
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var positions: Array[Vector2] = game.get("tank_positions")
+	for owner: int in [0, 1]:
+		var target: int = 1 - owner
+		var hit: Vector2 = positions[target]
+		_check(bool(game.call("_turn_shell_should_explode", owner, hit)),
+			"turn-based projectile detects target tank for owner " + str(owner))
+		_check(bool(game.call("_realtime_projectile_should_explode", owner, hit)),
+			"realtime projectile detects target tank for owner " + str(owner))
+	var x: float = 510.0
+	var ground_y: float = float(game.call("_ground_y_at_x", x))
+	var airborne: Vector2 = Vector2(x, ground_y - 180.0)
+	var surface: Vector2 = Vector2(x, ground_y + 3.0)
+	var offscreen: Vector2 = Vector2(-150.0, -250.0)
+	for name: String in ["_turn_shell_should_explode", "_realtime_projectile_should_explode"]:
+		_check(not bool(game.call(name, 0, airborne)), name + " allows an airborne shell")
+		_check(bool(game.call(name, 0, surface)), name + " detonates on terrain")
+		_check(bool(game.call(name, 0, offscreen)), name + " detonates out of world")
+	game.set("ponds", old_ponds)
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
