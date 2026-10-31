@@ -85,24 +85,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _ready() -> void:
 	super._ready()
-	_add_main_menu_controls()
-	_relabel_quit_buttons()
 	_resize_mobile_action_buttons()
 	_build_weapon_ui()
 
 func _resize_mobile_action_buttons() -> void:
-	if mobile_left_button != null:
-		mobile_left_button.position = Vector2(16, 430)
-		mobile_left_button.size = Vector2(92, 88)
-	if mobile_right_button != null:
-		mobile_right_button.position = Vector2(122, 430)
-		mobile_right_button.size = Vector2(92, 88)
-	if mobile_fire_button != null:
-		mobile_fire_button.position = Vector2(696, 448)
-		mobile_fire_button.size = Vector2(188, 70)
-	if weapon_button != null:
-		weapon_button.position = WeaponSelectMenu.BUTTON_POS
-		weapon_button.size = WeaponSelectMenu.BUTTON_SIZE
+	MobileControls.layout_weapon_runtime_actions(
+		mobile_left_button, mobile_right_button, mobile_fire_button,
+		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
+	)
 
 func _build_weapon_ui() -> void:
 	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
@@ -171,17 +161,6 @@ func _hide_overlays() -> void:
 	if weapon_panel != null:
 		weapon_panel.visible = false
 
-func _add_main_menu_controls() -> void:
-	if menu_panel != null:
-		menu_panel.size = Vector2(230, 194)
-		var main_button: Button = Button.new()
-		main_button.text = "Main Menu"
-		main_button.position = Vector2(16, 138)
-		main_button.size = Vector2(198, 36)
-		_style_mobile_button(main_button)
-		menu_panel.add_child(main_button)
-		main_button.pressed.connect(_return_to_main_menu)
-
 func _relabel_quit_buttons() -> void:
 	_relabel_quit_buttons_recursive(ui_layer)
 
@@ -194,24 +173,11 @@ func _relabel_quit_buttons_recursive(node: Node) -> void:
 		_relabel_quit_buttons_recursive(child)
 
 func _quit_game() -> void:
-	_return_to_main_menu()
-
-func _return_to_main_menu() -> void:
-	turn_projectiles.clear()
-	rt_projectiles.clear()
+	_return_to_maintiles.clear()
 	projectile_active = false
 	game_over = false
 	overlay_open = false
-	weapon_menu_open = false
-	destroyed_smoke_session.reset()
-	ai_visual_shot_plan.clear()
-	if menu_panel != null:
-		menu_panel.visible = false
-	if end_panel != null:
-		end_panel.visible = false
-	if weapon_panel != null:
-		weapon_panel.visible = false
-	_show_main_menu()
+main_menu()
 
 func reset_match() -> void:
 	turn_projectiles.clear()
