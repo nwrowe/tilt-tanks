@@ -67,6 +67,7 @@ func _run() -> void:
 	_test_turn_ai_session_live()
 	_test_menu_navigation_session_live()
 	_test_composed_menu_screen_layouts_live()
+	_test_mode_runtime_ancestor_retirement()
 
 	game.queue_free()
 	await process_frame
@@ -872,6 +873,26 @@ func _test_composed_menu_screen_layouts_live() -> void:
 		placeholder_back.pressed.emit()
 	_check(int(game.get("menu_state")) == 0 and view.controls.size() == 3,
 		"composed fallback placeholder back action returns home")
+	game.call("_show_main_menu")
+
+func _test_mode_runtime_ancestor_retirement() -> void:
+	var active_script: Script = game.get_script() as Script
+	var chain: Array[String] = []
+	while active_script != null:
+		chain.append(active_script.resource_path)
+		active_script = active_script.get_base_script()
+	_check(chain.size() == 8, "active Godot scene inherits exactly eight script layers")
+	_check(not chain.has("res://scripts/modes/ModeRuntimeBridge.gd"),
+		"retired ModeRuntimeBridge is not an active parent")
+	_check(chain.has("res://scripts/modes/WorldRuntimeBridge.gd") and
+		chain.has("res://scripts/Main.gd"),
+		"active world runtime extends legacy root directly")
+	game.call("_show_main_menu")
+	_check(int(game.get("menu_state")) == 0 and (game.get("menu_buttons") as Array).size() == 3,
+		"world runtime preserves original main menu initialization")
+	game.call("_on_hotseat_pressed")
+	_check(int(game.get("menu_state")) == 4 and (game.get("tank_positions") as Array).size() == 2,
+		"world runtime preserves hotseat lifecycle and live match state")
 	game.call("_show_main_menu")
 
 func _find_menu_button(text_to_find: String) -> Button:
