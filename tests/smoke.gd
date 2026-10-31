@@ -30,6 +30,7 @@ func _run() -> void:
 	_test_menu_navigation_session()
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
+	_test_shared_projectile_launch_geometry()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -265,6 +266,31 @@ func _test_turn_ai_visual_aim_session() -> void:
 	session.clear_plan()
 	_check(session.plan.is_empty() and is_equal_approx(session.target_angle, 70.0),
 		"firing clears the visual plan without resetting the last target")
+
+func _test_shared_projectile_launch_geometry() -> void:
+	var tank_pos: Vector2 = Vector2(380.0, 290.0)
+	var angle: float = 35.0
+	var force: float = 690.0
+	var cannon_length: float = 42.0
+	var rad: float = deg_to_rad(angle)
+	for owner: int in [0, 1]:
+		var facing: float = 1.0 if owner == 0 else -1.0
+		var fired: Dictionary = ProjectileFactory.make_fired_shell(
+			owner, WeaponCatalog.HEAVY, tank_pos, facing,
+			angle, force, cannon_length
+		)
+		var expected_position: Vector2 = tank_pos + Vector2(
+			facing * cannon_length * cos(rad), -cannon_length * sin(rad)
+		)
+		var expected_velocity: Vector2 = Vector2(
+			facing * force * cos(rad), -force * sin(rad)
+		)
+		_check((fired["pos"] as Vector2).is_equal_approx(expected_position) and
+			(fired["vel"] as Vector2).is_equal_approx(expected_velocity),
+			"shared shell launch preserves muzzle and velocity geometry for player " + str(owner))
+		_check(int(fired["owner"]) == owner and fired["weapon"] == WeaponCatalog.HEAVY and
+			not bool(fired["split"]) and not bool(fired["center_child"]),
+			"shared shell launch preserves factory dictionary contract for player " + str(owner))
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
