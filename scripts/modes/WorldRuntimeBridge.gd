@@ -963,7 +963,6 @@ func _draw() -> void:
 		_draw_turn_widget()
 		if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 			_draw_realtime_projectiles()
-			_draw_realtime_cooldown_widgets()
 			_draw_steam_puffs()
 		return
 	_mode_runtime_draw()
@@ -1103,9 +1102,6 @@ func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
 	if pos.x < -100.0 or pos.x > active_world_width + 100.0 or pos.y > _bottom_floor_y() + 180.0:
 		return true
 	return false
-
-func _draw_realtime_cooldown_widgets() -> void:
-	return
 
 func _reset_realtime_charge_state() -> void:
 	rt_fire_charge_time = 0.0
