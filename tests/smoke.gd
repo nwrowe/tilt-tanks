@@ -29,6 +29,7 @@ func _run() -> void:
 	_test_turn_ai_session()
 	_test_menu_navigation_session()
 	_test_destroyed_smoke_session()
+	_test_turn_ai_visual_aim_session()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -233,6 +234,37 @@ func _test_destroyed_smoke_session() -> void:
 		"smoke session emits nothing after reset")
 	_check(session.start([0, 0]) and session.tank_index == 0,
 		"both destroyed tanks preserve player-zero selection priority")
+
+func _test_turn_ai_visual_aim_session() -> void:
+	var session: TurnAIVisualAimSession = TurnAIVisualAimSession.new()
+	_check(session.plan.is_empty() and is_equal_approx(session.target_angle, 45.0),
+		"turn visual aim session begins with original defaults")
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var oracle_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 20261030
+	oracle_rng.seed = 20261030
+	var expected_angle: float = clampf(45.0 + oracle_rng.randf_range(-7.5, 7.5), 2.0, 94.0)
+	var expected_power: float = clampf(55.0 + oracle_rng.randf_range(-12.0, 12.0), 0.0, 100.0)
+	var expected_next_random: float = oracle_rng.randf()
+	var base: Dictionary = {"angle": 45.0, "power_percent": 55.0, "move_x": 101.0}
+	var plan: Dictionary = TurnAIVisualAimSession.perturb_plan(base, rng, 7.5, 12.0, 2.0, 94.0)
+	_check(is_equal_approx(float(plan["angle"]), expected_angle) and
+		is_equal_approx(float(plan["power_percent"]), expected_power),
+		"visual AI preserves signed aim and power perturbation order")
+	_check(is_equal_approx(rng.randf(), expected_next_random),
+		"visual AI preserves exact RNG consumption")
+	_check(plan.has("move_x") and is_equal_approx(float(base["move_x"]), 101.0),
+		"AI noise preserves other plan fields")
+	session.track(plan, 35.0, 65.0)
+	_check(is_equal_approx(session.target_angle, expected_angle) and
+		is_equal_approx(session.target_power_percent, expected_power),
+		"visual session owns target angle and power selection")
+	session.track({"angle": 70.0, "power_percent": 62.0}, 30.0, 50.0)
+	_check(is_equal_approx(session.advance_angle(45.0, 32.0, 0.5), 61.0),
+		"visual session preserves the legacy turn AI barrel slew rate")
+	session.clear_plan()
+	_check(session.plan.is_empty() and is_equal_approx(session.target_angle, 70.0),
+		"firing clears the visual plan without resetting the last target")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

@@ -69,6 +69,7 @@ func _run() -> void:
 	_test_composed_menu_screen_layouts_live()
 	_test_mode_runtime_ancestor_retirement()
 	_test_destroyed_smoke_session_live()
+	_test_turn_ai_visual_aim_session_live()
 
 	game.queue_free()
 	await process_frame
@@ -929,6 +930,30 @@ func _test_destroyed_smoke_session_live() -> void:
 	_check(session.tank_index == -1 and is_zero_approx(session.spawn_timer) and
 		(game.get("destroyed_smoke_puffs") as Array).is_empty(),
 		"active match reset clears composed smoke state and effect objects")
+
+func _test_turn_ai_visual_aim_session_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var session: TurnAIVisualAimSession = game.get("turn_ai_visual") as TurnAIVisualAimSession
+	_check(session != null and session.plan.is_empty(),
+		"active weapon runtime composes turn AI visual session")
+	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
+	rng.seed = 20261030
+	game.call("_begin_ai_turn")
+	_check(bool(game.get("ai_pending_turn")) and not session.plan.is_empty(),
+		"active turn AI begins a timed turn with a stored visual plan")
+	_check((game.get("ai_visual_shot_plan") as Dictionary) == session.plan and
+		is_equal_approx(float(game.get("ai_visual_target_angle")), session.target_angle),
+		"legacy visual aim properties forward to the composed session")
+	_check(is_equal_approx(session.target_angle, float(session.plan.get("angle", -1.0))) and
+		is_equal_approx(session.target_power_percent, float(session.plan.get("power_percent", -1.0))),
+		"active turn visual targets agree with the chosen noisy shot plan")
+	var before_angle: float = float((game.get("player_angles") as Array)[1])
+	var expected: float = move_toward(before_angle, session.target_angle, 32.0 * 0.25)
+	game.call("_update_ai_visual_aim", 0.25)
+	_check(is_equal_approx(float((game.get("player_angles") as Array)[1]), expected),
+		"active turn AI barrel animation uses composed session slew policy")
+	game.call("reset_match")
+	_check(session.plan.is_empty(), "match reset clears the composed turn AI visual plan")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")

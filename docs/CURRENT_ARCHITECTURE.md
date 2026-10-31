@@ -26,8 +26,8 @@ documents describe previous stages, not the current runtime.
 
 - Match: `MatchState`, `MatchController`,
   `MatchRuntimeSynchronizer`, and damage/weapon policies
-- AI: `TurnAITurnSession`, `TurnAIShotPlanner`,
-  `TurnAIBallisticScorer`, `RealtimeAIMovementPlanner`,
+- AI: `TurnAITurnSession`, `TurnAIVisualAimSession`,
+  `TurnAIShotPlanner`, `TurnAIBallisticScorer`, `RealtimeAIMovementPlanner`,
   `RealtimeAIAimingSession`, and `RealtimeCooldownPolicy`
 - Modes: `ModeControllerRegistry`, `ActiveModeState`, hotseat,
   realtime, campaign and network-mode controllers
