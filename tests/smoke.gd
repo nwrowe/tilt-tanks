@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
 	_test_shared_projectile_launch_geometry()
+	_test_shared_tank_visual_geometry()
 	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
@@ -366,6 +367,35 @@ func _test_bouncer_weapon_policy() -> void:
 		int(shell["bounces"]) == 2, "Bouncer contact mutates original shell and increments once")
 	_check(shell["extra"] == "preserved" and shell["weapon"] == WeaponRegistry.WEAPON_BOUNCER,
 		"Bouncer contact preserves unrelated shell metadata")
+
+func _test_shared_tank_visual_geometry() -> void:
+	var center: Vector2 = Vector2(200.0, 250.0)
+	var scale: float = 2.0
+	var tread: PackedVector2Array = TankVisualRenderer.tread_polygon(center, scale)
+	var hull: PackedVector2Array = TankVisualRenderer.body_polygon(center, scale)
+	_check(tread.size() == 6 and tread[0] == center + Vector2(-50.0, 16.0) and
+		tread[5] == center + Vector2(-60.0, 32.0),
+		"shared tank tread polygon retains original six vertices and camera scaling")
+	_check(hull.size() == 4 and hull[0] == center + Vector2(-44.0, 10.0) and
+		hull[3] == center + Vector2(-32.0, -20.0),
+		"shared tank body polygon retains original four vertices")
+	var angle: float = 35.0
+	var rad: float = deg_to_rad(angle)
+	for facing: float in [1.0, -1.0]:
+		var weapon_barrel: PackedVector2Array = TankVisualRenderer.barrel_segment(
+			center, facing, scale, 48.0, angle, Vector2.ZERO
+		)
+		_check(weapon_barrel[0] == center and weapon_barrel[1].is_equal_approx(
+			center + Vector2(facing * 96.0 * cos(rad), -96.0 * sin(rad))),
+			"active weapon barrel keeps muzzle geometry for facing " + str(facing))
+		var base_barrel: PackedVector2Array = TankVisualRenderer.barrel_segment(
+			center, facing, scale, 48.0, angle, Vector2(6.0, -15.0)
+		)
+		_check(base_barrel[0].is_equal_approx(
+			center + Vector2(facing * 12.0, -30.0)) and
+			base_barrel[1].is_equal_approx(
+			base_barrel[0] + Vector2(facing * 96.0 * cos(rad), -96.0 * sin(rad))),
+			"base barrel retains offset anchor for facing " + str(facing))
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

@@ -597,32 +597,12 @@ func _draw_turn_widget() -> void:
 func _draw_tank(index: int, color: Color) -> void:
 	var pos: Vector2 = _world_to_screen(tank_positions[index])
 	var facing: float = 1.0 if index == 0 else -1.0
-	var s: float = CAMERA_SCALE
-	var tread_points: PackedVector2Array = PackedVector2Array([
-		pos + Vector2(-25, 8) * s,
-		pos + Vector2(25, 8) * s,
-		pos + Vector2(30, 16) * s,
-		pos + Vector2(22, 22) * s,
-		pos + Vector2(-22, 22) * s,
-		pos + Vector2(-30, 16) * s,
-	])
-	draw_colored_polygon(tread_points, Color(color.r * 0.45, color.g * 0.45, color.b * 0.45))
-	draw_line(pos + Vector2(-24, 15) * s, pos + Vector2(24, 15) * s, Color.BLACK, 3.0)
-	var body_points: PackedVector2Array = PackedVector2Array([
-		pos + Vector2(-22, 5) * s,
-		pos + Vector2(22, 5) * s,
-		pos + Vector2(16, -10) * s,
-		pos + Vector2(-16, -10) * s,
-	])
-	draw_colored_polygon(body_points, color)
-	draw_circle(pos + Vector2(0, -13) * s, 12.0 * s, color)
-	if index != current_player or game_over:
-		var stored_angle: float = angle_deg
-		if index >= 0 and index < player_angles.size():
-			stored_angle = player_angles[index]
-		var barrel_rad: float = deg_to_rad(stored_angle)
-		var barrel_base: Vector2 = pos + Vector2(facing * 6.0, -15.0) * s
-		var barrel_tip: Vector2 = barrel_base + Vector2(facing * CANNON_LENGTH * cos(barrel_rad), -CANNON_LENGTH * sin(barrel_rad)) * s
-		draw_line(barrel_base, barrel_tip, Color.WHITE, 3.0)
-	for wheel_x: float in [-18.0, 0.0, 18.0]:
-		draw_circle(pos + Vector2(wheel_x, 16) * s, 4.0 * s, Color.BLACK)
+	var stored_angle: float = angle_deg
+	if index >= 0 and index < player_angles.size():
+		stored_angle = player_angles[index]
+	TankVisualRenderer.draw_tank(
+		self, pos, facing, CAMERA_SCALE, color,
+		index != current_player or game_over, stored_angle, CANNON_LENGTH,
+		Vector2(6.0, -15.0), 3.0
+	)
+

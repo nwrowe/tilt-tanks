@@ -198,3 +198,20 @@ power percentage. It does not consume or mutate the plan. The
 `WeaponRuntimeBridge._take_ai_shot` wrapper retains the original ordering
 of movement, power calculation, slider updates, plan clearing, and actual
 firing, but no longer interprets raw plan dictionary keys itself.
+
+## Shared tank silhouette rendering (PR #79)
+
+Both the legacy `Main._draw_tank` and active
+`WeaponRuntimeBridge._draw_tank` previously repeated the exact
+tread, hull, turret and wheels drawing sequence. Those methods now
+delegate to `scripts/ui/TankVisualRenderer`, a single stateless
+CanvasItem renderer with pure polygon and barrel geometry helpers.
+
+The runtime wrappers still select the camera transform, tank facing,
+player angle and whether a barrel is visible. Two historical barrel
+variants remain explicit: the base renderer anchors at
+`(6,-15)` with a 3-pixel line, while the active weapon runtime anchors
+at the tank center with a 4-pixel line. Both variants preserve the
+original draw order: tread, hull, turret, barrel, wheels. Unit tests
+check both directions, silhouettes and muzzle geometry. No changes
+to the `_draw` override chain or rendering order.
