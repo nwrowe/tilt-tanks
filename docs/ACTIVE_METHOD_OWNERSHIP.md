@@ -215,3 +215,21 @@ at the tank center with a 4-pixel line. Both variants preserve the
 original draw order: tread, hull, turret, barrel, wheels. Unit tests
 check both directions, silhouettes and muzzle geometry. No changes
 to the `_draw` override chain or rendering order.
+
+## Shared effect drawing (PR #80)
+
+`EffectsManager` now owns the common CanvasItem drawing loops for
+explosion visuals and rising smoke circles. Previously, `Main.gd`
+and `WeaponRuntimeBridge.gd` duplicated the same expanding
+explosion/ray drawing code. Likewise, destroyed-smoke and muzzle-smoke
+drawing in the weapon bridge and `MainGame.gd` used the same
+camera projection, lifetime fade and radius calculation.
+
+The scene-facing draw hooks remain in their original positions in
+the inherited `_draw` chain, but forward the existing values to
+`EffectsManager.draw_explosion` and
+`EffectsManager.draw_rising_puffs`. The callers retain their distinct
+weapon-specific radii, smoke colors, alpha, lifetimes and sizes.
+The helper performs exactly the prior draw calls in their original order.
+Unit tests cover the shared camera transform and fade/radius geometry,
+while live Godot scene and multiplayer smoke tests remain mandatory.
