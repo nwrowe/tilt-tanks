@@ -37,8 +37,19 @@ var turn_projectiles: Array[Dictionary] = []
 var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 
 var destroyed_smoke_puffs: Array[Dictionary] = []
-var destroyed_smoke_timer: float = 0.0
-var destroyed_tank_index: int = -1
+var destroyed_smoke_session: DestroyedTankSmokeSession = DestroyedTankSmokeSession.new()
+# Compatibility properties retained for the active game and its descendants.
+var destroyed_smoke_timer: float:
+	get:
+		return destroyed_smoke_session.spawn_timer
+	set(value):
+		destroyed_smoke_session.spawn_timer = value
+
+var destroyed_tank_index: int:
+	get:
+		return destroyed_smoke_session.tank_index
+	set(value):
+		destroyed_smoke_session.tank_index = value
 
 var ai_visual_shot_plan: Dictionary = {}
 var ai_visual_target_angle: float = 45.0
@@ -168,7 +179,7 @@ func _return_to_main_menu() -> void:
 	game_over = false
 	overlay_open = false
 	weapon_menu_open = false
-	destroyed_tank_index = -1
+	destroyed_smoke_session.reset()
 	destroyed_smoke_puffs.clear()
 	ai_visual_shot_plan.clear()
 	if menu_panel != null:
@@ -185,8 +196,7 @@ func reset_match() -> void:
 	turn_projectile_split_done = false
 	last_explosion_visual_radius = EXPLOSION_RADIUS
 	destroyed_smoke_puffs.clear()
-	destroyed_smoke_timer = 0.0
-	destroyed_tank_index = -1
+	destroyed_smoke_session.reset()
 	ai_visual_shot_plan.clear()
 	super.reset_match()
 	_resize_mobile_action_buttons()
@@ -496,24 +506,14 @@ func _show_end_popup() -> void:
 	super._show_end_popup()
 
 func _start_destroyed_tank_smoke() -> void:
-	if destroyed_tank_index >= 0:
+	if not destroyed_smoke_session.start(tank_health):
 		return
-	if tank_health[0] <= 0:
-		destroyed_tank_index = 0
-	elif tank_health[1] <= 0:
-		destroyed_tank_index = 1
-	else:
-		return
-	destroyed_smoke_timer = 0.0
 	for i: int in range(7):
 		_spawn_destroyed_smoke_puff()
 
 func _update_destroyed_smoke(delta: float) -> void:
-	if destroyed_tank_index >= 0:
-		destroyed_smoke_timer -= delta
-		if destroyed_smoke_timer <= 0.0:
-			_spawn_destroyed_smoke_puff()
-			destroyed_smoke_timer = DESTROYED_SMOKE_INTERVAL
+	if destroyed_smoke_session.advance(delta, DESTROYED_SMOKE_INTERVAL):
+		_spawn_destroyed_smoke_puff()
 	destroyed_smoke_puffs = EffectsManager.update_rising_puffs(destroyed_smoke_puffs, delta, DESTROYED_SMOKE_RISE_SPEED)
 
 func _spawn_destroyed_smoke_puff() -> void:
