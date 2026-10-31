@@ -31,6 +31,20 @@ checks AI-only and human-owned shell availability after dispatch.
 - Unit tests cover both facing signs and the exact shell dictionary contract;
   real-scene tests cover standard and Bouncer launch geometry.
 
+## Bouncer weapon physics
+
+- `WeaponBounceLogic` in `scripts/weapons/` now owns pure bounce-count
+  eligibility, reflected velocity with averaged damping, minimum upward
+  velocity and the in-place realtime shell ground-contact update.
+- `MainGameSpecialWeaponsFacade` still owns projectile collision detection,
+  terrain slope lookup, registry-backed Bouncer parameters, explosions and
+  gameplay state. Both turn-based and realtime Bouncer modes call the same
+  bounce-limit and reflection policy; realtime shell data is deliberately
+  modified in place.
+- Standalone and live-scene tests cover sloped reflection, upward clamp,
+  maximum permitted bounces, mutation semantics and definition-backed
+  damping. Physics calculations consume no random draws.
+
 ## Weapon metadata
 
 - **Active**: `MainGameModeFacade._weapon_*` getters call
