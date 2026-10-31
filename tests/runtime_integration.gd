@@ -71,6 +71,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session_live()
 	_test_turn_ai_visual_aim_session_live()
 	_test_identical_method_override_cleanup()
+	_test_canonical_pond_reflow_live()
 
 	game.queue_free()
 	await process_frame
@@ -1004,6 +1005,47 @@ func _test_identical_method_override_cleanup() -> void:
 		"special-weapons super call reaches identical inherited projectile integrator")
 	_check(bool(game.get("projectile_active")),
 		"deduplicated projectile update does not prematurely terminate a shell")
+	game.call("reset_match")
+
+func _test_canonical_pond_reflow_live() -> void:
+	# This synthetic basin has a fixed stored volume and a deeper cell after
+	# a terrain change. Both the inherited hook and the live-game path must
+	# reach the exact same connected-basin WaterManager algorithm.
+	game.call("_on_hotseat_pressed")
+	var previous_points: Array[Vector2] = game.get("terrain_points")
+	var previous_ponds: Array[Dictionary] = game.get("ponds")
+	var points: Array[Vector2] = [
+		Vector2(0.0, 100.0), Vector2(10.0, 140.0),
+		Vector2(20.0, 170.0), Vector2(30.0, 140.0),
+		Vector2(40.0, 100.0)
+	]
+	var pond: Dictionary = {
+		"start_i": 0, "end_i": 4, "start_x": 0.0, "end_x": 40.0,
+		"water_y": 120.0, "volume": 800.0
+	}
+	game.set("terrain_points", points)
+	var expected: Dictionary = WaterManager.reflow_single_pond(points, pond, 10.0, 2.0, 3.0, 28)
+	var observed: Dictionary = game.call("_reflow_single_pond", pond.duplicate(true), 20.0)
+	_check(observed == expected, "live pond reflow matches the authoritative connected-basin manager")
+	var far_change: Dictionary = game.call("_reflow_single_pond", pond.duplicate(true), 1000.0)
+	_check(far_change == expected, "reflow ignores changed-X search bias as the prior active scene did")
+	_check(is_equal_approx(float(observed.get("volume", 0.0)), 800.0),
+		"pond reflow preserves its stored water-volume target")
+	if observed.has("water_y"):
+		var actual_volume: float = WaterManager.water_volume_for_range(
+			points, int(observed.get("start_i", 0)), int(observed.get("end_i", 4)),
+			float(observed["water_y"]), 10.0
+		)
+		_check(absf(actual_volume - 800.0) < 0.05,
+			"connected-basin surface conserves actual synthetic basin volume")
+	var ponds: Array[Dictionary] = [pond.duplicate(true)]
+	game.set("ponds", ponds)
+	game.call("_reflow_water_after_terrain_change", 20.0)
+	var updated: Array = game.get("ponds")
+	_check(updated.size() == 1 and (updated[0] as Dictionary) == expected,
+		"terrain reflow loop delegates through the one canonical pond implementation")
+	game.set("terrain_points", previous_points)
+	game.set("ponds", previous_ponds)
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
