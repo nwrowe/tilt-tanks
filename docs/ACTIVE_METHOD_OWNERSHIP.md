@@ -126,6 +126,25 @@ the deleted middle-method declarations.
   steam effect intentionally mutates puff dictionaries in place, unlike
   generic rising-puff update code that copies them.
 
+## Retired world compatibility helpers (PR #75)
+
+Five stale helper declarations in `WorldRuntimeBridge` are no longer part
+of the active game:
+
+- `_find_ai_shot` and `_score_ai_shot` simply forwarded to the newer
+  position-aware AI search/scoring methods but had no callers.
+- `_prepare_realtime_ai_shot` was an unused legacy random-aim path.
+  The runtime continues to use `RealtimeAIAimingSession` and
+  `_choose_realtime_ai_visual_plan`; random-number draw ordering on
+  the active path is unchanged.
+- `_load_texture_if_exists` forwarded to the already-composed menu view
+  without callers.
+- `_draw_realtime_cooldown_widgets` was an empty function invoked from
+  the world draw method. The empty invocation and function are removed.
+
+Active mode, AI and menu transitions are covered by the live-scene
+regression checks. Scene inheritance stays at eight layers.
+
 ## Remaining cleanup priorities
 
 1. Prove the special-weapon and online branches of realtime projectile

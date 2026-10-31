@@ -455,17 +455,11 @@ func _find_ai_plan() -> Dictionary:
 		Callable(self, "_score_ai_shot_from_position"), _turn_ai_search_config()
 	)
 
-func _find_ai_shot() -> Dictionary:
-	return _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
-
 func _find_ai_shot_from_position(shooter_pos: Vector2) -> Dictionary:
 	return TurnAIShotPlanner.find_shot(
 		rng, shooter_pos, Callable(self, "_score_ai_shot_from_position"),
 		_turn_ai_search_config()
 	)
-
-func _score_ai_shot(test_angle_deg: float, test_power_percent: float) -> float:
-	return _score_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX], test_angle_deg, test_power_percent)
 
 func _score_ai_shot_from_position(shooter_pos: Vector2, test_angle_deg: float, test_power_percent: float) -> float:
 	var test_power: float = _power_from_percent(test_power_percent)
@@ -560,14 +554,6 @@ func _choose_realtime_ai_move_target() -> void:
 			"tank_radius": TANK_RADIUS
 		}
 	)
-
-func _prepare_realtime_ai_shot() -> void:
-	var aim: Dictionary = _find_ai_shot_from_position(tank_positions[AI_PLAYER_INDEX])
-	var chosen_angle: float = float(aim.get("angle", 45.0)) + rng.randf_range(-RT_AI_AIM_ERROR_ANGLE, RT_AI_AIM_ERROR_ANGLE)
-	var chosen_power_percent: float = float(aim.get("power_percent", 55.0)) + rng.randf_range(-RT_AI_AIM_ERROR_POWER, RT_AI_AIM_ERROR_POWER)
-	player_angles[AI_PLAYER_INDEX] = clampf(chosen_angle, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
-	player_power_percents[AI_PLAYER_INDEX] = clampf(chosen_power_percent, 0.0, 100.0)
-	player_powers[AI_PLAYER_INDEX] = _power_from_percent(player_power_percents[AI_PLAYER_INDEX])
 
 func _update_all_realtime_projectiles(delta: float) -> void:
 	return
@@ -683,9 +669,6 @@ func _load_menu_assets() -> void:
 	menu_bg_landscape_texture = menu_view.landscape_texture
 	menu_bg_portrait_texture = menu_view.portrait_texture
 	menu_logo_texture = menu_view.logo_texture
-
-func _load_texture_if_exists(path: String) -> Texture2D:
-	return menu_view._load_texture(path)
 
 func _build_menu_layer() -> void:
 	menu_view.attach(self)
@@ -980,7 +963,6 @@ func _draw() -> void:
 		_draw_turn_widget()
 		if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 			_draw_realtime_projectiles()
-			_draw_realtime_cooldown_widgets()
 			_draw_steam_puffs()
 		return
 	_mode_runtime_draw()
@@ -1120,9 +1102,6 @@ func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
 	if pos.x < -100.0 or pos.x > active_world_width + 100.0 or pos.y > _bottom_floor_y() + 180.0:
 		return true
 	return false
-
-func _draw_realtime_cooldown_widgets() -> void:
-	return
 
 func _reset_realtime_charge_state() -> void:
 	rt_fire_charge_time = 0.0
