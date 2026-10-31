@@ -901,7 +901,9 @@ func _test_destroyed_smoke_session_live() -> void:
 	var session: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
 	_check(session != null, "active weapon runtime composes destroyed smoke lifecycle owner")
 	game.set("tank_health", [100, 0])
+	print("DEBUG destroyed smoke before: health=", game.get("tank_health"), " index=", game.get("destroyed_tank_index"), " session=", session.tank_index, " puffs=", (game.get("destroyed_smoke_puffs") as Array).size())
 	game.call("_start_destroyed_tank_smoke")
+	print("DEBUG destroyed smoke after: health=", game.get("tank_health"), " index=", game.get("destroyed_tank_index"), " session=", session.tank_index, " puffs=", (game.get("destroyed_smoke_puffs") as Array).size())
 	_check(session.tank_index == 1 and int(game.get("destroyed_tank_index")) == 1,
 		"active destroyed tank selection reads through compatibility property")
 	_check((game.get("destroyed_smoke_puffs") as Array).size() == 7,
