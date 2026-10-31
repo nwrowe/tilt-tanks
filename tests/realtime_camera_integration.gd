@@ -78,6 +78,34 @@ func _run() -> void:
 	game.call("reset_match")
 	_check(is_zero_approx(float(game.get("cluster_camera_hold_timer"))), "reset clears explosion hold")
 
+	# The active special-weapons handler delegates ordinary shells to the
+	# owner-aware ModeFacade implementation, not the removed MainGame loop.
+	game.call("_on_quick_game_pressed")
+	game.set("selected_weapon", WeaponCatalog.STANDARD)
+	var pos: Vector2 = Vector2(350.0, 30.0)
+	var vel: Vector2 = Vector2(30.0, -12.0)
+	var ai_shell: Dictionary = ProjectileFactory.make_shell(1, WeaponCatalog.STANDARD, pos, vel)
+	var shells: Array[Dictionary] = [ai_shell]
+	game.set("rt_projectiles", shells)
+	game.set("rt_player_shell_active", true)
+	var expected_ai: Dictionary = ProjectileManager.step_shell(
+		ai_shell, float(game.get("gravity")), float(game.get("wind")), 0.016
+	)
+	game.call("_update_all_realtime_projectiles", 0.016)
+	var stepped_ai: Array = game.get("rt_projectiles")
+	_check(stepped_ai.size() == 1 and (stepped_ai[0] as Dictionary).get("pos", Vector2.INF) == expected_ai["pos"],
+		"ordinary AI projectile uses inherited owner-aware ModeFacade path")
+	_check(not bool(game.get("rt_player_shell_active")),
+		"AI-only shell does not consume human realtime shell availability")
+	var human_shell: Dictionary = ProjectileFactory.make_shell(0, WeaponCatalog.STANDARD, pos, vel)
+	var human_shells: Array[Dictionary] = [human_shell]
+	game.set("rt_projectiles", human_shells)
+	game.set("rt_player_shell_active", false)
+	game.call("_update_all_realtime_projectiles", 0.016)
+	_check(bool(game.get("rt_player_shell_active")),
+		"ordinary human shell retains owner-aware realtime active-shell state")
+	game.call("reset_match")
+
 	game.queue_free()
 	await process_frame
 	_finish()
