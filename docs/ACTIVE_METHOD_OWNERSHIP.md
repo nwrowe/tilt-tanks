@@ -18,6 +18,27 @@ by `MainGameModeFacade` and was removed in PR #70. The same exact active
 logic was already running before that deletion. A live realtime test
 checks AI-only and human-owned shell availability after dispatch.
 
+## Removed redundant middle weapon overrides (PR #74)
+
+The `MainGame.gd` ancestor no longer redeclares seven weapon hooks
+that were either completely shadowed by active higher facades or
+semantically identical to weapon-runtime ancestors:
+
+- `_build_weapon_ui` (active: `MainGameModeFacade`)
+- `_split_turn_cluster_projectile` (active: `MainGameModeFacade`)
+- `_update_turn_weapon_projectiles` (active: `MainGameSpecialWeaponsFacade`)
+- `_fire_realtime_projectile` (active: `MainGameSpecialWeaponsFacade`)
+- `_spawn_realtime_cluster_children` (active: `MainGameModeFacade`)
+- `_turn_shell_should_explode` (inherited: `WeaponRuntimeBridge`)
+- `_realtime_projectile_should_explode` (inherited: `WeaponRuntimeBridge`)
+
+The last two collision hooks have the same tank/water/terrain/world-boundary
+tests as their deleted copies. No higher override calls `super` into any
+of the five shadowed `MainGame` methods. The lower weapon-runtime
+methods remain defined because their own hooks still call them.
+The live-scene test checks collision decisions and refuses to regress
+the deleted middle-method declarations.
+
 ## Projectile launch geometry
 
 - `ProjectileFactory.make_fired_shell` owns the shared muzzle-offset and
