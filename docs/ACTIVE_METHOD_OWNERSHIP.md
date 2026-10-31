@@ -233,3 +233,22 @@ weapon-specific radii, smoke colors, alpha, lifetimes and sizes.
 The helper performs exactly the prior draw calls in their original order.
 Unit tests cover the shared camera transform and fade/radius geometry,
 while live Godot scene and multiplayer smoke tests remain mandatory.
+
+## Weapon startup and mobile layout ownership (PR #81)
+
+The active `WeaponRuntimeBridge._ready` still chains through the
+world runtime, resizes mobile action buttons, and constructs the active
+weapon selector through the derived `MainGameModeFacade._build_weapon_ui`.
+It no longer calls the former `_add_main_menu_controls` and
+`_relabel_quit_buttons` methods: both were explicitly disabled by
+no-op overrides in `MainGame`. The unused bridge implementations,
+recursive legacy label helper, and no-op descendants have been deleted.
+
+The active four-button positions/sizes now live in the existing
+`MobileControls.layout_weapon_runtime_actions` component. The bridge's
+`_resize_mobile_action_buttons` method is a thin scene-facing adapter,
+which preserves dynamic dispatch from world `_ready` and both reset
+lifecycle calls. The world runtime's legacy FIRE position remains
+untouched as a lower fallback, while the active FIRE control remains
+at (696,448), size (188,70). Regression tests assert the actual
+scene's positions after startup and match reset.

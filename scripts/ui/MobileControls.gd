@@ -67,3 +67,22 @@ static func make_right_button(parent: Node) -> Button:
 
 static func make_fire_button(parent: Node) -> Button:
 	return make_button(FIRE_BUTTON_TEXT, FIRE_BUTTON_POS, FIRE_BUTTON_SIZE, parent)
+
+## Active weapon runtime layout. This is distinct from the legacy
+## WorldRuntimeBridge fallback FIRE position (430, 448).
+static func layout_weapon_runtime_actions(
+	left_button: Button, right_button: Button, fire_button: Button,
+	weapon_button: Button, weapon_pos: Vector2, weapon_size: Vector2
+) -> void:
+	if left_button != null:
+		left_button.position = Vector2(16, 430)
+		left_button.size = Vector2(92, 88)
+	if right_button != null:
+		right_button.position = Vector2(122, 430)
+		right_button.size = Vector2(92, 88)
+	if fire_button != null:
+		fire_button.position = Vector2(696, 448)
+		fire_button.size = Vector2(188, 70)
+	if weapon_button != null:
+		weapon_button.position = weapon_pos
+		weapon_button.size = weapon_size
