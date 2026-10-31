@@ -30,6 +30,11 @@ func _run() -> void:
 	_check((game.get("rt_projectiles") as Array).is_empty(), "realtime match starts without projectiles")
 	var aim_session: RealtimeAIAimingSession = game.get("realtime_ai_aim") as RealtimeAIAimingSession
 	_check(aim_session != null and aim_session.has_plan, "world runtime composes an active AI aim session")
+	_check(
+		aim_session != null and
+		(aim_session.get_script() as Script).resource_path == "res://scripts/ai/RealtimeAIAimingSession.gd",
+		"realtime AI aim session is owned by the AI domain directory"
+	)
 	_check(is_finite(aim_session.target_angle) and is_finite(aim_session.target_power_percent), "AI session stores finite aim targets")
 
 	game.set("rt_ai_fire_cooldown", 100.0)

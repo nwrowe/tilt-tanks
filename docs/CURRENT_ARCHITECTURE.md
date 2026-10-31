@@ -26,18 +26,19 @@ documents describe previous stages, not the current runtime.
 
 - Match: `MatchState`, `MatchController`,
   `MatchRuntimeSynchronizer`, and damage/weapon policies
-- AI: `TurnAITurnSession`, `TurnAIVisualAimSession`,
+- AI (`scripts/ai/`): `TurnAITurnSession`, `TurnAIVisualAimSession`,
   `TurnAIShotPlanner`, `TurnAIBallisticScorer`, `RealtimeAIMovementPlanner`,
-  `RealtimeAIAimingSession`, and `RealtimeCooldownPolicy`
-- Modes: `ModeControllerRegistry`, `ActiveModeState`, hotseat,
+  and `RealtimeAIAimingSession` (`RealtimeAIController` remains in
+  `scripts/modes/` because it participates in the mode registry)
+- Modes: `ModeControllerRegistry`, `ActiveModeState`, `RealtimeCooldownPolicy`, hotseat,
   realtime, campaign and network-mode controllers
-- UI: `MainMenuView`, `MainMenuNavigationSession`,
+- UI: `MainMenuView`, `MainMenuNavigationSession`, `WindMeterPolicy`,
   `MainMenuPresentation`, `CampaignMapView`, `TankGarageView`,
   `WeaponSelectMenu` and other UI builders
 - World: `TerrainMath`, `TerrainManager`, `WaterManager` and
   `SnowManager`
-- Effects: `EffectsManager`, `SteamPuffEffect`,
-  `DestroyedTankSmokeSession` and `WindMeterPolicy`
+- Effects: `EffectsManager`, `SteamPuffEffect`, and
+  `DestroyedTankSmokeSession`
 - Online duel: packet/command validation, snapshot encoding,
   synchronization, interpolation and sequenced events
 
@@ -77,3 +78,12 @@ Extract remaining independent responsibilities from
 that layer. Avoid replacing the old inheritance chain with a large new
 monolith; the temporary compatibility methods in `WorldRuntimeBridge`
 must be slimmed over subsequent iterations.
+
+## Mode identity compatibility
+
+The former unused `GameMode.gd` integer enum has been deleted. The active
+runtime still uses `GAME_MODE_*` integer compatibility values in
+`WorldRuntimeBridge.gd` and canonical string IDs in
+`ModeControllerRegistry.gd`. `MainGameModeFacade.gd` owns their
+conversion. This is a necessary transitional adapter, not a reason to add
+a new third set of mode identifiers.
