@@ -47,22 +47,23 @@ checks AI-only and human-owned shell availability after dispatch.
 
 ## Weapon metadata
 
-- **Active**: `MainGameModeFacade._weapon_*` getters call
-  `_weapon_value`, implemented by `MainGame` using
-  `WeaponDefinitionSession` / `WeaponRegistry`.
-- **Fallback**: `WeaponRuntimeBridge._weapon_*` getters use
-  `WeaponCatalog` legacy defaults; their current active-scene
-  counterparts are overridden by the mode facade.
-- **Data bootstrap**: `WeaponRegistry.build_default_definitions()`
-  reads the four legacy `WeaponCatalog` entries and registers
-  special weapon definitions. The catalog is not a second active mutable
-  weapon-stat store.
-- A regression test modifies a `WeaponDefinition` instance and verifies
-  the active `_weapon_direct_damage` getter observes the change.
-
-Preserve `WeaponCatalog` until the weapon bridge is retired or all
-standalone compatibility consumers are migrated. Avoid adding further
-catalog-only active getters.
+- **Canonical owner:** `WeaponRuntimeBridge` now composes
+  `WeaponDefinitionSession`. The session builds `WeaponRegistry`
+  definitions from base `WeaponCatalog` data and extended special
+  definitions. This is the **only** active runtime stat source.
+- **Single getter implementation:** all seven `_weapon_*` stat getters and
+  generic `_weapon_value` live in `WeaponRuntimeBridge` and route through
+  its composed session. The duplicate higher-facade getters in
+  `MainGameModeFacade` were removed.
+- **Compatibility aliases:** `MainGame` still exposes
+  `weapon_definitions` and `active_weapon_loadout` initialized from the
+  same inherited session. Its loadout lifecycle remains unchanged.
+- **Legacy catalog:** `WeaponCatalog` remains an immutable data input for
+  base weapons and external compatibility code, **not** a second live
+  weapon-stat lookup. Do not reintroduce catalog-backed runtime getters.
+- Live-scene tests change each of seven `WeaponDefinition` attributes and
+  a Bouncer-specific extension field and verify that the inherited runtime
+  metadata getters immediately return the modified values.
 
 ## Terrain and water
 

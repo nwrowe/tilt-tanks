@@ -29,7 +29,6 @@ const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
 const MUZZLE_SMOKE_START_RADIUS: float = 3.0
 const MUZZLE_SMOKE_END_RADIUS: float = 10.0
 
-var weapon_definition_session: WeaponDefinitionSession = WeaponDefinitionSession.new()
 # Compatibility references for older runtime code, modes and networking.
 # The session remains the owner; methods below keep aliases synchronized.
 var weapon_definitions: Dictionary = weapon_definition_session.definitions
@@ -1183,9 +1182,6 @@ func _weapon_definition(weapon: String) -> WeaponDefinition:
 
 func _weapon_display_name(weapon: String) -> String:
 	return weapon_definition_session.display_name(weapon)
-
-func _weapon_value(weapon: String, key: String, fallback: Variant) -> Variant:
-	return weapon_definition_session.value(weapon, key, fallback)
 
 func _weapon_split_behavior(weapon: String) -> String:
 	return weapon_definition_session.split_behavior(weapon)

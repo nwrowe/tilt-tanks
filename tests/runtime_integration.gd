@@ -42,6 +42,7 @@ func _run() -> void:
 	_test_cluster_split_runtime()
 	_test_player_weapon_selection_component()
 	_test_metadata_weapon_overrides()
+	_test_single_weapon_metadata_owner()
 	_test_composed_weapon_definition_session()
 	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
@@ -1127,6 +1128,41 @@ func _test_bouncer_weapon_policy_live() -> void:
 	definition.extra_fields["bounce_damping_x"] = old_x
 	definition.extra_fields["bounce_damping_y"] = old_y
 	game.call("reset_match")
+
+func _test_single_weapon_metadata_owner() -> void:
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	_check(session != null and game.get("weapon_definitions") == session.definitions,
+		"runtime and compatibility registry share a single definition-session owner")
+	var heavy: WeaponDefinition = session.definition(WeaponCatalog.HEAVY)
+	var probes: Array[Dictionary] = [
+		{"key": "explosion_radius", "getter": "_weapon_explosion_radius", "increment": 11.0},
+		{"key": "direct_radius", "getter": "_weapon_direct_radius", "increment": 5.0},
+		{"key": "direct_damage", "getter": "_weapon_direct_damage", "increment": 7.0},
+		{"key": "splash_damage", "getter": "_weapon_splash_damage", "increment": 9.0},
+		{"key": "crater_radius", "getter": "_weapon_crater_radius", "increment": 13.0},
+		{"key": "crater_depth", "getter": "_weapon_crater_depth", "increment": 17.0},
+		{"key": "projectile_scale", "getter": "_weapon_projectile_scale", "increment": 0.25}
+	]
+	for probe: Dictionary in probes:
+		var key: String = str(probe["key"])
+		var getter: String = str(probe["getter"])
+		var original: Variant = heavy.get(key)
+		var new_value: Variant
+		if key == "direct_damage" or key == "splash_damage":
+			new_value = int(original) + int(probe["increment"])
+		else:
+			new_value = float(original) + float(probe["increment"])
+		heavy.set(key, new_value)
+		_check(is_equal_approx(float(game.call(getter, WeaponCatalog.HEAVY)), float(new_value)),
+			"canonical inherited weapon getter reflects registry updates: " + key)
+		heavy.set(key, original)
+	var bouncer: WeaponDefinition = session.definition(WeaponRegistry.WEAPON_BOUNCER)
+	var original_damping: Variant = bouncer.extra_fields.get("bounce_damping_x", 0.78)
+	bouncer.extra_fields["bounce_damping_x"] = 0.31
+	_check(is_equal_approx(float(game.call("_weapon_value",
+		WeaponRegistry.WEAPON_BOUNCER, "bounce_damping_x", 0.78)), 0.31),
+		"canonical metadata session also owns special weapon extension values")
+	bouncer.extra_fields["bounce_damping_x"] = original_damping
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
