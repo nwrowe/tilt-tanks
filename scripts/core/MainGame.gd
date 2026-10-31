@@ -993,58 +993,6 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
 		_advance_turn()
 
-func _update_all_realtime_projectiles(delta: float) -> void:
-	if rt_projectiles.is_empty():
-		return
-	var remaining: Array[Dictionary] = []
-	var cluster_focus_sum: Vector2 = Vector2.ZERO
-	var cluster_focus_n: int = 0
-	var had_cluster_children: bool = false
-	var last_cluster_explosion: Vector2 = Vector2.INF
-
-	for shell: Dictionary in rt_projectiles:
-		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
-		var owner: int = int(stepped.get("owner", HUMAN_PLAYER_INDEX))
-		var weapon: String = str(stepped.get("weapon", WEAPON_STANDARD))
-		var split_done: bool = bool(stepped.get("split", false))
-		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
-		var vel: Vector2 = stepped.get("vel", Vector2.ZERO)
-
-		if weapon == WEAPON_CLUSTER and not split_done and vel.y >= 0.0:
-			_spawn_realtime_cluster_children(owner, pos, vel)
-			realtime_cluster_focus_pos = pos
-			realtime_cluster_focus_count = 3
-		elif _realtime_projectile_should_explode(owner, pos):
-			if weapon == WEAPON_CLUSTER_CHILD:
-				had_cluster_children = true
-				last_cluster_explosion = pos
-				realtime_cluster_focus_count = maxi(0, realtime_cluster_focus_count - 1)
-			_explode_realtime_weapon(pos, weapon)
-		else:
-			remaining.append(stepped)
-			if weapon == WEAPON_CLUSTER_CHILD:
-				had_cluster_children = true
-				cluster_focus_sum += pos
-				cluster_focus_n += 1
-
-	rt_projectiles = remaining
-	rt_player_shell_active = ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX)
-
-	if cluster_focus_n > 0:
-		realtime_cluster_focus_pos = cluster_focus_sum / float(cluster_focus_n)
-		cluster_camera_hold_pos = realtime_cluster_focus_pos
-		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
-	elif had_cluster_children:
-		if last_cluster_explosion != Vector2.INF:
-			realtime_cluster_focus_pos = last_cluster_explosion
-			cluster_camera_hold_pos = last_cluster_explosion
-		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
-		if realtime_cluster_focus_count <= 0:
-			realtime_cluster_focus_pos = Vector2.INF
-	elif rt_projectiles.is_empty() and explosion_pos != Vector2.INF:
-		cluster_camera_hold_pos = explosion_pos
-		cluster_camera_hold_timer = CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION
-
 func _draw_turn_cluster_projectiles() -> void:
 	for shell: Dictionary in turn_projectiles:
 		var weapon: String = str(shell.get("weapon", WEAPON_CLUSTER_CHILD))
