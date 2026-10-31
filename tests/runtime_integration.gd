@@ -1168,18 +1168,18 @@ func _test_single_weapon_metadata_owner() -> void:
 func _test_pruned_weapon_collision_dispatch_live() -> void:
 	# Both turn and realtime shell checks now use the inherited weapon bridge
 	# implementations rather than equivalent copies in MainGame.
-	var main_script: Script = load("res://scripts/core/MainGame.gd") as Script
-	var main_methods: Array[String] = []
-	for entry: Dictionary in main_script.get_script_method_list():
-		main_methods.append(str(entry.get("name", "")))
+	# Godot's get_script_method_list includes inherited methods, so inspect
+	# only local declarations in the stored MainGame source instead.
+	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
+	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
 	for method_name: String in [
 		"_build_weapon_ui", "_split_turn_cluster_projectile",
 		"_update_turn_weapon_projectiles", "_fire_realtime_projectile",
 		"_spawn_realtime_cluster_children",
 		"_turn_shell_should_explode", "_realtime_projectile_should_explode"
 	]:
-		_check(not main_methods.has(method_name),
-			"MainGame does not reintroduce shadowed weapon override " + method_name)
+		_check(not main_source.contains("\nfunc " + method_name + "("),
+			"MainGame does not redeclare shadowed weapon override " + method_name)
 
 	game.call("_on_hotseat_pressed")
 	var old_ponds: Array[Dictionary] = game.get("ponds")
