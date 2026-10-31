@@ -14,14 +14,19 @@ in `MainMenuView`, `MainMenuNavigationSession`,
 `RealtimeAIMovementPlanner`, `RealtimeCooldownPolicy`,
 `SteamPuffEffect` and `WindMeterPolicy`.
 
-Five mode-to-world `super` boundaries that were active in the old parent
-have been converted into explicit local compatibility methods:
+The original migration converted five mode-to-world `super` boundaries
+into local compatibility methods. Following the October 30 draw cleanup,
+**four** of those remain:
 
 - `_mode_runtime_ready` preserves startup and menu construction
 - `_mode_runtime_setup_realtime_single_player` preserves mode initialization
 - `_mode_runtime_reset_match` preserves reset timing, physics and RNG draws
 - `_mode_runtime_show_game_ui` preserves base UI visibility handling
-- `_mode_runtime_draw` preserves fallback menu drawing
+The fifth (`_mode_runtime_draw`) used to contain a second gameplay
+renderer, but `WorldRuntimeBridge._draw` called it only from the
+non-game/menu branch. That unreachable duplicate renderer was removed in
+PR #76; the active `_draw` now calls `_draw_menu_background` directly
+in menu state. This preserves the original fallback menu output.
 
 Methods already overridden in `WorldRuntimeBridge` that never called
 their mode parent were discarded rather than migrated:
