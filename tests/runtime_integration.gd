@@ -60,6 +60,7 @@ func _run() -> void:
 	_test_menu_layout_policy_live()
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
+	_test_weapon_startup_layout_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
@@ -1259,6 +1260,37 @@ func _test_retired_world_mode_helpers_live() -> void:
 	_check(int(game.get("menu_state")) == GAME_MENU_STATE,
 		"mode transitions still work after deleting unused world compatibility code")
 	game.call("reset_match")
+
+func _test_weapon_startup_layout_live() -> void:
+	# WorldRuntimeBridge's old prototype layout is overridden through
+	# WeaponRuntimeBridge in both the ready and reset dispatch chains.
+	var left: Button = game.get("mobile_left_button") as Button
+	var right: Button = game.get("mobile_right_button") as Button
+	var fire: Button = game.get("mobile_fire_button") as Button
+	var weapon: Button = game.get("weapon_button") as Button
+	_check(left != null and right != null and fire != null and weapon != null,
+		"active startup creates all mobile and weapon action controls")
+	if left == null or right == null or fire == null or weapon == null:
+		return
+	_check(left.position == Vector2(16, 430) and left.size == Vector2(92, 88),
+		"active left mobile button has original gameplay layout")
+	_check(right.position == Vector2(122, 430) and right.size == Vector2(92, 88),
+		"active right mobile button has original gameplay layout")
+	_check(fire.position == Vector2(696, 448) and fire.size == Vector2(188, 70),
+		"active FIRE button retains weapon-bridge position after World startup")
+	_check(weapon.position == WeaponSelectMenu.BUTTON_POS and
+		weapon.size == WeaponSelectMenu.BUTTON_SIZE,
+		"weapon button keeps the menu-helper placement")
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	_check(not source.contains("\nfunc _add_main_menu_controls(") and
+		not source.contains("\nfunc _relabel_quit_buttons("),
+		"bridge no longer declares dead startup menu hooks")
+	game.call("reset_match")
+	_check(fire.position == Vector2(696, 448) and
+		weapon.position == WeaponSelectMenu.BUTTON_POS,
+		"reset_match still applies active button layout through the inherited hook")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
