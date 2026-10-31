@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
 	_test_shared_projectile_launch_geometry()
+	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -291,6 +292,39 @@ func _test_shared_projectile_launch_geometry() -> void:
 		_check(int(fired["owner"]) == owner and fired["weapon"] == WeaponCatalog.HEAVY and
 			not bool(fired["split"]) and not bool(fired["center_child"]),
 			"shared shell launch preserves factory dictionary contract for player " + str(owner))
+
+func _test_bouncer_weapon_policy() -> void:
+	_check(not WeaponBounceLogic.reached_limit(2, 3) and
+		WeaponBounceLogic.reached_limit(3, 3) and
+		WeaponBounceLogic.reached_limit(4, 3),
+		"Bouncer max-bounce comparison is inclusive and shared across game modes")
+	var flat_reflection: Vector2 = WeaponBounceLogic.reflect_velocity(
+		Vector2(100.0, 60.0), 0.0, 0.78, 0.66, 95.0
+	)
+	_check(flat_reflection.is_equal_approx(Vector2(72.0, -95.0)),
+		"Bouncer flat-ground reflection preserves average damping and minimum upward speed")
+	var tilted_velocity: Vector2 = Vector2(160.0, 120.0)
+	var slope: float = 0.4
+	var normal: Vector2 = Vector2(-slope, -1.0).normalized()
+	var expected: Vector2 = tilted_velocity - 2.0 * tilted_velocity.dot(normal) * normal
+	expected *= 0.5 * (0.45 + 0.75)
+	if expected.y > -95.0:
+		expected.y = -95.0
+	_check(WeaponBounceLogic.reflect_velocity(
+		tilted_velocity, slope, 0.45, 0.75, 95.0
+	).is_equal_approx(expected), "Bouncer sloped-ground reflection matches original vector formula")
+	var shell: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponRegistry.WEAPON_BOUNCER,
+		Vector2(300.0, 410.0), Vector2(120.0, 95.0)
+	)
+	shell["bounces"] = 1
+	shell["extra"] = "preserved"
+	WeaponBounceLogic.apply_ground_bounce(shell, 400.0, 5.0, Vector2(65.0, -95.0))
+	_check((shell["pos"] as Vector2) == Vector2(300.0, 395.0) and
+		(shell["vel"] as Vector2) == Vector2(65.0, -95.0) and
+		int(shell["bounces"]) == 2, "Bouncer contact mutates original shell and increments once")
+	_check(shell["extra"] == "preserved" and shell["weapon"] == WeaponRegistry.WEAPON_BOUNCER,
+		"Bouncer contact preserves unrelated shell metadata")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

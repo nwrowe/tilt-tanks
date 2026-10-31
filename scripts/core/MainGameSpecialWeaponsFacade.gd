@@ -341,7 +341,7 @@ func _update_bouncing_turn_projectile(delta: float) -> void:
 		return
 	var ground_y: float = _ground_y_at_x(projectile_pos.x)
 	if projectile_pos.y >= ground_y:
-		if turn_bouncer_bounce_count >= int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3)):
+		if WeaponBounceLogic.reached_limit(turn_bouncer_bounce_count, int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3))):
 			_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
 			return
 		projectile_pos.y = ground_y - PROJECTILE_RADIUS
@@ -357,22 +357,20 @@ func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 	var ground_y: float = _ground_y_at_x(pos.x)
 	if pos.y >= ground_y:
 		var count: int = int(shell.get("bounces", 0))
-		if count >= int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3)):
+		if WeaponBounceLogic.reached_limit(count, int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3))):
 			return {"explode": true, "shell": shell}
-		shell["pos"] = Vector2(pos.x, ground_y - PROJECTILE_RADIUS)
-		shell["vel"] = _reflect_bouncer_velocity(pos.x, vel)
-		shell["bounces"] = count + 1
+		WeaponBounceLogic.apply_ground_bounce(
+			shell, ground_y, PROJECTILE_RADIUS, _reflect_bouncer_velocity(pos.x, vel)
+		)
 	return {"explode": false, "shell": shell}
 
 func _reflect_bouncer_velocity(x: float, incoming_vel: Vector2) -> Vector2:
-	var slope: float = _terrain_slope_at_x(x)
-	var normal: Vector2 = Vector2(-slope, -1.0).normalized()
-	var reflected: Vector2 = incoming_vel - 2.0 * incoming_vel.dot(normal) * normal
-	var damping: float = 0.5 * (float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_x", 0.78)) + float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_y", 0.66)))
-	reflected *= damping
-	if reflected.y > -MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED:
-		reflected.y = -MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED
-	return reflected
+	return WeaponBounceLogic.reflect_velocity(
+		incoming_vel, _terrain_slope_at_x(x),
+		float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_x", 0.78)),
+		float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_y", 0.66)),
+		MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED
+	)
 
 func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	machine_gun_active = true

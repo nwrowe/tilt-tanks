@@ -73,6 +73,7 @@ func _run() -> void:
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_launch_geometry_live()
+	_test_bouncer_weapon_policy_live()
 
 	game.queue_free()
 	await process_frame
@@ -1083,6 +1084,48 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 			special["pos"] == expected_special["pos"] and
 			special["vel"] == expected_special["vel"],
 			"special realtime shot uses same exact owner and launch geometry")
+	game.call("reset_match")
+
+func _test_bouncer_weapon_policy_live() -> void:
+	game.call("_on_hotseat_pressed")
+	# Avoid a random level pond occupying the deterministic bounce contact.
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var definition: WeaponDefinition = session.definition(WeaponRegistry.WEAPON_BOUNCER)
+	var old_x: float = float(definition.extra_fields.get("bounce_damping_x", 0.78))
+	var old_y: float = float(definition.extra_fields.get("bounce_damping_y", 0.66))
+	definition.extra_fields["bounce_damping_x"] = 0.42
+	definition.extra_fields["bounce_damping_y"] = 0.58
+	var contact_x: float = 720.0
+	var incoming: Vector2 = Vector2(125.0, 85.0)
+	var expected_reflection: Vector2 = WeaponBounceLogic.reflect_velocity(
+		incoming, float(game.call("_terrain_slope_at_x", contact_x)),
+		0.42, 0.58, 95.0
+	)
+	var actual_reflection: Vector2 = game.call("_reflect_bouncer_velocity", contact_x, incoming)
+	_check(actual_reflection.is_equal_approx(expected_reflection),
+		"active Bouncer reflection resolves live registry damping metadata through pure policy")
+	var ground_y: float = float(game.call("_ground_y_at_x", contact_x))
+	var shell: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponRegistry.WEAPON_BOUNCER,
+		Vector2(contact_x, ground_y + 2.0), incoming
+	)
+	var result: Dictionary = game.call("_step_bouncer_shell", shell, 0)
+	_check(not bool(result.get("explode", true)) and int(shell.get("bounces", 0)) == 1,
+		"active realtime Bouncer uses shared policy for first permitted bounce")
+	_check((shell.get("pos", Vector2.ZERO) as Vector2).is_equal_approx(
+		Vector2(contact_x, ground_y - 5.0)) and
+		(shell.get("vel", Vector2.ZERO) as Vector2).is_equal_approx(expected_reflection),
+		"active realtime Bouncer keeps contact position and velocity exactly")
+	shell["bounces"] = 3
+	shell["pos"] = Vector2(contact_x, ground_y + 2.0)
+	var before: Dictionary = shell.duplicate(true)
+	var expired: Dictionary = game.call("_step_bouncer_shell", shell, 0)
+	_check(bool(expired.get("explode", false)) and shell == before,
+		"active Bouncer explodes at the stored maximum without modifying shell")
+	definition.extra_fields["bounce_damping_x"] = old_x
+	definition.extra_fields["bounce_damping_y"] = old_y
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
