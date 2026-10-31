@@ -972,6 +972,14 @@ func _test_turn_ai_visual_aim_session_live() -> void:
 	game.call("_update_ai_visual_aim", 0.25)
 	_check(is_equal_approx(float((game.get("player_angles") as Array)[1]), expected),
 		"active turn AI barrel animation uses composed session slew policy")
+	var staged_shot: Dictionary = session.shot_settings(
+		float((game.get("tank_positions") as Array)[1].x), 0.0, 90.0
+	)
+	_check(is_equal_approx(float(staged_shot["move_x"]),
+		float(session.plan.get("move_x", (game.get("tank_positions") as Array)[1].x))) and
+		is_equal_approx(float(staged_shot["power_percent"]),
+		clampf(float(session.plan.get("power_percent", 55.0)), 0.0, 100.0)),
+		"live AI shot interpretation reads the same composed visual plan without mutation")
 	game.call("reset_match")
 	_check(session.plan.is_empty(), "match reset clears the composed turn AI visual plan")
 
