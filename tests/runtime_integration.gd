@@ -44,6 +44,7 @@ func _run() -> void:
 	_test_metadata_weapon_overrides()
 	_test_single_weapon_metadata_owner()
 	_test_pruned_weapon_collision_dispatch_live()
+	_test_retired_world_mode_helpers_live()
 	_test_composed_weapon_definition_session()
 	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
@@ -1203,6 +1204,30 @@ func _test_pruned_weapon_collision_dispatch_live() -> void:
 		_check(bool(game.call(name, 0, surface)), name + " detonates on terrain")
 		_check(bool(game.call(name, 0, offscreen)), name + " detonates out of world")
 	game.set("ponds", old_ponds)
+	game.call("reset_match")
+
+func _test_retired_world_mode_helpers_live() -> void:
+	# These former compatibility helpers have no callers in the live scene.
+	# Retaining their source-level declarations would reintroduce stale policy
+	# paths that bypass the current composed AI/menu services.
+	var source: String = FileAccess.get_file_as_string("res://scripts/modes/WorldRuntimeBridge.gd")
+	_check(not source.is_empty(), "world script available for compatibility guard")
+	for unused: String in [
+		"_find_ai_shot", "_score_ai_shot",
+		"_prepare_realtime_ai_shot", "_load_texture_if_exists",
+		"_draw_realtime_cooldown_widgets"
+	]:
+		_check(not source.contains("\nfunc " + unused + "("),
+			"world no longer declares obsolete compatibility hook " + unused)
+	game.call("_on_quick_game_pressed")
+	game.call("_choose_realtime_ai_visual_plan")
+	var aim: RealtimeAIAimingSession = game.get("realtime_ai_aim") as RealtimeAIAimingSession
+	_check(aim != null and aim.has_plan, "active realtime AI still plans through composed session")
+	_check(is_finite(aim.target_angle) and is_finite(aim.target_power_percent),
+		"active realtime AI plan targets stay finite after dead-path cleanup")
+	game.call("_on_hotseat_pressed")
+	_check(int(game.get("menu_state")) == GAME_MENU_STATE,
+		"mode transitions still work after deleting unused world compatibility code")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
