@@ -1088,6 +1088,9 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
+	# Avoid a random level pond occupying the deterministic bounce contact.
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	var definition: WeaponDefinition = session.definition(WeaponRegistry.WEAPON_BOUNCER)
 	var old_x: float = float(definition.extra_fields.get("bounce_damping_x", 0.78))
@@ -1116,6 +1119,7 @@ func _test_bouncer_weapon_policy_live() -> void:
 		(shell.get("vel", Vector2.ZERO) as Vector2).is_equal_approx(expected_reflection),
 		"active realtime Bouncer keeps contact position and velocity exactly")
 	shell["bounces"] = 3
+	shell["pos"] = Vector2(contact_x, ground_y + 2.0)
 	var before: Dictionary = shell.duplicate(true)
 	var expired: Dictionary = game.call("_step_bouncer_shell", shell, 0)
 	_check(bool(expired.get("explode", false)) and shell == before,
