@@ -161,23 +161,25 @@ func _hide_overlays() -> void:
 	if weapon_panel != null:
 		weapon_panel.visible = false
 
-func _relabel_quit_buttons() -> void:
-	_relabel_quit_buttons_recursive(ui_layer)
-
-func _relabel_quit_buttons_recursive(node: Node) -> void:
-	if node is Button:
-		var button: Button = node as Button
-		if button.text == "Quit":
-			button.text = "Main Menu"
-	for child: Node in node.get_children():
-		_relabel_quit_buttons_recursive(child)
-
 func _quit_game() -> void:
-	_return_to_maintiles.clear()
+	_return_to_main_menu()
+
+func _return_to_main_menu() -> void:
+	turn_projectiles.clear()
+	rt_projectiles.clear()
 	projectile_active = false
 	game_over = false
 	overlay_open = false
-main_menu()
+	weapon_menu_open = false
+	destroyed_smoke_session.reset()
+	ai_visual_shot_plan.clear()
+	if menu_panel != null:
+		menu_panel.visible = false
+	if end_panel != null:
+		end_panel.visible = false
+	if weapon_panel != null:
+		weapon_panel.visible = false
+	_show_main_menu()
 
 func reset_match() -> void:
 	turn_projectiles.clear()
