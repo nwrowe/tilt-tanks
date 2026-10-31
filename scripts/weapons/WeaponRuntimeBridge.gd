@@ -29,6 +29,9 @@ const SNOW_FACE_SHADOW_ALPHA: float = 0.24
 var weapon_button: Button
 var weapon_panel: Panel
 var weapon_menu_open: bool = false
+# Canonical weapon metadata owner for this runtime and all descendants.
+# Older catalog IDs remain input to WeaponRegistry, not a second stat source.
+var weapon_definition_session: WeaponDefinitionSession = WeaponDefinitionSession.new()
 var selected_weapon: String = WEAPON_STANDARD
 
 var turn_projectile_weapon: String = WEAPON_STANDARD
@@ -488,26 +491,29 @@ func _apply_weapon_crater(pos: Vector2, weapon: String) -> void:
 	_refresh_terrain_line()
 	_reflow_water_after_terrain_change(pos.x)
 
+func _weapon_value(weapon: String, key: String, fallback: Variant) -> Variant:
+	return weapon_definition_session.value(weapon, key, fallback)
+
 func _weapon_explosion_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "explosion_radius", EXPLOSION_RADIUS))
+	return float(_weapon_value(weapon, "explosion_radius", EXPLOSION_RADIUS))
 
 func _weapon_direct_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "direct_radius", DIRECT_HIT_RADIUS))
+	return float(_weapon_value(weapon, "direct_radius", DIRECT_HIT_RADIUS))
 
 func _weapon_direct_damage(weapon: String) -> int:
-	return int(WeaponCatalog.value(weapon, "direct_damage", DIRECT_HIT_DAMAGE))
+	return int(_weapon_value(weapon, "direct_damage", DIRECT_HIT_DAMAGE))
 
 func _weapon_splash_damage(weapon: String) -> int:
-	return int(WeaponCatalog.value(weapon, "splash_damage", MAX_SPLASH_DAMAGE))
+	return int(_weapon_value(weapon, "splash_damage", MAX_SPLASH_DAMAGE))
 
 func _weapon_crater_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "crater_radius", CRATER_RADIUS))
+	return float(_weapon_value(weapon, "crater_radius", CRATER_RADIUS))
 
 func _weapon_crater_depth(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "crater_depth", CRATER_DEPTH))
+	return float(_weapon_value(weapon, "crater_depth", CRATER_DEPTH))
 
 func _weapon_projectile_scale(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "projectile_scale", 1.0))
+	return float(_weapon_value(weapon, "projectile_scale", 1.0))
 
 func _show_end_popup() -> void:
 	_start_destroyed_tank_smoke()
