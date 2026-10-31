@@ -36,8 +36,8 @@ documents describe previous stages, not the current runtime.
   `WeaponSelectMenu` and other UI builders
 - World: `TerrainMath`, `TerrainManager`, `WaterManager` and
   `SnowManager`
-- Effects: `EffectsManager`, `SteamPuffEffect` and
-  `WindMeterPolicy`
+- Effects: `EffectsManager`, `SteamPuffEffect`,
+  `DestroyedTankSmokeSession` and `WindMeterPolicy`
 - Online duel: packet/command validation, snapshot encoding,
   synchronization, interpolation and sequenced events
 
