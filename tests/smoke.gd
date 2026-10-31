@@ -252,8 +252,9 @@ func _test_destroyed_smoke_session() -> void:
 	_check(source_rng.randi() == reference_rng.randi(),
 		"composed smoke puff generation consumes exactly the original three random draws")
 	var original_puff: Dictionary = session.puffs[0].duplicate(true)
+	var original_puffs: Array[Dictionary] = [original_puff]
 	var expected_puffs: Array[Dictionary] = EffectsManager.update_rising_puffs(
-		[original_puff], 0.10, 42.0
+		original_puffs, 0.10, 42.0
 	)
 	session.update_puffs(0.10, 42.0)
 	_check(session.puffs == expected_puffs and session.puffs[0] != original_puff,
