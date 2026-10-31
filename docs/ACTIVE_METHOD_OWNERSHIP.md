@@ -145,6 +145,17 @@ of the active game:
 Active mode, AI and menu transitions are covered by the live-scene
 regression checks. Scene inheritance stays at eight layers.
 
+## Retired duplicate world renderer (PR #76)
+
+The original mode-runtime helper `_mode_runtime_draw` contained a
+gameplay drawing branch duplicating the real `WorldRuntimeBridge._draw`.
+However, `_draw` invoked that helper only when the menu was active.
+Its gameplay branch could never run; the menu branch simply delegated
+to `_draw_menu_background`. The extra method and dead rendering branch
+have now been removed, with the active world menu path calling
+`_draw_menu_background` directly. No drawing, terrain, wind, UI or
+camera function in the active gameplay branch changed.
+
 ## Remaining cleanup priorities
 
 1. Prove the special-weapon and online branches of realtime projectile
