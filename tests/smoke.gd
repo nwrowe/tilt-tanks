@@ -32,6 +32,7 @@ func _run() -> void:
 	_test_turn_ai_visual_aim_session()
 	_test_shared_projectile_launch_geometry()
 	_test_shared_tank_visual_geometry()
+	_test_shared_effect_render_geometry()
 	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
@@ -396,6 +397,34 @@ func _test_shared_tank_visual_geometry() -> void:
 			base_barrel[1].is_equal_approx(
 			base_barrel[0] + Vector2(facing * 96.0 * cos(rad), -96.0 * sin(rad))),
 			"base barrel retains offset anchor for facing " + str(facing))
+
+func _test_shared_effect_render_geometry() -> void:
+	var world: Vector2 = Vector2(560.0, 180.0)
+	var camera_x: float = 200.0
+	var scale: float = 1.5
+	var offset: float = 30.0
+	_check(EffectsManager.puff_screen_position(
+		world, camera_x, scale, offset
+	).is_equal_approx(Vector2(540.0, 300.0)),
+		"shared puff draw transform preserves world-to-screen camera offset")
+	var elapsed: float = 0.35
+	var radius_pixels: float = 120.0
+	var expected_outer: float = radius_pixels * (0.55 + 0.65 * elapsed)
+	_check(is_equal_approx(
+		EffectsManager.explosion_outer_radius(radius_pixels, elapsed), expected_outer
+	), "shared explosion geometry preserves expanding radius from prior draw paths")
+	_check(is_equal_approx(
+		EffectsManager.explosion_outer_radius(60.0, elapsed) * 2.0,
+		EffectsManager.explosion_outer_radius(120.0, elapsed)
+	), "shared explosion rendering preserves distinct legacy and weapon radii")
+	var puff: Dictionary = EffectsManager.make_puff(world, 1.35, -10.0, 0.65)
+	_check(is_equal_approx(EffectsManager.effect_radius(
+		float(puff["age"]), float(puff["life"]), 5.0, 18.0
+	), lerpf(5.0, 18.0, 0.65 / 1.35)) and
+		is_equal_approx(EffectsManager.effect_alpha(
+		float(puff["age"]), float(puff["life"]), 0.58
+	), 0.58 * (1.0 - 0.65 / 1.35)),
+		"shared smoke visuals preserve existing lifetime, radius and alpha policy")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene

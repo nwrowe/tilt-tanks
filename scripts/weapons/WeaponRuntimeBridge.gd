@@ -569,13 +569,12 @@ func _draw_tank(index: int, color: Color) -> void:
 	)
 
 func _draw_destroyed_smoke_puffs() -> void:
-	for puff: Dictionary in destroyed_smoke_puffs:
-		var age: float = float(puff.get("age", 0.0))
-		var life: float = float(puff.get("life", DESTROYED_SMOKE_LIFETIME))
-		var pos: Vector2 = puff.get("pos", Vector2.ZERO)
-		var radius: float = EffectsManager.effect_radius(age, life, DESTROYED_SMOKE_START_RADIUS, DESTROYED_SMOKE_END_RADIUS) * CAMERA_SCALE
-		var alpha: float = EffectsManager.effect_alpha(age, life, 0.58)
-		draw_circle(_world_to_screen(pos), radius, Color(0.78, 0.80, 0.77, alpha))
+	EffectsManager.draw_rising_puffs(
+		self, destroyed_smoke_puffs,
+		camera_x, CAMERA_SCALE, CAMERA_Y_OFFSET,
+		DESTROYED_SMOKE_LIFETIME, DESTROYED_SMOKE_START_RADIUS,
+		DESTROYED_SMOKE_END_RADIUS, 0.58, Color(0.78, 0.80, 0.77)
+	)
 
 func _draw_realtime_projectiles() -> void:
 	for shell: Dictionary in rt_projectiles:
@@ -588,12 +587,8 @@ func _draw_realtime_projectiles() -> void:
 
 func _draw_explosion() -> void:
 	var elapsed_ratio: float = 1.0 - explosion_timer / EXPLOSION_DURATION
-	var center: Vector2 = _world_to_screen(explosion_pos)
-	var outer_radius: float = last_explosion_visual_radius * CAMERA_SCALE * (0.55 + 0.65 * elapsed_ratio)
-	var inner_radius: float = outer_radius * 0.48
-	draw_circle(center, outer_radius, Color(1.0, 0.42, 0.06, 0.42 * (1.0 - elapsed_ratio)))
-	draw_circle(center, inner_radius, Color(1.0, 0.88, 0.20, 0.75 * (1.0 - elapsed_ratio)))
-	for i: int in range(8):
-		var a: float = TAU * float(i) / 8.0
-		var ray_end: Vector2 = center + Vector2(cos(a), sin(a)) * outer_radius * 1.15
-		draw_line(center, ray_end, Color(1.0, 0.75, 0.15, 0.45 * (1.0 - elapsed_ratio)), 2.0)
+	EffectsManager.draw_explosion(
+		self, _world_to_screen(explosion_pos),
+		elapsed_ratio, last_explosion_visual_radius * CAMERA_SCALE
+	)
+
