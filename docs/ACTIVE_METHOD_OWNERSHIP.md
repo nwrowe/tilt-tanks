@@ -109,7 +109,11 @@ the deleted middle-method declarations.
   calls are migrated safely.
 - `RealtimeAIAimingSession` and `TurnAIVisualAimSession` live
   in `scripts/ai`. They intentionally have different real-time versus
-  turn-based timing/aim contracts.
+  turn-based timing/aim contracts. The turn-based session now also
+  interprets final shot angle, power and movement target, including
+  fallback/clamp rules; the game bridge still applies world movement,
+  UI/weapon power and the fire command. The shot plan is only cleared
+  **after** those applications, preserving the previous lifecycle.
 
 ## Lifecycle and UI
 
@@ -185,3 +189,12 @@ original `destroyed_smoke_puffs` field as a typed compatibility alias.
 A standalone deterministic RNG-equivalence test and active-scene tests
 cover initial burst, periodic emission, setter/getter forwarding, aging and
 reset. No drawing code or inheritance parent changes.
+
+## Turn AI shot-setting ownership (PR #78)
+
+The turn AI visual session now exposes `shot_settings` to return the
+already-chosen plan's movement target, clamped firing angle, and clamped
+power percentage. It does not consume or mutate the plan. The
+`WeaponRuntimeBridge._take_ai_shot` wrapper retains the original ordering
+of movement, power calculation, slider updates, plan clearing, and actual
+firing, but no longer interprets raw plan dictionary keys itself.

@@ -290,6 +290,19 @@ func _test_turn_ai_visual_aim_session() -> void:
 		is_equal_approx(session.target_power_percent, expected_power),
 		"visual session owns target angle and power selection")
 	session.track({"angle": 70.0, "power_percent": 62.0}, 30.0, 50.0)
+	var fallback_shot: Dictionary = session.shot_settings(420.0, 5.0, 85.0)
+	_check(is_equal_approx(float(fallback_shot["move_x"]), 420.0) and
+		is_equal_approx(float(fallback_shot["angle"]), 70.0) and
+		is_equal_approx(float(fallback_shot["power_percent"]), 62.0),
+		"AI visual session retains move fallback and original angle/power selection")
+	session.track({"angle": 120.0, "power_percent": -15.0, "move_x": 610.0}, 30.0, 50.0)
+	var clamped_shot: Dictionary = session.shot_settings(420.0, 5.0, 85.0)
+	_check(is_equal_approx(float(clamped_shot["move_x"]), 610.0) and
+		is_equal_approx(float(clamped_shot["angle"]), 85.0) and
+		is_zero_approx(float(clamped_shot["power_percent"])),
+		"AI firing settings preserve legacy angle and power clamping")
+	_check(not session.plan.is_empty(), "reading AI firing settings does not consume the visual plan")
+	session.track({"angle": 70.0, "power_percent": 62.0}, 30.0, 50.0)
 	_check(is_equal_approx(session.advance_angle(45.0, 32.0, 0.5), 61.0),
 		"visual session preserves the legacy turn AI barrel slew rate")
 	session.clear_plan()

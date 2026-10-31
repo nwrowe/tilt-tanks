@@ -298,11 +298,13 @@ func _update_ai_visual_aim(delta: float) -> void:
 func _take_ai_shot() -> void:
 	if ai_visual_shot_plan.is_empty():
 		ai_visual_shot_plan = _make_ai_visual_shot_plan()
-	var planned_x: float = float(ai_visual_shot_plan.get("move_x", tank_positions[AI_PLAYER_INDEX].x))
-	_apply_ai_move(planned_x)
+	var shot: Dictionary = turn_ai_visual.shot_settings(
+		tank_positions[AI_PLAYER_INDEX].x, MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+	)
+	_apply_ai_move(float(shot["move_x"]))
 
-	angle_deg = clampf(float(ai_visual_shot_plan.get("angle", 45.0)), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
-	power_percent = clampf(float(ai_visual_shot_plan.get("power_percent", 55.0)), 0.0, 100.0)
+	angle_deg = float(shot["angle"])
+	power_percent = float(shot["power_percent"])
 	power = _power_from_percent(power_percent)
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
