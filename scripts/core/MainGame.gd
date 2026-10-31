@@ -185,9 +185,6 @@ func _build_overlay_ui() -> void:
 	var end_main_menu_button: Button = EndPopup.make_main_menu_button(end_panel)
 	end_main_menu_button.pressed.connect(_return_to_main_menu)
 
-func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
-	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
-
 func _build_weapon_ui() -> void:
 	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
 	weapon_button.pressed.connect(_toggle_weapon_menu)
@@ -812,17 +809,6 @@ func _trigger_fire_fx(owner: int, shot_angle: float) -> void:
 			rng.randf_range(-MUZZLE_SMOKE_DRIFT_SPEED, MUZZLE_SMOKE_DRIFT_SPEED)
 		))
 
-func _spawn_destroyed_smoke_puff() -> void:
-	if destroyed_tank_index < 0 or destroyed_tank_index >= tank_positions.size():
-		return
-	var base_pos: Vector2 = tank_positions[destroyed_tank_index]
-	var offset: Vector2 = Vector2(rng.randf_range(-15.0, 15.0), rng.randf_range(-36.0, -18.0))
-	destroyed_smoke_puffs.append(EffectsManager.make_puff(
-		base_pos + offset,
-		DESTROYED_SMOKE_LIFETIME,
-		rng.randf_range(-DESTROYED_SMOKE_DRIFT_SPEED, DESTROYED_SMOKE_DRIFT_SPEED)
-	))
-
 func _spawn_steam_puff() -> void:
 	var base_pos: Vector2 = tank_positions[HUMAN_PLAYER_INDEX]
 	var offset: Vector2 = Vector2(rng.randf_range(-9.0, 9.0), rng.randf_range(-33.0, -22.0))
@@ -861,15 +847,6 @@ func _draw_muzzle_smoke_puffs() -> void:
 		var alpha: float = EffectsManager.effect_alpha(age, life, 0.46)
 		draw_circle(_world_to_screen(pos), radius, Color(0.82, 0.84, 0.80, alpha))
 
-func _draw_destroyed_smoke_puffs() -> void:
-	for puff: Dictionary in destroyed_smoke_puffs:
-		var age: float = float(puff.get("age", 0.0))
-		var life: float = float(puff.get("life", DESTROYED_SMOKE_LIFETIME))
-		var pos: Vector2 = puff.get("pos", Vector2.ZERO)
-		var radius: float = EffectsManager.effect_radius(age, life, DESTROYED_SMOKE_START_RADIUS, DESTROYED_SMOKE_END_RADIUS) * CAMERA_SCALE
-		var alpha: float = EffectsManager.effect_alpha(age, life, 0.58)
-		draw_circle(_world_to_screen(pos), radius, Color(0.78, 0.80, 0.77, alpha))
-
 func _draw_steam_puffs() -> void:
 	for puff: Dictionary in steam_puffs:
 		var age: float = float(puff.get("age", 0.0))
@@ -881,26 +858,6 @@ func _draw_steam_puffs() -> void:
 
 # Weapon lookup facade
 
-func _weapon_explosion_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "explosion_radius", EXPLOSION_RADIUS))
-
-func _weapon_direct_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "direct_radius", DIRECT_HIT_RADIUS))
-
-func _weapon_direct_damage(weapon: String) -> int:
-	return int(WeaponCatalog.value(weapon, "direct_damage", DIRECT_HIT_DAMAGE))
-
-func _weapon_splash_damage(weapon: String) -> int:
-	return int(WeaponCatalog.value(weapon, "splash_damage", MAX_SPLASH_DAMAGE))
-
-func _weapon_crater_radius(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "crater_radius", CRATER_RADIUS))
-
-func _weapon_crater_depth(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "crater_depth", CRATER_DEPTH))
-
-func _weapon_projectile_scale(weapon: String) -> float:
-	return float(WeaponCatalog.value(weapon, "projectile_scale", 1.0))
 
 # Projectile extraction facade
 
@@ -930,9 +887,6 @@ func _spawn_realtime_cluster_children(owner: int, pos: Vector2, vel: Vector2) ->
 	for child: Dictionary in children:
 		rt_projectiles.append(child)
 
-func _has_active_realtime_shell_for_owner(owner: int) -> bool:
-	return ProjectileManager.has_shell_for_owner(rt_projectiles, owner)
-
 func _fire_realtime_projectile(owner: int) -> void:
 	if game_over:
 		return
@@ -956,27 +910,6 @@ func _fire_realtime_projectile(owner: int) -> void:
 	})
 	projectile_active = false
 	_trigger_fire_fx(owner, shot_angle)
-
-func _update_projectile(delta: float) -> void:
-	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(projectile_pos, projectile_vel, gravity, wind, delta)
-	projectile_pos = stepped.get("pos", projectile_pos)
-	projectile_vel = stepped.get("vel", projectile_vel)
-	if turn_projectile_weapon == WEAPON_CLUSTER and not turn_projectile_split_done and projectile_vel.y >= 0.0:
-		_split_turn_cluster_projectile(projectile_pos, projectile_vel)
-		return
-	var enemy: int = 1 - current_player
-	if ProjectileManager.projectile_hits_tank(projectile_pos, tank_positions[enemy], TANK_RADIUS, PROJECTILE_RADIUS):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
-		return
-	if _is_in_pond(projectile_pos):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
-		return
-	var ground_y: float = _ground_y_at_x(projectile_pos.x)
-	if projectile_pos.y >= ground_y:
-		_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
-		return
-	if ProjectileManager.is_out_of_world(projectile_pos, active_world_width, _bottom_floor_y()):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
 
 func _turn_shell_should_explode(owner: int, pos: Vector2) -> bool:
 	var target: int = 1 - owner
