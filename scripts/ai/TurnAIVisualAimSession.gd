@@ -35,5 +35,14 @@ func track(new_plan: Dictionary, fallback_angle: float, fallback_power: float) -
 func advance_angle(current_angle: float, rate_deg_per_sec: float, delta: float) -> float:
 	return move_toward(current_angle, target_angle, rate_deg_per_sec * delta)
 
+func shot_settings(fallback_x: float, min_angle: float, max_angle: float) -> Dictionary:
+	# Interpret the visual plan without consuming it. The runtime clears
+	# the plan only after applying movement, power and UI settings.
+	return {
+		"move_x": float(plan.get("move_x", fallback_x)),
+		"angle": clampf(float(plan.get("angle", 45.0)), min_angle, max_angle),
+		"power_percent": clampf(float(plan.get("power_percent", 55.0)), 0.0, 100.0)
+	}
+
 func clear_plan() -> void:
 	plan.clear()
