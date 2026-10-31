@@ -184,12 +184,6 @@ func _build_overlay_ui() -> void:
 	var end_main_menu_button: Button = EndPopup.make_main_menu_button(end_panel)
 	end_main_menu_button.pressed.connect(_return_to_main_menu)
 
-func _add_main_menu_controls() -> void:
-	return
-
-func _relabel_quit_buttons() -> void:
-	return
-
 func _add_true_quit_button() -> void:
 	if menu_panel == null:
 		return
