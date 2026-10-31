@@ -33,6 +33,7 @@ func _run() -> void:
 	_test_shared_projectile_launch_geometry()
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
+	_test_mobile_weapon_runtime_layout()
 	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
@@ -425,6 +426,34 @@ func _test_shared_effect_render_geometry() -> void:
 		float(puff["age"]), float(puff["life"]), 0.58
 	), 0.58 * (1.0 - 0.65 / 1.35)),
 		"shared smoke visuals preserve existing lifetime, radius and alpha policy")
+
+func _test_mobile_weapon_runtime_layout() -> void:
+	var left: Button = Button.new()
+	var right: Button = Button.new()
+	var fire: Button = Button.new()
+	var weapon: Button = Button.new()
+	MobileControls.layout_weapon_runtime_actions(
+		left, right, fire, weapon,
+		WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
+	)
+	_check(left.position == Vector2(16, 430) and left.size == Vector2(92, 88),
+		"weapon runtime left movement button keeps enlarged mobile geometry")
+	_check(right.position == Vector2(122, 430) and right.size == Vector2(92, 88),
+		"weapon runtime right movement button keeps enlarged mobile geometry")
+	_check(fire.position == Vector2(696, 448) and fire.size == Vector2(188, 70),
+		"active FIRE button remains right of the legacy WorldRuntimeBridge placement")
+	_check(weapon.position == WeaponSelectMenu.BUTTON_POS and
+		weapon.size == WeaponSelectMenu.BUTTON_SIZE,
+		"weapon selector keeps its original top-bar placement")
+	MobileControls.layout_weapon_runtime_actions(
+		null, null, null, null, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
+	)
+	_check(fire.position == Vector2(696, 448),
+		"mobile layout supports missing optional controls without modifying others")
+	left.free()
+	right.free()
+	fire.free()
+	weapon.free()
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
