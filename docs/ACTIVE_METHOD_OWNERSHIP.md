@@ -252,3 +252,20 @@ lifecycle calls. The world runtime's legacy FIRE position remains
 untouched as a lower fallback, while the active FIRE control remains
 at (696,448), size (188,70). Regression tests assert the actual
 scene's positions after startup and match reset.
+
+## Weapon per-frame stage selection (PR #82)
+
+The pure `WeaponFramePolicy` now determines which stage the inherited
+`WeaponRuntimeBridge._process` should execute. The ordering is
+**game over → weapon menu → turn shells → normal/world frame**,
+only while in gameplay, with the turn-shell stage excluded in realtime
+mode. The bridge keeps the original side effects and their order:
+projectile stepping, explosion lifetime, camera/UI updates, smoke
+aging, redraw, and the `super._process` call on the normal stage.
+The special-weapons, mode and online facades still intercept frames
+through their existing chained `_process` implementations.
+
+The policy is free of scene nodes and random draws. Standalone stage
+tests cover all priorities, menu state, turn shells and realtime mode;
+active-scene checks verify hotseat and realtime mode interpretation.
+The eight-level inheritance budget is not changed.

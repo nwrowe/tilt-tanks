@@ -193,26 +193,29 @@ func reset_match() -> void:
 	_close_weapon_menu()
 
 func _process(delta: float) -> void:
-	if game_over and menu_state == MENU_STATE_GAME:
-		_process_game_over_visuals(delta)
-		return
-	if weapon_menu_open and menu_state == MENU_STATE_GAME:
-		_update_destroyed_smoke(delta)
-		queue_redraw()
-		return
-	if menu_state == MENU_STATE_GAME and game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME and not turn_projectiles.is_empty():
-		_update_turn_weapon_projectiles(delta)
-		if explosion_timer > 0.0:
-			explosion_timer -= delta
-			if explosion_timer <= 0.0:
-				explosion_pos = Vector2.INF
-		_update_camera(delta)
-		_update_ui()
-		_update_destroyed_smoke(delta)
-		queue_redraw()
-		return
-	super._process(delta)
-	_update_destroyed_smoke(delta)
+	var stage: WeaponFramePolicy.Stage = WeaponFramePolicy.select_stage(
+		menu_state == MENU_STATE_GAME, game_over, weapon_menu_open,
+		game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME, not turn_projectiles.is_empty()
+	)
+	match stage:
+		WeaponFramePolicy.Stage.GAME_OVER:
+			_process_game_over_visuals(delta)
+		WeaponFramePolicy.Stage.WEAPON_MENU:
+			_update_destroyed_smoke(delta)
+			queue_redraw()
+		WeaponFramePolicy.Stage.TURN_SHELLS:
+			_update_turn_weapon_projectiles(delta)
+			if explosion_timer > 0.0:
+				explosion_timer -= delta
+				if explosion_timer <= 0.0:
+					explosion_pos = Vector2.INF
+			_update_camera(delta)
+			_update_ui()
+			_update_destroyed_smoke(delta)
+			queue_redraw()
+		_:
+			super._process(delta)
+			_update_destroyed_smoke(delta)
 
 func _process_game_over_visuals(delta: float) -> void:
 	if explosion_timer > 0.0:

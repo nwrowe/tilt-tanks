@@ -61,6 +61,7 @@ func _run() -> void:
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
 	_test_weapon_startup_layout_live()
+	_test_weapon_frame_policy_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
@@ -1291,6 +1292,35 @@ func _test_weapon_startup_layout_live() -> void:
 	_check(fire.position == Vector2(696, 448) and
 		weapon.position == WeaponSelectMenu.BUTTON_POS,
 		"reset_match still applies active button layout through the inherited hook")
+
+func _test_weapon_frame_policy_live() -> void:
+	# Validate the priority policy against the real scene's runtime state,
+	# without invoking the whole inherited process chain manually.
+	game.call("_on_hotseat_pressed")
+	var shells: Array[Dictionary] = [
+		ProjectileFactory.make_shell(0, "standard", Vector2(350, 90), Vector2(40, -50))
+	]
+	var in_game: bool = int(game.get("menu_state")) == GAME_MENU_STATE
+	var is_realtime: bool = int(game.get("game_mode")) == 2
+	_check(WeaponFramePolicy.select_stage(
+		in_game, false, false, is_realtime, not shells.is_empty()
+	) == WeaponFramePolicy.Stage.TURN_SHELLS,
+		"live hotseat mode with a pending shell uses turn-projectile stage")
+	_check(WeaponFramePolicy.select_stage(
+		in_game, false, true, is_realtime, not shells.is_empty()
+	) == WeaponFramePolicy.Stage.WEAPON_MENU,
+		"live hotseat menu overlays turn-shell stage without moving shells")
+	_check(WeaponFramePolicy.select_stage(
+		in_game, true, true, is_realtime, not shells.is_empty()
+	) == WeaponFramePolicy.Stage.GAME_OVER,
+		"live game-over visuals outrank paused weapon menu")
+	game.call("_on_quick_game_pressed")
+	_check(WeaponFramePolicy.select_stage(
+		int(game.get("menu_state")) == GAME_MENU_STATE,
+		false, false, true, true
+	) == WeaponFramePolicy.Stage.NORMAL,
+		"live realtime mode keeps normal update stage even with stored turn shells")
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
