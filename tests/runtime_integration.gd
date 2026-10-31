@@ -1301,7 +1301,7 @@ func _test_weapon_frame_policy_live() -> void:
 		ProjectileFactory.make_shell(0, "standard", Vector2(350, 90), Vector2(40, -50))
 	]
 	var in_game: bool = int(game.get("menu_state")) == GAME_MENU_STATE
-	var is_realtime: bool = int(game.get("game_mode")) == 1
+	var is_realtime: bool = int(game.get("game_mode")) == 2
 	_check(WeaponFramePolicy.select_stage(
 		in_game, false, false, is_realtime, not shells.is_empty()
 	) == WeaponFramePolicy.Stage.TURN_SHELLS,
