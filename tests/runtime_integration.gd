@@ -68,6 +68,7 @@ func _run() -> void:
 	_test_menu_navigation_session_live()
 	_test_composed_menu_screen_layouts_live()
 	_test_mode_runtime_ancestor_retirement()
+	_test_destroyed_smoke_session_live()
 
 	game.queue_free()
 	await process_frame
@@ -894,6 +895,37 @@ func _test_mode_runtime_ancestor_retirement() -> void:
 	_check(int(game.get("menu_state")) == 4 and (game.get("tank_positions") as Array).size() == 2,
 		"world runtime preserves hotseat lifecycle and live match state")
 	game.call("_show_main_menu")
+
+func _test_destroyed_smoke_session_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var session: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
+	_check(session != null, "active weapon runtime composes destroyed smoke lifecycle owner")
+	game.set("tank_health", [100, 0])
+	game.call("_start_destroyed_tank_smoke")
+	_check(session.tank_index == 1 and int(game.get("destroyed_tank_index")) == 1,
+		"active destroyed tank selection reads through compatibility property")
+	_check((game.get("destroyed_smoke_puffs") as Array).size() == 7,
+		"active destroyed tank still spawns seven initial puffs")
+	game.call("_start_destroyed_tank_smoke")
+	_check((game.get("destroyed_smoke_puffs") as Array).size() == 7,
+		"repeated smoke start does not duplicate initial burst")
+	game.call("_update_destroyed_smoke", 0.05)
+	_check((game.get("destroyed_smoke_puffs") as Array).size() == 8 and
+		is_equal_approx(float(game.get("destroyed_smoke_timer")), 0.16),
+		"first active frame produces one periodic puff with original timer reset")
+	game.set("destroyed_smoke_timer", 0.04)
+	_check(is_equal_approx(session.spawn_timer, 0.04),
+		"compatibility smoke timer forwards writes to session")
+	game.call("_update_destroyed_smoke", 0.02)
+	_check((game.get("destroyed_smoke_puffs") as Array).size() == 8,
+		"active smoke does not generate a puff before timer expiration")
+	game.call("_update_destroyed_smoke", 0.03)
+	_check((game.get("destroyed_smoke_puffs") as Array).size() == 9,
+		"active smoke spawns the next puff when session interval expires")
+	game.call("reset_match")
+	_check(session.tank_index == -1 and is_zero_approx(session.spawn_timer) and
+		(game.get("destroyed_smoke_puffs") as Array).is_empty(),
+		"active match reset clears composed smoke state and effect objects")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
