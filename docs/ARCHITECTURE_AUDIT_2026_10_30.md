@@ -166,3 +166,9 @@ separate release gate.
 - **PR #68:** Removes an unused mode enum class and colocates the realtime
   visual AI aiming session with other AI sessions. Its mode controller
   remains under `scripts/modes`; no runtime API changes.
+
+- **PR #69:** The inherited pond-reflow fallback now delegates to the
+  same connected-basin `WaterManager` implementation previously selected
+  by the live `MainGame` override. The duplicate child override and
+  obsolete search-window constant were removed; deterministic synthetic
+  basin integration tests cover actual volume conservation.

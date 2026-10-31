@@ -495,9 +495,6 @@ func _tank_y_for_surface(player: int, x: float) -> float:
 func _movement_speed_mult_at_x(x: float) -> float:
 	return WaterManager.movement_speed_mult_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH, WATER_DRIVE_SPEED_MULT)
 
-func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
-	return WaterManager.reflow_single_pond(terrain_points, pond, TERRAIN_STEP, WATER_CONNECTED_MARGIN, WATER_MIN_VISIBLE_DEPTH, WATER_MAX_SURFACE_ITERATIONS)
-
 func _draw_ponds_under_ground() -> void:
 	for rect: Dictionary in WaterManager.backing_rects_for_ponds(ponds, terrain_points, _bottom_floor_y()):
 		var top_left: Vector2 = _world_to_screen(rect.get("start", Vector2.ZERO))

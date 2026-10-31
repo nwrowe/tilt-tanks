@@ -180,7 +180,6 @@ const POND_RIM_SEARCH_RADIUS: int = 55
 const POND_SURFACE_DROP: float = 6.0
 const POND_SPAWN_AVOID_RADIUS: float = 140.0
 
-const WATER_REFLOW_SEARCH_CELLS: int = 85
 const WATER_MIN_VISIBLE_DEPTH: float = 3.0
 const WATER_MAX_SURFACE_ITERATIONS: int = 28
 const WATER_CONNECTED_MARGIN: float = 2.0
@@ -1087,45 +1086,13 @@ func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: flo
 		WATER_MAX_SURFACE_ITERATIONS
 	)
 
-func _reflow_single_pond(pond: Dictionary, changed_x: float) -> Dictionary:
-	var old_start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
-	var old_end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
-	var volume: float = float(pond.get("volume", 0.0))
-	if volume <= 0.0:
-		volume = _water_volume_for_range(old_start_i, old_end_i, float(pond.get("water_y", 0.0)))
-	if volume <= 0.0:
-		return pond
-	var center_x: float = clampf((float(pond.get("start_x", terrain_points[old_start_i].x)) + float(pond.get("end_x", terrain_points[old_end_i].x))) * 0.5, 0.0, active_world_width)
-	if absf(changed_x - center_x) < float(WATER_REFLOW_SEARCH_CELLS * TERRAIN_STEP) * 1.5:
-		center_x = lerpf(center_x, changed_x, 0.55)
-	var center_i: int = clampi(int(round(center_x / TERRAIN_STEP)), 1, terrain_points.size() - 2)
-	var left_limit: int = maxi(0, center_i - WATER_REFLOW_SEARCH_CELLS)
-	var right_limit: int = mini(terrain_points.size() - 1, center_i + WATER_REFLOW_SEARCH_CELLS)
-	var valley_i: int = center_i
-	for i: int in range(left_limit, right_limit + 1):
-		if terrain_points[i].y > terrain_points[valley_i].y:
-			valley_i = i
-	var water_y: float = _solve_water_level_for_volume(left_limit, right_limit, volume)
-	if water_y >= terrain_points[valley_i].y - WATER_MIN_VISIBLE_DEPTH:
-		pond["volume"] = volume
-		return pond
-	var start_i: int = valley_i
-	while start_i > left_limit and terrain_points[start_i].y > water_y:
-		start_i -= 1
-	var end_i: int = valley_i
-	while end_i < right_limit and terrain_points[end_i].y > water_y:
-		end_i += 1
-	if end_i <= start_i:
-		return pond
-	return {
-		"start_i": start_i,
-		"end_i": end_i,
-		"start_x": terrain_points[start_i].x,
-		"end_x": terrain_points[end_i].x,
-		"water_y": water_y,
-		"volume": volume,
-		"score": volume
-	}
+func _reflow_single_pond(pond: Dictionary, _changed_x: float) -> Dictionary:
+	# Keep this inherited compatibility hook, but use the same connected-basin
+	# algorithm previously reached through MainGame's overriding implementation.
+	return WaterManager.reflow_single_pond(
+		terrain_points, pond, TERRAIN_STEP, WATER_CONNECTED_MARGIN,
+		WATER_MIN_VISIBLE_DEPTH, WATER_MAX_SURFACE_ITERATIONS
+	)
 
 func _reflow_water_after_terrain_change(changed_x: float) -> void:
 	if ponds.is_empty() or terrain_points.is_empty():
