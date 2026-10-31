@@ -807,13 +807,12 @@ func _draw_recoil_barrels() -> void:
 		draw_line(base, recoil_tip, Color.WHITE, 4.0)
 
 func _draw_muzzle_smoke_puffs() -> void:
-	for puff: Dictionary in muzzle_smoke_puffs:
-		var age: float = float(puff.get("age", 0.0))
-		var life: float = float(puff.get("life", MUZZLE_SMOKE_LIFETIME))
-		var pos: Vector2 = puff.get("pos", Vector2.ZERO)
-		var radius: float = EffectsManager.effect_radius(age, life, MUZZLE_SMOKE_START_RADIUS, MUZZLE_SMOKE_END_RADIUS) * CAMERA_SCALE
-		var alpha: float = EffectsManager.effect_alpha(age, life, 0.46)
-		draw_circle(_world_to_screen(pos), radius, Color(0.82, 0.84, 0.80, alpha))
+	EffectsManager.draw_rising_puffs(
+		self, muzzle_smoke_puffs,
+		camera_x, CAMERA_SCALE, CAMERA_Y_OFFSET,
+		MUZZLE_SMOKE_LIFETIME, MUZZLE_SMOKE_START_RADIUS,
+		MUZZLE_SMOKE_END_RADIUS, 0.46, Color(0.82, 0.84, 0.80)
+	)
 
 func _draw_steam_puffs() -> void:
 	for puff: Dictionary in steam_puffs:
