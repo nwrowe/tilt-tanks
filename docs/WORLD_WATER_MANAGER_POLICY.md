@@ -1,26 +1,37 @@
-# World water policy reuse
+# World water policy ownership (updated October 30, 2026)
 
-`WorldRuntimeBridge.gd` already used the independent `WaterManager`
-for some water and pond operations, but still duplicated other numerical
-water policies.
+`WaterManager.gd` is the single numerical authority for pond lookup,
+submersion, float geometry, water volume, surface height and **pond reflow**.
 
-The world runtime now delegates the following methods to `WaterManager`:
-- `_pond_at_x`, `_is_in_pond`;
-- `_tank_y_for_surface`, `_movement_speed_mult_at_x`;
-- `_water_volume_for_range`, `_solve_water_level_for_volume`.
+## Compatibility calls retained in the runtime
 
-The active scene retains these public hook names so gameplay, AI,
-projectiles, and visual interactions remain compatible. The same
-terrain points, pond arrays and numerical constants are supplied to
-the existing manager.
+`WorldRuntimeBridge.gd` still provides these engine/game-facing method
+names for descendant scripts:
 
-**Deliberately not migrated:** `_reflow_single_pond` and
-`_reflow_water_after_terrain_change`. Their current live-game search
-window differs from the alternative connected-basin algorithm in
-`WaterManager`; replacing them without targeted conservation and
-terrain-impact tests could change gameplay.
+- `_pond_at_x`, `_is_in_pond`
+- `_tank_y_for_surface`, `_movement_speed_mult_at_x`
+- `_water_volume_for_range`, `_solve_water_level_for_volume`
+- `_reflow_single_pond`, `_reflow_water_after_terrain_change`
 
-Standalone water tests and real-scene calls verify exact pond volume,
-water level, submersion, floating tank, and movement slowdown. Full
-headless gameplay, realtime and real ENet tests remain mandatory.
-No inheritance layer is removed in this preparatory PR (depth remains 9).
+All listed numerical operations delegate to `WaterManager`. The old
+changed-X-biased reflow search loop has been removed. Previously, the active
+`MainGame.gd` override **already** used
+`WaterManager.reflow_single_pond`; its redundant override was removed
+as well. Consequently active gameplay keeps the same connected-basin
+algorithm while the inherited compatibility fallback now agrees with it.
+
+`_reflow_water_after_terrain_change(changed_x)` retains its scene-facing
+signature and pond collection/update lifecycle. The called
+`_reflow_single_pond` accepts the changed X coordinate for compatibility,
+but the canonical connected-basin algorithm does not use it.
+
+## Verification
+
+A deterministic live-scene test compares the inherited game call against
+`WaterManager.reflow_single_pond` for a modified basin, checks independence
+of `changed_x`, verifies stored and integrated water volume, and exercises
+the terrain reflow loop. Full Godot 4.6.3, hotseat, realtime/camera and
+two-process ENet regression gates still apply.
+
+This supersedes the older section claiming the two reflow methods must
+remain separate. No active inheritance layer was added or removed.
