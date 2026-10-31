@@ -72,6 +72,7 @@ func _run() -> void:
 	_test_turn_ai_visual_aim_session_live()
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
+	_test_shared_projectile_launch_geometry_live()
 
 	game.queue_free()
 	await process_frame
@@ -1046,6 +1047,42 @@ func _test_canonical_pond_reflow_live() -> void:
 		"terrain reflow loop delegates through the one canonical pond implementation")
 	game.set("terrain_points", previous_points)
 	game.set("ponds", previous_ponds)
+	game.call("reset_match")
+
+func _test_shared_projectile_launch_geometry_live() -> void:
+	game.call("_on_quick_game_pressed")
+	game.set("selected_weapon", WeaponCatalog.STANDARD)
+	var positions: Array = game.get("tank_positions")
+	var angle: float = float(game.get("angle_deg"))
+	var power_percent: float = float(game.get("power_percent"))
+	var force: float = float(game.call("_power_from_percent", power_percent))
+	var cannon_length: float = 48.0
+	var baseline: Dictionary = ProjectileFactory.make_fired_shell(
+		0, WeaponCatalog.STANDARD, positions[0], 1.0, angle, force, cannon_length
+	)
+	game.call("_fire_realtime_projectile", 0)
+	var ordinary: Array = game.get("rt_projectiles")
+	_check(not ordinary.is_empty(), "realtime standard shot still launches through shared factory")
+	if not ordinary.is_empty():
+		_check((ordinary.back() as Dictionary).get("pos") == baseline.get("pos") and
+			(ordinary.back() as Dictionary).get("vel") == baseline.get("vel"),
+			"standard realtime shot preserves muzzle placement and launch velocity")
+	var special_angle: float = 40.0
+	var special_percent: float = 71.0
+	var special_force: float = float(game.call("_power_from_percent", special_percent))
+	var expected_special: Dictionary = ProjectileFactory.make_fired_shell(
+		0, WeaponRegistry.WEAPON_BOUNCER, positions[0], 1.0,
+		special_angle, special_force, cannon_length
+	)
+	game.call("_spawn_special_shell", 0, WeaponRegistry.WEAPON_BOUNCER, special_angle, special_percent, true)
+	var projectiles: Array = game.get("rt_projectiles")
+	_check(projectiles.size() >= 2, "special realtime shell still launches from shared factory")
+	if projectiles.size() >= 2:
+		var special: Dictionary = projectiles.back() as Dictionary
+		_check(special["weapon"] == WeaponRegistry.WEAPON_BOUNCER and
+			special["pos"] == expected_special["pos"] and
+			special["vel"] == expected_special["vel"],
+			"special realtime shot uses same exact owner and launch geometry")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
