@@ -277,10 +277,10 @@ func _fire_realtime_projectile(owner: int) -> void:
 	var shot_angle_default: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
 	var shot_power_percent_default: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
 	var shot_power: float = _power_from_percent(shot_power_percent_default)
-	var rad: float = deg_to_rad(shot_angle_default)
-	var start_pos: Vector2 = tank_positions[owner] + Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	var start_vel: Vector2 = Vector2(facing * shot_power * cos(rad), -shot_power * sin(rad))
-	rt_projectiles.append(ProjectileFactory.make_shell(owner, weapon, start_pos, start_vel, false))
+	rt_projectiles.append(ProjectileFactory.make_fired_shell(
+		owner, weapon, tank_positions[owner], facing, shot_angle_default,
+		shot_power, CANNON_LENGTH
+	))
 	projectile_active = false
 	_trigger_fire_fx(owner, shot_angle_default)
 	if owner == HUMAN_PLAYER_INDEX:
@@ -526,10 +526,10 @@ func _realtime_special_projectiles_active() -> bool:
 func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
 	var shot_power: float = _power_from_percent(shot_power_percent)
-	var rad: float = deg_to_rad(shot_angle)
-	var start_pos: Vector2 = tank_positions[owner] + Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	var start_vel: Vector2 = Vector2(facing * shot_power * cos(rad), -shot_power * sin(rad))
-	var shell: Dictionary = ProjectileFactory.make_shell(owner, weapon, start_pos, start_vel, false)
+	var shell: Dictionary = ProjectileFactory.make_fired_shell(
+		owner, weapon, tank_positions[owner], facing, shot_angle,
+		shot_power, CANNON_LENGTH
+	)
 	if realtime:
 		if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES and weapon != SPECIAL_MACHINE_GUN_ROUND:
 			rt_projectiles.pop_front()

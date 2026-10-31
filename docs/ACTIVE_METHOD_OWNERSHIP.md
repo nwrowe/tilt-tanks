@@ -18,6 +18,19 @@ by `MainGameModeFacade` and was removed in PR #70. The same exact active
 logic was already running before that deletion. A live realtime test
 checks AI-only and human-owned shell availability after dispatch.
 
+## Projectile launch geometry
+
+- `ProjectileFactory.make_fired_shell` owns the shared muzzle-offset and
+  initial velocity calculation used by both ordinary realtime shell fire and
+  `MainGameSpecialWeaponsFacade._spawn_special_shell`. This removes duplicate
+  trigonometry without introducing another service class.
+- The calling facade still chooses owner, shot angle, force, weapon and
+  whether a projectile goes to the realtime or turn-based collection.
+  It also retains cap enforcement, muzzle effects, fire-state updates,
+  and any special weapon behavior.
+- Unit tests cover both facing signs and the exact shell dictionary contract;
+  real-scene tests cover standard and Bouncer launch geometry.
+
 ## Weapon metadata
 
 - **Active**: `MainGameModeFacade._weapon_*` getters call
