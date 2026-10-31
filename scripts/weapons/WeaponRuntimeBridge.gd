@@ -51,9 +51,25 @@ var destroyed_tank_index: int:
 	set(value):
 		destroyed_smoke_session.tank_index = value
 
-var ai_visual_shot_plan: Dictionary = {}
-var ai_visual_target_angle: float = 45.0
-var ai_visual_target_power_percent: float = 55.0
+var turn_ai_visual: TurnAIVisualAimSession = TurnAIVisualAimSession.new()
+# Compatibility properties used by existing weapon and mode facades.
+var ai_visual_shot_plan: Dictionary:
+	get:
+		return turn_ai_visual.plan
+	set(value):
+		turn_ai_visual.plan = value
+
+var ai_visual_target_angle: float:
+	get:
+		return turn_ai_visual.target_angle
+	set(value):
+		turn_ai_visual.target_angle = value
+
+var ai_visual_target_power_percent: float:
+	get:
+		return turn_ai_visual.target_power_percent
+	set(value):
+		turn_ai_visual.target_power_percent = value
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
@@ -241,25 +257,17 @@ func _begin_ai_turn() -> void:
 	mobile_right_pressed = false
 	if power_slider != null:
 		power_slider.release_focus()
-	ai_visual_shot_plan = _make_ai_visual_shot_plan()
-	ai_visual_target_angle = float(ai_visual_shot_plan.get("angle", player_angles[AI_PLAYER_INDEX]))
-	ai_visual_target_power_percent = float(ai_visual_shot_plan.get("power_percent", player_power_percents[AI_PLAYER_INDEX]))
+	turn_ai_visual.track(
+		_make_ai_visual_shot_plan(),
+		player_angles[AI_PLAYER_INDEX], player_power_percents[AI_PLAYER_INDEX]
+	)
 
 func _make_ai_visual_shot_plan() -> Dictionary:
-	var plan: Dictionary = _find_ai_plan()
-	var final_angle: float = clampf(
-		float(plan.get("angle", 45.0)) + rng.randf_range(-AI_RANDOM_ANGLE_ERROR_EASIER, AI_RANDOM_ANGLE_ERROR_EASIER),
-		MOBILE_MIN_ANGLE,
-		MOBILE_MAX_ANGLE
+	return TurnAIVisualAimSession.perturb_plan(
+		_find_ai_plan(), rng,
+		AI_RANDOM_ANGLE_ERROR_EASIER, AI_RANDOM_POWER_ERROR_EASIER,
+		MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
 	)
-	var final_power_percent: float = clampf(
-		float(plan.get("power_percent", 55.0)) + rng.randf_range(-AI_RANDOM_POWER_ERROR_EASIER, AI_RANDOM_POWER_ERROR_EASIER),
-		0.0,
-		100.0
-	)
-	plan["angle"] = final_angle
-	plan["power_percent"] = final_power_percent
-	return plan
 
 func _process_ai_turn(delta: float) -> void:
 	if not ai_pending_turn:
@@ -277,7 +285,7 @@ func _update_ai_visual_aim(delta: float) -> void:
 	if player_angles.size() <= AI_PLAYER_INDEX:
 		return
 	var current_angle: float = player_angles[AI_PLAYER_INDEX]
-	player_angles[AI_PLAYER_INDEX] = move_toward(current_angle, ai_visual_target_angle, AI_BARREL_AIM_RATE_DEG * delta)
+	player_angles[AI_PLAYER_INDEX] = turn_ai_visual.advance_angle(current_angle, AI_BARREL_AIM_RATE_DEG, delta)
 	if current_player == AI_PLAYER_INDEX:
 		angle_deg = player_angles[AI_PLAYER_INDEX]
 
@@ -295,7 +303,7 @@ func _take_ai_shot() -> void:
 	player_powers[current_player] = power
 	if power_slider != null:
 		power_slider.value = power_percent
-	ai_visual_shot_plan.clear()
+	turn_ai_visual.clear_plan()
 	_on_fire_pressed()
 
 func _on_fire_pressed() -> void:
