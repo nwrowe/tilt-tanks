@@ -28,6 +28,7 @@ func _run() -> void:
 	_test_wind_meter_policy()
 	_test_turn_ai_session()
 	_test_menu_navigation_session()
+	_test_destroyed_smoke_session()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -204,6 +205,34 @@ func _test_menu_navigation_session() -> void:
 	navigation.open_main()
 	_check(navigation.screen == 0 and not navigation.single_player,
 		"return to main menu clears single-player selection")
+
+func _test_destroyed_smoke_session() -> void:
+	var session: DestroyedTankSmokeSession = DestroyedTankSmokeSession.new()
+	_check(session.tank_index == -1 and is_zero_approx(session.spawn_timer),
+		"destroyed smoke session begins inactive")
+	_check(not session.start([100, 100]) and session.tank_index == -1,
+		"healthy tanks do not start destroyed smoke")
+	_check(not session.start([100]) and session.tank_index == -1,
+		"malformed health state does not start smoke")
+	_check(session.start([100, 0]) and session.tank_index == 1,
+		"second destroyed tank is selected for smoke")
+	_check(not session.start([0, 100]) and session.tank_index == 1,
+		"duplicate smoke start does not switch destroyed tank")
+	_check(session.advance(0.05, 0.16) and is_equal_approx(session.spawn_timer, 0.16),
+		"first active frame spawns exactly one puff and resets interval")
+	_check(not session.advance(0.10, 0.16) and is_equal_approx(session.spawn_timer, 0.06),
+		"smoke interval continues counting down before next puff")
+	_check(session.advance(0.07, 0.16) and is_equal_approx(session.spawn_timer, 0.16),
+		"smoke cadence generates next puff once timer expires")
+	_check(session.advance(1.0, 0.16) and is_equal_approx(session.spawn_timer, 0.16),
+		"large delta preserves legacy one-puff-per-frame behavior")
+	session.reset()
+	_check(session.tank_index == -1 and is_zero_approx(session.spawn_timer),
+		"reset clears selected tank and emission timer")
+	_check(not session.advance(0.2, 0.16),
+		"smoke session emits nothing after reset")
+	_check(session.start([0, 0]) and session.tank_index == 0,
+		"both destroyed tanks preserve player-zero selection priority")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
