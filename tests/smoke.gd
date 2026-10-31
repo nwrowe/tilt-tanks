@@ -34,6 +34,7 @@ func _run() -> void:
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
 	_test_mobile_weapon_runtime_layout()
+	_test_weapon_runtime_frame_priority()
 	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
 	_test_level_definitions()
@@ -454,6 +455,24 @@ func _test_mobile_weapon_runtime_layout() -> void:
 	right.free()
 	fire.free()
 	weapon.free()
+
+func _test_weapon_runtime_frame_priority() -> void:
+	var regular: int = WeaponFramePolicy.Stage.NORMAL
+	var game_over_stage: int = WeaponFramePolicy.Stage.GAME_OVER
+	var menu_stage: int = WeaponFramePolicy.Stage.WEAPON_MENU
+	var shells_stage: int = WeaponFramePolicy.Stage.TURN_SHELLS
+	_check(WeaponFramePolicy.select_stage(false, true, true, false, true) == regular,
+		"outside gameplay always routes into the normal world frame")
+	_check(WeaponFramePolicy.select_stage(true, true, true, false, true) == game_over_stage,
+		"game-over frames take priority over menu and active shells")
+	_check(WeaponFramePolicy.select_stage(true, false, true, false, true) == menu_stage,
+		"weapon menu pauses turn-shell stepping while remaining drawable")
+	_check(WeaponFramePolicy.select_stage(true, false, false, false, true) == shells_stage,
+		"turn shells step in turn-based gameplay when no overlay is open")
+	_check(WeaponFramePolicy.select_stage(true, false, false, true, true) == regular,
+		"realtime gameplay never enters the turn-shell early-return branch")
+	_check(WeaponFramePolicy.select_stage(true, false, false, false, false) == regular,
+		"empty shell collection keeps normal gameplay processing")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
