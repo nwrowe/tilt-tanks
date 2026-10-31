@@ -121,8 +121,11 @@ the deleted middle-method declarations.
 - `MainMenuNavigationSession` owns screen and selection state;
   `MainMenuView` owns controls and screen layout; game-mode callbacks
   remain on the active game.
-- `DestroyedTankSmokeSession` owns destroyed smoke target/timer;
-  `EffectsManager` owns generic puff arithmetic. The standalone
+- `DestroyedTankSmokeSession` owns destroyed smoke target/timer,
+  puff dictionaries, seeded puff emission, aging and reset. `WeaponRuntimeBridge`
+  retains a typed compatibility property for `destroyed_smoke_puffs`
+  and drawing, but no longer owns or ages the collection itself.
+  `EffectsManager` still owns generic puff arithmetic. The standalone
   steam effect intentionally mutates puff dictionaries in place, unlike
   generic rising-puff update code that copies them.
 
@@ -168,3 +171,17 @@ camera function in the active gameplay branch changed.
    attempt to retire `WeaponRuntimeBridge` (8 → 7).
 4. Keep the separate Godot/import, smoke, live gameplay, realtime/camera,
    packet contracts and actual two-process ENet gates green.
+
+## Destroyed-tank smoke ownership (PR #77)
+
+The existing composed `DestroyedTankSmokeSession` now owns the whole
+smoke lifecycle: tank selection, spawn timer, puff list, RNG-based puff
+generation and rising-puff updates. The game supplies its existing seeded
+`rng` when requesting emission, so each puff still consumes exactly
+three random draws in the prior horizontal-offset, vertical-offset and
+drift order. The game continues to draw the puffs itself and exposes the
+original `destroyed_smoke_puffs` field as a typed compatibility alias.
+
+A standalone deterministic RNG-equivalence test and active-scene tests
+cover initial burst, periodic emission, setter/getter forwarding, aging and
+reset. No drawing code or inheritance parent changes.
