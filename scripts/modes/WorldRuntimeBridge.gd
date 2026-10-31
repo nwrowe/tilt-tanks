@@ -227,30 +227,6 @@ func _mode_runtime_ready() -> void:
 	_build_menu_layer()
 	_show_main_menu()
 
-func _mode_runtime_draw() -> void:
-	if menu_state == MENU_STATE_GAME:
-		draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color(0.06, 0.07, 0.10), true)
-		_draw_distant_mountains()
-		_draw_ground_fill()
-		_draw_terrain_outline()
-		_draw_tank(0, Color(0.25, 0.9, 0.35))
-		_draw_tank(1, Color(0.95, 0.25, 0.25))
-		if not game_over:
-			_draw_trajectory_preview()
-			var base: Vector2 = _world_to_screen(tank_positions[current_player])
-			var facing: float = 1.0 if current_player == 0 else -1.0
-			var rad: float = deg_to_rad(angle_deg)
-			var tip: Vector2 = base + Vector2(facing * CANNON_LENGTH * CAMERA_SCALE * cos(rad), -CANNON_LENGTH * CAMERA_SCALE * sin(rad))
-			draw_line(base, tip, Color.WHITE, 4.0)
-		if projectile_active:
-			draw_circle(_world_to_screen(projectile_pos), PROJECTILE_RADIUS * CAMERA_SCALE, Color(1.0, 0.92, 0.2))
-		if explosion_timer > 0.0 and explosion_pos != Vector2.INF:
-			_draw_explosion()
-		_draw_wind_widget()
-		_draw_turn_widget()
-		return
-	_draw_menu_background()
-
 func _on_mobile_fire_pressed() -> void:
 	return
 
@@ -965,7 +941,7 @@ func _draw() -> void:
 			_draw_realtime_projectiles()
 			_draw_steam_puffs()
 		return
-	_mode_runtime_draw()
+	_draw_menu_background()
 
 func _draw_snow_caps() -> void:
 	if terrain_points.size() < 2:
