@@ -933,9 +933,22 @@ func _test_destroyed_smoke_session_live() -> void:
 	game.call("_update_destroyed_smoke", 0.03)
 	_check((game.get("destroyed_smoke_puffs") as Array).size() == 9,
 		"active smoke spawns the next puff when session interval expires")
+	_check((game.get("destroyed_smoke_puffs") as Array) == session.puffs,
+		"legacy smoke puff property reads the session-owned collection")
+	var replacement_puffs: Array[Dictionary] = [
+		EffectsManager.make_puff(Vector2(40.0, 60.0), 1.0, 0.0)
+	]
+	game.set("destroyed_smoke_puffs", replacement_puffs)
+	_check(session.puffs == replacement_puffs,
+		"legacy smoke puff property writes reach the same composed session")
+	game.set("destroyed_smoke_timer", 0.02)
+	game.call("_update_destroyed_smoke", 0.1)
+	_check(session.puffs.size() == 2 and
+		(game.get("destroyed_smoke_puffs") as Array) == session.puffs,
+		"live smoke update ages session-owned puffs and preserves compatibility alias")
 	game.call("reset_match")
 	_check(session.tank_index == -1 and is_zero_approx(session.spawn_timer) and
-		(game.get("destroyed_smoke_puffs") as Array).is_empty(),
+		(game.get("destroyed_smoke_puffs") as Array).is_empty() and session.puffs.is_empty(),
 		"active match reset clears composed smoke state and effect objects")
 
 func _test_turn_ai_visual_aim_session_live() -> void:

@@ -236,6 +236,34 @@ func _test_destroyed_smoke_session() -> void:
 		"smoke session emits nothing after reset")
 	_check(session.start([0, 0]) and session.tank_index == 0,
 		"both destroyed tanks preserve player-zero selection priority")
+	var tank_positions: Array[Vector2] = [Vector2(350.0, 400.0), Vector2(890.0, 400.0)]
+	var source_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var reference_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	source_rng.seed = 712345
+	reference_rng.seed = 712345
+	var horizontal: float = reference_rng.randf_range(-15.0, 15.0)
+	var vertical: float = reference_rng.randf_range(-36.0, -18.0)
+	var drift: float = reference_rng.randf_range(-24.0, 24.0)
+	session.spawn_puff(tank_positions, source_rng, 1.35, 24.0)
+	_check(session.puffs.size() == 1 and
+		(session.puffs[0]["pos"] as Vector2).is_equal_approx(tank_positions[0] + Vector2(horizontal, vertical)) and
+		is_equal_approx(float(session.puffs[0]["drift"]), drift),
+		"smoke session generates the original offset and drift in seeded draw order")
+	_check(source_rng.randi() == reference_rng.randi(),
+		"composed smoke puff generation consumes exactly the original three random draws")
+	var original_puff: Dictionary = session.puffs[0].duplicate(true)
+	var original_puffs: Array[Dictionary] = [original_puff]
+	var expected_puffs: Array[Dictionary] = EffectsManager.update_rising_puffs(
+		original_puffs, 0.10, 42.0
+	)
+	session.update_puffs(0.10, 42.0)
+	_check(session.puffs == expected_puffs and session.puffs[0] != original_puff,
+		"smoke session retains copying semantics of rising-puff aging")
+	session.update_puffs(1.50, 42.0)
+	_check(session.puffs.is_empty(), "smoke session drops expired effect dictionaries")
+	session.spawn_puff(tank_positions, source_rng, 1.35, 24.0)
+	session.reset()
+	_check(session.puffs.is_empty(), "session reset clears puffs as well as destroyed-tank timer")
 
 func _test_turn_ai_visual_aim_session() -> void:
 	var session: TurnAIVisualAimSession = TurnAIVisualAimSession.new()

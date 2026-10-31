@@ -39,8 +39,13 @@ var turn_projectile_split_done: bool = false
 var turn_projectiles: Array[Dictionary] = []
 var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 
-var destroyed_smoke_puffs: Array[Dictionary] = []
 var destroyed_smoke_session: DestroyedTankSmokeSession = DestroyedTankSmokeSession.new()
+# Compatibility alias: puff ownership and aging live in the smoke session.
+var destroyed_smoke_puffs: Array[Dictionary]:
+	get:
+		return destroyed_smoke_session.puffs
+	set(value):
+		destroyed_smoke_session.puffs = value
 # Compatibility properties retained for the active game and its descendants.
 var destroyed_smoke_timer: float:
 	get:
@@ -199,7 +204,6 @@ func _return_to_main_menu() -> void:
 	overlay_open = false
 	weapon_menu_open = false
 	destroyed_smoke_session.reset()
-	destroyed_smoke_puffs.clear()
 	ai_visual_shot_plan.clear()
 	if menu_panel != null:
 		menu_panel.visible = false
@@ -214,7 +218,6 @@ func reset_match() -> void:
 	turn_projectile_weapon = selected_weapon
 	turn_projectile_split_done = false
 	last_explosion_visual_radius = EXPLOSION_RADIUS
-	destroyed_smoke_puffs.clear()
 	destroyed_smoke_session.reset()
 	ai_visual_shot_plan.clear()
 	super.reset_match()
@@ -528,18 +531,13 @@ func _start_destroyed_tank_smoke() -> void:
 func _update_destroyed_smoke(delta: float) -> void:
 	if destroyed_smoke_session.advance(delta, DESTROYED_SMOKE_INTERVAL):
 		_spawn_destroyed_smoke_puff()
-	destroyed_smoke_puffs = EffectsManager.update_rising_puffs(destroyed_smoke_puffs, delta, DESTROYED_SMOKE_RISE_SPEED)
+	destroyed_smoke_session.update_puffs(delta, DESTROYED_SMOKE_RISE_SPEED)
 
 func _spawn_destroyed_smoke_puff() -> void:
-	if destroyed_tank_index < 0 or destroyed_tank_index >= tank_positions.size():
-		return
-	var base_pos: Vector2 = tank_positions[destroyed_tank_index]
-	var offset: Vector2 = Vector2(rng.randf_range(-15.0, 15.0), rng.randf_range(-36.0, -18.0))
-	destroyed_smoke_puffs.append(EffectsManager.make_puff(
-		base_pos + offset,
-		DESTROYED_SMOKE_LIFETIME,
-		rng.randf_range(-DESTROYED_SMOKE_DRIFT_SPEED, DESTROYED_SMOKE_DRIFT_SPEED)
-	))
+	destroyed_smoke_session.spawn_puff(
+		tank_positions, rng, DESTROYED_SMOKE_LIFETIME,
+		DESTROYED_SMOKE_DRIFT_SPEED
+	)
 
 func _camera_target_x() -> float:
 	if game_over and destroyed_tank_index >= 0 and destroyed_tank_index < tank_positions.size():
