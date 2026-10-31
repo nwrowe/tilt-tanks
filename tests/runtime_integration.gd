@@ -1215,10 +1215,19 @@ func _test_retired_world_mode_helpers_live() -> void:
 	for unused: String in [
 		"_find_ai_shot", "_score_ai_shot",
 		"_prepare_realtime_ai_shot", "_load_texture_if_exists",
-		"_draw_realtime_cooldown_widgets"
+		"_draw_realtime_cooldown_widgets", "_mode_runtime_draw"
 	]:
 		_check(not source.contains("\nfunc " + unused + "("),
 			"world no longer declares obsolete compatibility hook " + unused)
+	# The scene only drew the old mode-runtime fallback in menu state.
+	# Its dead gameplay branch is retired; menus go straight to the same
+	# composed view-background delegate from the real world draw path.
+	_check(source.contains("\t_draw_menu_background()\n"),
+		"world menu draw path still calls composed background renderer")
+	game.call("_show_main_menu")
+	_check(int(game.get("menu_state")) == 0,
+		"main menu remains reachable with direct background drawing")
+	game.queue_redraw()
 	game.call("_on_quick_game_pressed")
 	game.call("_choose_realtime_ai_visual_plan")
 	var aim: RealtimeAIAimingSession = game.get("realtime_ai_aim") as RealtimeAIAimingSession
