@@ -1090,7 +1090,7 @@ func _draw_steam_puffs() -> void:
 func _explode_realtime(pos: Vector2) -> void:
 	_explode_realtime_weapon(pos, WEAPON_STANDARD)
 
-func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
+func _explode_realtime_weapon(pos: Vector2, weapon: String, _owner: int = -1) -> void:
 	explosion_pos = pos
 	explosion_timer = EXPLOSION_DURATION
 	last_explosion_visual_radius = _weapon_explosion_radius(weapon)

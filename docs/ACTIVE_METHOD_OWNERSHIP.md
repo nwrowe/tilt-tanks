@@ -1,3 +1,15 @@
+## Retired ModeFacade shadowed explosion overrides (PR #122)
+
+`MainGameSpecialWeaponsFacade` remains the active owner of both
+`_explode_turn_weapon` and `_explode_realtime_weapon`, including the
+shared `_apply_weapon_impact` operation and owner-aware camera hold.
+Neither active hook calls `super`; the older overrides in
+`MainGameModeFacade` could never execute on the active scene and
+were removed. The mode facade still owns its separate `_explode`
+legacy event and the reusable `_start_global_explosion_camera_hold`
+scene operation. Source assertions plus live impact/ENet tests defend
+this boundary. No new classes or inheritance layers.
+
 ## Online turn-advance snapshot ownership (PR #119)
 
 A completed turn travels through the game's canonical virtual

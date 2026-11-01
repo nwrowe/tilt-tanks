@@ -99,6 +99,7 @@ func _run() -> void:
 	_test_metadata_burst_profile_dispatch()
 	_test_shared_turn_advance_clearance_live()
 	_test_shared_scene_weapon_impact_lifecycle()
+	_test_shadowed_mode_explosion_hooks_retired()
 	_test_special_weapon_terrain_delegation_live()
 	_test_laser_controller_authority_live()
 	_test_metadata_laser_profile_fire_dispatch()
@@ -1892,6 +1893,28 @@ func _test_shared_scene_weapon_impact_lifecycle() -> void:
 		(game.get("match_state") as MatchState).tank_health == turn_health,
 		"AI realtime impact does not steal human camera yet publishes authoritative damage")
 	game.call("reset_match")
+
+func _test_shadowed_mode_explosion_hooks_retired() -> void:
+	# SpecialWeaponsFacade owns both active impact hooks without super
+	# delegation. The formerly duplicate ModeFacade overrides never ran
+	# and risked adding a second camera hold if accidentally reused.
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(not mode_source.contains("\nfunc _explode_turn_weapon(") and
+		not mode_source.contains("\nfunc _explode_realtime_weapon("),
+		"shadowed turn and realtime ModeFacade explosion hooks are retired")
+	_check(special_source.contains("\nfunc _explode_turn_weapon(") and
+		special_source.contains("\nfunc _explode_realtime_weapon(") and
+		not special_source.contains("super._explode_turn_weapon(") and
+		not special_source.contains("super._explode_realtime_weapon("),
+		"SpecialWeaponsFacade remains the active impact owner for both modes")
+	_check(mode_source.contains("\nfunc _explode(pos: Vector2)") and
+		mode_source.contains("\nfunc _start_global_explosion_camera_hold("),
+		"legacy explosion and shared camera-hold scene hooks remain available")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
