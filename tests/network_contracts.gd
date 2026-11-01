@@ -35,6 +35,7 @@ func _run() -> void:
 	_test_online_reset_and_disconnect_ownership()
 	_test_single_host_sync_owner()
 	_test_single_online_turn_snapshot_owner()
+	_test_unified_online_fire_publication()
 	_test_shared_online_client_frame_ownership()
 	_test_shared_online_snapshot_application()
 	_test_guest_command_validation()
@@ -177,6 +178,34 @@ func _test_single_online_turn_snapshot_owner() -> void:
 	_check(online.contains("func _explode_turn_weapon(") and
 		online.contains("_online_send_fire_event("),
 		"host still announces projectile launch and authoritative impact separately")
+
+func _test_unified_online_fire_publication() -> void:
+	var lower: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var upper: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	_check(not upper.contains("func _on_fire_pressed()") and
+		upper.contains("func _online_publish_authoritative_shot("),
+		"online transport owns launch events without a duplicate fire override")
+	_check(lower.split("_online_publish_authoritative_shot(").size() == 4 and
+		upper.split("_online_publish_authoritative_shot(").size() == 3,
+		"host-local and guest-originated shots both use the single publish hook")
+	var start: int = upper.find("func _online_publish_authoritative_shot(")
+	var finish: int = upper.find("\nfunc ", start + 4)
+	var hook: String = upper.substr(start, finish - start)
+	_check(hook.find("_online_send_fire_event(") <
+		hook.find("super._online_publish_authoritative_shot("),
+		"real projectile launch event is queued before its full snapshot")
+	var local_start: int = lower.find("func _on_fire_pressed()")
+	var local_end: int = lower.find("\nfunc ", local_start + 4)
+	var local_source: String = lower.substr(local_start, local_end - local_start)
+	_check(local_source.contains("accepted_host_shot") and
+		not local_source.contains("_online_send_snapshot(true)") and
+		local_source.contains("pending_advance_after_explosion_hold") and
+		local_source.contains("machine_gun_turn_waiting_for_shells"),
+		"invalid charge and unfinished burst cannot duplicate host shot packets")
 
 func _test_vector_round_trip() -> void:
 	var original: Vector2 = Vector2(123.25, -456.5)
