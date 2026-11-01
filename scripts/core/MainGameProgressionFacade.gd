@@ -113,8 +113,8 @@ func _clear_menu_controls() -> void:
 func _advance_turn() -> void:
 	super._advance_turn()
 	_arm_hotseat_turn_start_prompt()
-	if _is_online_duel_active() and online_is_host:
-		_online_send_snapshot(true)
+	# The derived online host coordinator publishes the complete transition
+	# after clearing fallback state. Do not send a second pre-cleanup packet.
 
 func _process(delta: float) -> void:
 	if _is_online_duel_active() and not online_is_host:
