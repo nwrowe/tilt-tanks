@@ -1813,6 +1813,27 @@ func _test_metadata_burst_profile_dispatch() -> void:
 		(game.get("rt_projectiles") as Array).size() == 2 and
 		bool(game.call("_realtime_special_projectiles_active")),
 		"realtime custom burst remains in special processing after last round emits")
+	# Burst child rounds must retain their original no-eviction exception,
+	# including when the active burst has completed and the pool is full.
+	var full: Array[Dictionary] = []
+	for i: int in range(6):
+		full.append(ProjectileFactory.make_shell(
+			0, WeaponCatalog.STANDARD, Vector2(100.0 + i, 50.0), Vector2.ZERO
+		))
+	game.set("rt_projectiles", full)
+	var first: Dictionary = full[0].duplicate(true)
+	game.call("_spawn_special_shell", 0, child_id, 45.0, 70.0, true)
+	var after_child: Array = game.get("rt_projectiles")
+	_check(after_child.size() == 7 and
+		(after_child[0] as Dictionary) == first and
+		str((after_child.back() as Dictionary).get("weapon", "")) == child_id,
+		"custom burst child bypasses realtime cap without evicting existing shells")
+	game.call("_spawn_special_shell", 0, WeaponCatalog.HEAVY, 45.0, 70.0, true)
+	var after_regular: Array = game.get("rt_projectiles")
+	_check(after_regular.size() == 7 and
+		(after_regular[0] as Dictionary) != first and
+		str((after_regular.back() as Dictionary).get("weapon", "")) == WeaponCatalog.HEAVY,
+		"ordinary realtime shell still evicts the oldest shell at capacity")
 	game.call("_set_active_weapon_loadout", original_loadout)
 	definitions.definitions.erase(parent_id)
 	definitions.definitions.erase(child_id)

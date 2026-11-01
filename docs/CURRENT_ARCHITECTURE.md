@@ -343,3 +343,15 @@ for existing callers. Live tests add a temporary second burst profile
 and distinct child definition, exercise hotseat and charged realtime
 firing, timing, camera focus and session reset, then restore the registry.
 No new type, duplicated registry or inheritance layer was introduced.
+
+## Burst child realtime capacity consistency (PR #113)
+
+Realtime shell insertion previously exempted only the literal
+`machine_gun_round` from the active projectile cap. It now uses the
+same session-backed `_is_burst_round` predicate as camera and
+explosion processing, so alternative burst child IDs retain their
+no-eviction behavior even after the burst's last round is emitted.
+Live regression fills the realtime shell pool, checks that an
+alternate child round preserves existing shells, and verifies that
+an ordinary shell still evicts the oldest when the pool is full.
+No new component, state, or inheritance layer.

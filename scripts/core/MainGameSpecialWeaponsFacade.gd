@@ -534,7 +534,7 @@ func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_po
 		shot_power, CANNON_LENGTH
 	)
 	if realtime:
-		if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES and weapon != SPECIAL_MACHINE_GUN_ROUND:
+		if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES and not _is_burst_round(weapon):
 			rt_projectiles.pop_front()
 		rt_projectiles.append(shell)
 		rt_player_shell_active = owner == HUMAN_PLAYER_INDEX
