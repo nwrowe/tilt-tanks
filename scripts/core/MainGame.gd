@@ -29,10 +29,18 @@ const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
 const MUZZLE_SMOKE_START_RADIUS: float = 3.0
 const MUZZLE_SMOKE_END_RADIUS: float = 10.0
 
-# Compatibility references for older runtime code, modes and networking.
-# The session remains the owner; methods below keep aliases synchronized.
-var weapon_definitions: Dictionary = weapon_definition_session.definitions
-var active_weapon_loadout: WeaponLoadout = weapon_definition_session.loadout
+# Compatibility properties cannot drift away from the canonical weapon
+# definition session when the level loadout or registry is replaced.
+var weapon_definitions: Dictionary:
+	get:
+		return weapon_definition_session.definitions
+	set(value):
+		weapon_definition_session.definitions = value
+var active_weapon_loadout: WeaponLoadout:
+	get:
+		return weapon_definition_session.loadout
+	set(value):
+		weapon_definition_session.set_loadout(value)
 
 var match_state: MatchState = MatchState.new()
 var match_controller: MatchController = MatchController.new(match_state)
@@ -1010,14 +1018,11 @@ func _apply_match_projectile_state_to_runtime() -> void:
 
 # Weapon registry / loadout compatibility API: policy is composed, not inherited.
 func _set_active_weapon_loadout(loadout: WeaponLoadout) -> void:
-	if not weapon_definition_session.set_loadout(loadout):
-		return
-	active_weapon_loadout = weapon_definition_session.loadout
+	weapon_definition_session.set_loadout(loadout)
 	selected_weapon = _safe_selected_weapon(selected_weapon)
 
 func _reset_default_weapon_loadout() -> void:
 	weapon_definition_session.reset_default()
-	active_weapon_loadout = weapon_definition_session.loadout
 	selected_weapon = _safe_selected_weapon(selected_weapon)
 
 func _safe_selected_weapon(weapon: String) -> String:

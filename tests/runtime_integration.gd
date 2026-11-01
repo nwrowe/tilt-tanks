@@ -47,6 +47,7 @@ func _run() -> void:
 	_test_shared_shell_impact_policy_live()
 	_test_retired_world_mode_helpers_live()
 	_test_composed_weapon_definition_session()
+	_test_canonical_weapon_alias_forwarding_live()
 	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
@@ -1472,6 +1473,37 @@ func _test_shared_shell_impact_policy_live() -> void:
 			name + " detects world boundary")
 	game.set("ponds", old_ponds)
 	game.call("reset_match")
+
+func _test_canonical_weapon_alias_forwarding_live() -> void:
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	_check(session != null, "canonical weapon metadata session exists")
+	if session == null:
+		return
+	var original_definitions: Dictionary = session.definitions
+	var original_loadout: WeaponLoadout = session.loadout
+	var replacement: Dictionary = original_definitions.duplicate()
+	game.set("weapon_definitions", replacement)
+	_check(session.definitions == replacement and
+		game.get("weapon_definitions") == session.definitions,
+		"legacy weapon registry writes forward to canonical session")
+	var restricted: WeaponLoadout = WeaponLoadout.from_registry(
+		session.definitions, WeaponCatalog.STANDARD
+	)
+	game.set("active_weapon_loadout", restricted)
+	_check(session.loadout == restricted and
+		game.get("active_weapon_loadout") == session.loadout,
+		"legacy active loadout writes update the canonical session")
+	game.set("active_weapon_loadout", null)
+	_check(session.loadout == restricted,
+		"null loadout cannot clobber canonical session through legacy property")
+	game.call("_reset_default_weapon_loadout")
+	_check(session.loadout == game.get("active_weapon_loadout"),
+		"default loadout reset requires no manual copy-back synchronization")
+	game.set("weapon_definitions", original_definitions)
+	game.set("active_weapon_loadout", original_loadout)
+	_check(game.get("weapon_definitions") == session.definitions and
+		game.get("active_weapon_loadout") == session.loadout,
+		"restored legacy metadata still shares one canonical owner")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
