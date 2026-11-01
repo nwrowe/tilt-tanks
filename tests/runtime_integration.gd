@@ -81,6 +81,7 @@ func _run() -> void:
 	_test_mode_runtime_ancestor_retirement()
 	_test_destroyed_smoke_session_live()
 	_test_turn_ai_visual_aim_session_live()
+	_test_turn_ai_world_ownership_live()
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_launch_geometry_live()
@@ -1564,6 +1565,46 @@ func _test_weapon_lifecycle_consolidation_live() -> void:
 		not panel.visible and
 		(game.get("mobile_fire_button") as Button).position == Vector2(696, 448),
 		"merged post-world reset still closes weapon menu and restores mobile layout")
+
+func _test_turn_ai_world_ownership_live() -> void:
+	var world_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
+	)
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	for name: String in [
+		"_begin_ai_turn", "_make_ai_visual_shot_plan",
+		"_process_ai_turn", "_update_ai_visual_aim", "_take_ai_shot"
+	]:
+		_check(world_source.contains("\nfunc " + name + "(") and
+			not bridge_source.contains("\nfunc " + name + "("),
+			"world runtime now solely declares active turn AI hook " + name)
+	_check(world_source.contains("var turn_ai_visual: TurnAIVisualAimSession:") and
+		not bridge_source.contains("var turn_ai_visual:"),
+		"turn AI visual compatibility property is owned alongside world timer")
+	game.call("_on_hotseat_pressed")
+	game.call("reset_match")
+	var session: TurnAITurnSession = game.get("turn_ai_session") as TurnAITurnSession
+	var visual: TurnAIVisualAimSession = game.get("turn_ai_visual") as TurnAIVisualAimSession
+	_check(session != null and visual == session.visual and visual.plan.is_empty(),
+		"active scene exposes one shared world-owned timer and visual plan")
+	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
+	rng.seed = 20261101
+	game.call("_begin_ai_turn")
+	_check(session.pending and not session.visual.plan.is_empty() and
+		bool(game.get("ai_pending_turn")),
+		"world-owned AI turn start still prepares timed and visual aiming together")
+	var old_angle: float = float((game.get("player_angles") as Array)[1])
+	var expected: float = move_toward(
+		old_angle, visual.target_angle, 32.0 * 0.20
+	)
+	game.call("_update_ai_visual_aim", 0.20)
+	_check(is_equal_approx(float((game.get("player_angles") as Array)[1]), expected),
+		"world AI animation preserves original barrel slew rate")
+	game.call("reset_match")
+	_check(not session.pending and session.visual.plan.is_empty(),
+		"parent reset still clears both turn AI timer and shot plan")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
