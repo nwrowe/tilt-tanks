@@ -477,3 +477,21 @@ from the bridge while leaving its fallback builder there could not
 compile. The corrected implementation moved the fallback builder to
 `MainGame` as well and removed the bridge's now-unused shadowed
 toggle. The active-mode builder remains unchanged.
+
+## Destroyed-tank effect grouping (PR #93)
+
+Destroyed-smoke constants, `DestroyedTankSmokeSession` ownership,
+the legacy field aliases, game-over visual sequencing,
+`_show_end_popup`, and the three smoke spawn/aging scene hooks now live
+together in the existing `MainGame` effects area. They no longer
+reside in the intermediate weapon bridge. Smoke generation, RNG draw
+order, age updates and puff collection remain in the same composed
+`scripts/effects/DestroyedTankSmokeSession.gd`; no additional classes
+or service layers were created. Effect drawing had already moved
+to `MainGame` in PR #91.
+
+All existing external hook and property names are preserved.
+Regression checks cover both source ownership and actual destroyed-tank
+puff spawn/reset in the active scene; the smoke RNG parity test remains
+unchanged. This consolidates **effects as a domain** without
+proliferating helper wrappers.

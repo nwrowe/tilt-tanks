@@ -82,6 +82,7 @@ func _run() -> void:
 	_test_composed_menu_screen_layouts_live()
 	_test_mode_runtime_ancestor_retirement()
 	_test_destroyed_smoke_session_live()
+	_test_destroyed_smoke_game_ownership_live()
 	_test_turn_ai_visual_aim_session_live()
 	_test_turn_ai_world_ownership_live()
 	_test_identical_method_override_cleanup()
@@ -1008,8 +1009,7 @@ func _test_identical_method_override_cleanup() -> void:
 	if main_script == null or weapon_script == null:
 		return
 	var inherited_names: Array[String] = [
-		"_update_projectile", "_spawn_destroyed_smoke_puff",
-		"_weapon_direct_damage",
+		"_update_projectile", "_weapon_direct_damage",
 		"_weapon_explosion_radius", "_has_active_realtime_shell_for_owner"
 	]
 	for name: String in inherited_names:
@@ -1707,6 +1707,37 @@ func _test_weapon_menu_owner_migration_live() -> void:
 	_check(int(game.get("menu_state")) == 0 and
 		 not panel.visible, "migrated quit hook still returns to main menu")
 	game.call("reset_match")
+
+func _test_destroyed_smoke_game_ownership_live() -> void:
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in [
+		"_process_game_over_visuals", "_show_end_popup",
+		"_start_destroyed_tank_smoke", "_update_destroyed_smoke",
+		"_spawn_destroyed_smoke_puff"
+	]:
+		_check(not bridge_source.contains("\nfunc " + name + "(") and
+			main_source.contains("\nfunc " + name + "("),
+			"MainGame owns scene-facing destroyed-smoke hook " + name)
+	_check(not bridge_source.contains("var destroyed_smoke_session:") and
+		main_source.contains("var destroyed_smoke_session: DestroyedTankSmokeSession"),
+		"destroyed smoke session sits with the game effects state")
+	game.call("reset_match")
+	var smoke: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
+	_check(smoke != null and smoke.tank_index == -1,
+		"scene retains original composed smoke session")
+	var tank_hp: Array[int] = game.get("tank_health")
+	tank_hp[1] = 0
+	game.call("_start_destroyed_tank_smoke")
+	_check(smoke.tank_index == 1 and smoke.puffs.size() == 7,
+		"game smoke effect still creates seven seeded opening puffs")
+	game.call("reset_match")
+	_check(smoke.tank_index == -1 and smoke.puffs.is_empty(),
+		"world and scene resets continue clearing effect state")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")

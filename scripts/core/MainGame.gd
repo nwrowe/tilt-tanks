@@ -23,6 +23,33 @@ const PAN_RELEASE_HOLD_TIME: float = 1.4
 
 const MUZZLE_RECOIL_TIME: float = 0.18
 const MUZZLE_RECOIL_DISTANCE: float = 13.0
+# Destruction smoke shares effect ownership with muzzle and steam visuals.
+const DESTROYED_SMOKE_INTERVAL: float = 0.16
+const DESTROYED_SMOKE_LIFETIME: float = 1.35
+const DESTROYED_SMOKE_RISE_SPEED: float = 42.0
+const DESTROYED_SMOKE_DRIFT_SPEED: float = 24.0
+const DESTROYED_SMOKE_START_RADIUS: float = 5.0
+const DESTROYED_SMOKE_END_RADIUS: float = 18.0
+var destroyed_smoke_session: DestroyedTankSmokeSession = DestroyedTankSmokeSession.new()
+# Compatibility alias: puff ownership and aging live in the smoke session.
+var destroyed_smoke_puffs: Array[Dictionary]:
+	get:
+		return destroyed_smoke_session.puffs
+	set(value):
+		destroyed_smoke_session.puffs = value
+# Compatibility properties retained for the active game and its descendants.
+var destroyed_smoke_timer: float:
+	get:
+		return destroyed_smoke_session.spawn_timer
+	set(value):
+		destroyed_smoke_session.spawn_timer = value
+
+var destroyed_tank_index: int:
+	get:
+		return destroyed_smoke_session.tank_index
+	set(value):
+		destroyed_smoke_session.tank_index = value
+
 const MUZZLE_SMOKE_LIFETIME: float = 0.55
 const MUZZLE_SMOKE_RISE_SPEED: float = 26.0
 const MUZZLE_SMOKE_DRIFT_SPEED: float = 18.0
@@ -868,6 +895,40 @@ func _update_ui() -> void:
 		)
 
 # Effects facade
+
+# Game-facing destroyed smoke hooks; the existing session owns puffs and RNG.
+func _process_game_over_visuals(delta: float) -> void:
+	if explosion_timer > 0.0:
+		explosion_timer = maxf(0.0, explosion_timer - delta)
+		if explosion_timer <= 0.0:
+			explosion_pos = Vector2.INF
+	_update_camera(delta)
+	_update_ui()
+	_update_destroyed_smoke(delta)
+	_update_steam_puffs(delta)
+	queue_redraw()
+
+func _show_end_popup() -> void:
+	_start_destroyed_tank_smoke()
+	super._show_end_popup()
+
+func _start_destroyed_tank_smoke() -> void:
+	if not destroyed_smoke_session.start(tank_health):
+		return
+	for i: int in range(7):
+		_spawn_destroyed_smoke_puff()
+
+func _update_destroyed_smoke(delta: float) -> void:
+	if destroyed_smoke_session.advance(delta, DESTROYED_SMOKE_INTERVAL):
+		_spawn_destroyed_smoke_puff()
+	destroyed_smoke_session.update_puffs(delta, DESTROYED_SMOKE_RISE_SPEED)
+
+func _spawn_destroyed_smoke_puff() -> void:
+	destroyed_smoke_session.spawn_puff(
+		tank_positions, rng, DESTROYED_SMOKE_LIFETIME,
+		DESTROYED_SMOKE_DRIFT_SPEED
+	)
+
 
 func _update_muzzle_effects(delta: float) -> void:
 	for i: int in range(barrel_recoil_timers.size()):
