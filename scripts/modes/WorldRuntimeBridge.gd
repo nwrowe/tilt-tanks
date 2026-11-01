@@ -859,7 +859,7 @@ func _ready() -> void:
 			mobile_fire_button.button_down.connect(_on_realtime_fire_button_down)
 		if not mobile_fire_button.button_up.is_connected(_on_realtime_fire_button_up):
 			mobile_fire_button.button_up.connect(_on_realtime_fire_button_up)
-	_update_fire_button_charge_style(0.0)
+	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 func _setup_realtime_single_player() -> void:
 	_mode_runtime_setup_realtime_single_player()
@@ -870,7 +870,7 @@ func _setup_realtime_single_player() -> void:
 	rt_fire_charge_percent = 0.0
 	_resize_mobile_action_buttons()
 	_show_realtime_power_ui(false)
-	_update_fire_button_charge_style(0.0)
+	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 	_clear_realtime_ai_visual_plan()
 	_choose_realtime_ai_visual_plan()
 
@@ -882,7 +882,7 @@ func reset_match() -> void:
 	rt_keyboard_fire_held = false
 	rt_fire_charge_time = 0.0
 	rt_fire_charge_percent = 0.0
-	_update_fire_button_charge_style(0.0)
+	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 func _show_game_ui() -> void:
 	_mode_runtime_show_game_ui()
@@ -1132,42 +1132,7 @@ func _reset_realtime_charge_state() -> void:
 	rt_fire_charge_percent = 0.0
 	rt_fire_button_held = false
 	rt_keyboard_fire_held = false
-	_update_fire_button_charge_style(0.0)
-
-func _update_fire_button_charge_style(charge_ratio: float) -> void:
-	if mobile_fire_button == null:
-		return
-	var color: Color = _charge_button_color(charge_ratio)
-	_apply_fire_button_style(color, color.darkened(0.35), Color.WHITE)
-
-func _update_fire_button_unavailable_style() -> void:
-	if mobile_fire_button == null:
-		return
-	_apply_fire_button_style(Color(0.18, 0.18, 0.20, 0.86), Color(0.08, 0.08, 0.10, 0.96), Color(0.75, 0.75, 0.78, 1.0))
-
-func _charge_button_color(charge_ratio: float) -> Color:
-	var v: float = clampf(charge_ratio, 0.0, 1.0)
-	if v < 0.5:
-		var t: float = v / 0.5
-		return Color(lerpf(0.10, 1.0, t), 0.80, 0.12, 0.92)
-	var t2: float = (v - 0.5) / 0.5
-	return Color(1.0, lerpf(0.80, 0.12, t2), 0.08, 0.92)
-
-func _apply_fire_button_style(bg: Color, border: Color, font: Color) -> void:
-	if mobile_fire_button == null:
-		return
-	var normal: StyleBoxFlat = StyleBoxFlat.new()
-	normal.bg_color = bg
-	normal.border_color = border
-	normal.set_border_width_all(3)
-	normal.set_corner_radius_all(16)
-	var pressed: StyleBoxFlat = normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = bg.lightened(0.12)
-	for state: String in ["normal", "hover", "focus"]:
-		mobile_fire_button.add_theme_stylebox_override(state, normal)
-	mobile_fire_button.add_theme_stylebox_override("pressed", pressed)
-	for color_name: String in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
-		mobile_fire_button.add_theme_color_override(color_name, font)
+	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
 	var direction: float = input_direction

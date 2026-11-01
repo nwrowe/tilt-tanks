@@ -184,10 +184,10 @@ func _update_hotseat_charge(delta: float) -> void:
 
 		power_percent = hotseat_charge_percent
 		power = _power_from_percent(power_percent)
-		_update_fire_button_charge_style(charge_ratio)
+		MobileControls.style_charge_button(mobile_fire_button, charge_ratio)
 
 	elif _hotseat_can_begin_charge():
-		_update_fire_button_charge_style(0.0)
+		MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 	if hotseat_mode_controller.should_release_keyboard_charge(keyboard_down, hotseat_keyboard_fire_held):
 		hotseat_keyboard_fire_held = false
@@ -223,11 +223,11 @@ func _update_realtime_fire_charge(delta: float) -> void:
 
 		power_percent = rt_fire_charge_percent
 		power = _power_from_percent(power_percent)
-		_update_fire_button_charge_style(charge_ratio)
+		MobileControls.style_charge_button(mobile_fire_button, charge_ratio)
 	elif rt_player_shell_active:
-		_update_fire_button_unavailable_style()
+		MobileControls.style_unavailable_fire_button(mobile_fire_button)
 	else:
-		_update_fire_button_charge_style(0.0)
+		MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 func _update_ui() -> void:
 	super._update_ui()

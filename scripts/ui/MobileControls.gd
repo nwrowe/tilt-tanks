@@ -86,3 +86,26 @@ static func layout_weapon_runtime_actions(
 	if weapon_button != null:
 		weapon_button.position = weapon_pos
 		weapon_button.size = weapon_size
+
+# Realtime and hotseat fire-button appearance belongs to the mobile UI,
+# not the world/gameplay coordinator. Keep the original color progression.
+static func fire_charge_color(charge_ratio: float) -> Color:
+	var v: float = clampf(charge_ratio, 0.0, 1.0)
+	if v < 0.5:
+		var t: float = v / 0.5
+		return Color(lerpf(0.10, 1.0, t), 0.80, 0.12, 0.92)
+	var t2: float = (v - 0.5) / 0.5
+	return Color(1.0, lerpf(0.80, 0.12, t2), 0.08, 0.92)
+
+static func style_charge_button(button: Button, charge_ratio: float) -> void:
+	if button == null:
+		return
+	var color: Color = fire_charge_color(charge_ratio)
+	UIManager.style_button(button, color, color.darkened(0.35), Color.WHITE, 16, 3)
+
+static func style_unavailable_fire_button(button: Button) -> void:
+	UIManager.style_button(
+		button, Color(0.18, 0.18, 0.20, 0.86),
+		Color(0.08, 0.08, 0.10, 0.96),
+		Color(0.75, 0.75, 0.78, 1.0), 16, 3
+	)
