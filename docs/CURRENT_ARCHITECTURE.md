@@ -225,3 +225,16 @@ then the progression facade publishes its instances **once afterward**.
 The previous before-and-after pair of controller writes was redundant;
 this change preserves creation and `super.reset_match()` order, avoids
 a pre-parent state write, and adds live identity/default-value checks.
+
+## Machine-gun camera focus ownership (PR #105)
+
+`ProjectileManager.leading_shell_focus_for_weapon` now owns the shared
+selected-weapon projectile average/leading-shell interpolation. The
+special-weapons scene adapter only supplies weapon ID, owner direction,
+bias and the camera destination; it retains the last focus when no
+matching rounds remain. This moves the entire calculation to an
+existing weapon/projectile owner, without adding a new class. The
+`MainGameSpecialWeaponsFacade.reset_match` also stops clearing the
+machine-gun camera twice: `_clear_machine_gun_burst` already owns
+that state. Live and policy tests cover either firing direction,
+mixed shell types, the empty-round sentinel, and match reset.
