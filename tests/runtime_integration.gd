@@ -63,6 +63,7 @@ func _run() -> void:
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
 	_test_weapon_startup_layout_live()
+	_test_composed_weapon_menu_view_live()
 	_test_weapon_frame_policy_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
@@ -1409,6 +1410,34 @@ func _test_shadowed_bridge_removal_live() -> void:
 	game.call("_toggle_weapon_menu")
 	_check(not bool(game.get("weapon_menu_open")) and not weapon_panel.visible,
 		"active weapon selector closes via derived MainGame handler")
+	game.call("reset_match")
+
+func _test_composed_weapon_menu_view_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var panel: Panel = game.get("weapon_panel") as Panel
+	var weapon_button: Button = game.get("weapon_button") as Button
+	_check(panel != null and weapon_button != null,
+		"composed weapon view exists after active scene startup")
+	if panel == null or weapon_button == null:
+		return
+	game.call("_open_weapon_menu")
+	_check(panel.visible and bool(game.get("weapon_menu_open")) and
+		bool(game.get("overlay_open")),
+		"opening weapon menu updates active panel and overlay state together")
+	_check(not bool(game.get("mobile_left_pressed")) and
+		not bool(game.get("mobile_right_pressed")),
+		"weapon menu preserves mobile movement release on open")
+	game.call("_close_weapon_menu")
+	_check(not panel.visible and not bool(game.get("weapon_menu_open")),
+		"closing selector hides composed panel and clears menu flag")
+	game.call("_open_weapon_menu")
+	game.call("_hide_overlays")
+	_check(not panel.visible and not bool(game.get("weapon_menu_open")),
+		"global overlay hide still dismisses the composed weapon menu")
+	game.call("_open_weapon_menu")
+	game.call("_return_to_main_menu")
+	_check(not panel.visible and not bool(game.get("weapon_menu_open")),
+		"return to main menu hides composed selector")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:

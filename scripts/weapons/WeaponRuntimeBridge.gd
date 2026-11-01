@@ -153,28 +153,21 @@ func _toggle_weapon_menu() -> void:
 func _open_weapon_menu() -> void:
 	weapon_menu_open = true
 	overlay_open = true
-	if weapon_panel != null:
-		weapon_panel.visible = true
 	mobile_left_pressed = false
 	mobile_right_pressed = false
-	if mobile_left_button != null:
-		mobile_left_button.release_focus()
-	if mobile_right_button != null:
-		mobile_right_button.release_focus()
-	if mobile_fire_button != null:
-		mobile_fire_button.release_focus()
+	WeaponSelectMenu.show_panel(
+		weapon_panel, mobile_left_button, mobile_right_button, mobile_fire_button
+	)
 
 func _close_weapon_menu() -> void:
 	weapon_menu_open = false
-	if weapon_panel != null:
-		weapon_panel.visible = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
 	overlay_open = (menu_panel != null and menu_panel.visible) or (end_panel != null and end_panel.visible)
 
 func _hide_overlays() -> void:
 	super._hide_overlays()
 	weapon_menu_open = false
-	if weapon_panel != null:
-		weapon_panel.visible = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
 
 func _quit_game() -> void:
 	_return_to_main_menu()
@@ -192,8 +185,7 @@ func _return_to_main_menu() -> void:
 		menu_panel.visible = false
 	if end_panel != null:
 		end_panel.visible = false
-	if weapon_panel != null:
-		weapon_panel.visible = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
 	_show_main_menu()
 
 func reset_match() -> void:
