@@ -23,3 +23,21 @@ static func select_stage(
 	if in_game and not is_realtime and has_turn_shells:
 		return Stage.TURN_SHELLS
 	return Stage.NORMAL
+
+## A single physics/FX clearance rule for hotseat completion, its camera
+## freeze on the final frame, and host-authoritative network turn recovery.
+## Callers still own pending-turn gates, camera, network RPCs and side effects.
+static func can_advance_turn(
+	game_over: bool, projectile_active: bool, has_turn_projectiles: bool,
+	burst_active: bool, burst_waiting: bool,
+	explosion_timer: float, cluster_hold_timer: float
+) -> bool:
+	return (
+		not game_over
+		and not projectile_active
+		and not has_turn_projectiles
+		and not burst_active
+		and not burst_waiting
+		and explosion_timer <= 0.0
+		and cluster_hold_timer <= 0.0
+	)

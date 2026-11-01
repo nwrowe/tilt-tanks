@@ -255,3 +255,16 @@ adding an inheritance layer or a collection of one-method helpers.
 Live scene and isolated policy tests assert per-round RNG order,
 overshoot timing, metadata-driven shot counts, projectile creation
 and match reset.
+
+## Canonical turn-advance safety predicate (PR #107)
+
+`WeaponFramePolicy.can_advance_turn` is now the sole stateless check
+for game-over, live projectile, multi-shell, burst, burst-wait and
+explosion/camera-hold clearance. The scene's pending hotseat turn
+completion and its same-frame camera freeze delegate to that rule.
+`OnlineDuelHostCoordinator.can_advance` preserves its public API but
+forwards to the same gameplay policy instead of maintaining another
+duplicate rule. Actual `_advance_turn`, camera changes, host fallback,
+and authoritative RPCs remain in their owning scene/network code.
+Regression tests exercise every blocking condition and a live
+delayed hotseat turn switch. No new class or inheritance layer.
