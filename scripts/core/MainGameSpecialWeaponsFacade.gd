@@ -219,47 +219,21 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 			pending_advance_after_explosion_hold = true
 
 func _update_all_realtime_projectiles(delta: float) -> void:
-	# Let the older, working realtime Cluster/Burst camera path handle normal
-	# projectiles. This override is only for special projectile behaviors.
-	if not _realtime_special_projectiles_active():
-		super._update_all_realtime_projectiles(delta)
-		return
-
+	# ModeFacade now steps all realtime shells exactly once. Preserve
+	# burst-specific fire availability and camera focus after its pass.
 	if rt_projectiles.is_empty():
 		return
-	var remaining: Array[Dictionary] = []
-	var human_shell_alive: bool = false
-	for shell: Dictionary in rt_projectiles:
-		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
-		var owner: int = int(stepped.get("owner", HUMAN_PLAYER_INDEX))
-		var weapon: String = str(stepped.get("weapon", WEAPON_STANDARD))
-		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
-		var vel: Vector2 = stepped.get("vel", Vector2.ZERO)
-		var split_done: bool = bool(stepped.get("split", false))
-
-		if _weapon_behavior(weapon) == "bounce":
-			var bounce_result: Dictionary = _step_bouncer_shell(stepped, owner)
-			if bool(bounce_result.get("explode", false)):
-				_explode_realtime_weapon(pos, weapon, owner)
-			else:
-				remaining.append(bounce_result.get("shell", stepped))
-				if owner == HUMAN_PLAYER_INDEX:
-					human_shell_alive = true
-		elif _weapon_has_split_behavior(weapon) and not split_done and vel.y >= 0.0:
-			_spawn_realtime_cluster_children(owner, pos, vel)
-			if owner == HUMAN_PLAYER_INDEX:
-				realtime_cluster_focus_pos = pos
-				realtime_cluster_focus_count = _weapon_child_count(weapon)
-		elif _realtime_projectile_should_explode(owner, pos):
-			_explode_realtime_weapon(pos, weapon, owner)
-		else:
-			remaining.append(stepped)
-			if owner == HUMAN_PLAYER_INDEX:
-				human_shell_alive = true
-	rt_projectiles = remaining
-	rt_player_shell_active = human_shell_alive or weapon_burst.active
+	super._update_all_realtime_projectiles(delta)
+	rt_player_shell_active = rt_player_shell_active or weapon_burst.active
 	if machine_gun_camera_active:
 		_update_machine_gun_camera_from_shells(rt_projectiles, HUMAN_PLAYER_INDEX)
+
+func _realtime_special_shell_step(shell: Dictionary, owner: int) -> Dictionary:
+	if _weapon_behavior(str(shell.get("weapon", ""))) != "bounce":
+		return {"handled": false}
+	var bounce_result: Dictionary = _step_bouncer_shell(shell, owner)
+	bounce_result["handled"] = true
+	return bounce_result
 
 func _fire_realtime_projectile(owner: int) -> void:
 	if game_over:
