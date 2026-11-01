@@ -1293,7 +1293,8 @@ func _test_machine_gun_projectile_camera_focus() -> void:
 	game.call("_update_machine_gun_camera_from_shells", shots, 0)
 	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(forward),
 		"active scene's machine-gun camera delegates to canonical projectile focus")
-	game.call("_update_machine_gun_camera_from_shells", [], 0)
+	var no_rounds: Array[Dictionary] = []
+	game.call("_update_machine_gun_camera_from_shells", no_rounds, 0)
 	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(forward),
 		"active camera retains focus when the last burst round has disappeared")
 	game.call("_update_machine_gun_camera_from_shells", shots, 1)
