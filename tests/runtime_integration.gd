@@ -1634,15 +1634,21 @@ func _test_metadata_laser_profile_fire_dispatch() -> void:
 	game.call("_on_quick_game_pressed")
 	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, old_loadout.default_weapon_id))
 	game.call("_set_selected_weapon_for_current_player", id)
+	_check(str(game.get("selected_weapon")) == id and
+		bool(game.call("_player_can_fire")) and not bool(game.get("overlay_open")),
+		"realtime profile selected and charge can begin before firing")
 	game.set("tank_positions", positions)
 	game.set("tank_health", full_health.duplicate())
 	game.set("angle_deg", 0.0)
 	game.set("rt_fire_charge_percent", 72.0)
 	game.call("_release_realtime_charged_shot")
-	_check((game.get("tank_health") as Array) == [100, 54] and
-		not bool(game.get("rt_player_shell_active")) and
-		not bool(game.get("rt_fire_button_held")),
-		"new Laser profile uses charged realtime firing without creating a shell")
+	_check((game.get("tank_health") as Array) == [100, 54],
+		"charged realtime Laser uses custom profile direct damage")
+	_check(not bool(game.get("rt_player_shell_active")),
+		"instant charged realtime Laser does not allocate an active shell")
+	_check(not bool(game.get("rt_fire_button_held")) and
+		is_zero_approx(float(game.get("rt_fire_charge_percent"))),
+		"charged realtime Laser clears charge input after firing")
 	game.call("_set_active_weapon_loadout", old_loadout)
 	session.definitions.erase(id)
 	game.call("reset_match")
