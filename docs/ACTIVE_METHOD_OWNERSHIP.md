@@ -368,3 +368,16 @@ The loadout setter uses the session's existing null guard; registration
 and gameplay/weapon stat APIs remain unchanged. A live-scene test
 replaces the dictionary and loadout, validates read/write forwarding,
 rejects null, resets the default loadout and restores prior state.
+
+## Unified turn AI timing and visual state (PR #88)
+
+`TurnAITurnSession` (created by `WorldRuntimeBridge`) now owns its
+`TurnAIVisualAimSession` instance alongside pending/think-time state.
+`WeaponRuntimeBridge.turn_ai_visual` is a forwarding property instead
+of a separate instantiated session. Both timer and plan reset through
+`TurnAITurnSession.reset()` in the world lifecycle, while the bridge
+retains its prior pre-parent visual-plan clear to preserve reset timing.
+`cancel()` retains the visual plan as before, since the final shot clears
+it after applying the selected settings. All existing visual properties,
+random draw order, gameplay, and external scene callbacks are unchanged.
+Unit and active scene tests validate shared ownership and reset behavior.

@@ -74,7 +74,13 @@ var destroyed_tank_index: int:
 	set(value):
 		destroyed_smoke_session.tank_index = value
 
-var turn_ai_visual: TurnAIVisualAimSession = TurnAIVisualAimSession.new()
+# The world-owned turn AI session now also owns its visual plan.
+var turn_ai_visual: TurnAIVisualAimSession:
+	get:
+		return turn_ai_session.visual
+	set(value):
+		if value != null:
+			turn_ai_session.visual = value
 # Compatibility properties used by existing weapon and mode facades.
 var ai_visual_shot_plan: Dictionary:
 	get:
