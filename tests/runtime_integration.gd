@@ -70,6 +70,7 @@ func _run() -> void:
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
 	_test_seven_layer_weapon_domain_ownership_live()
+	_test_scene_adapter_domain_grouping_live()
 	_test_rendering_owner_migration_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
@@ -1743,6 +1744,33 @@ func _test_seven_layer_weapon_domain_ownership_live() -> void:
 	]:
 		_check(main_source.contains("\nfunc " + name + "("),
 			"scene retains the required weapon compatibility hook " + name)
+
+func _test_scene_adapter_domain_grouping_live() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	var firing: int = source.find("\nfunc _on_fire_pressed(")
+	var projectile: int = source.find("\nfunc _update_projectile(")
+	var realtime_charge: int = source.find("\nfunc _update_realtime_fire_charge(")
+	_check(firing >= 0 and firing < projectile and
+		projectile < realtime_charge,
+		"projectile adapters remain adjacent to fire and charge handling")
+	var realtime_explosion: int = source.find("\nfunc _explode_realtime(")
+	var turn_explosion: int = source.find("\nfunc _explode_turn_weapon(")
+	_check(realtime_explosion >= 0 and realtime_explosion < turn_explosion,
+		"realtime and turn explosion hooks remain grouped")
+	var crater: int = source.find("\nfunc _apply_weapon_crater(")
+	var damage: int = source.find("\nfunc _apply_weapon_damage(")
+	_check(crater >= 0 and crater < damage,
+		"crater and radial damage effects remain adjacent")
+	var stat: int = source.find("\nfunc _weapon_value(")
+	var definition: int = source.find("\nfunc _weapon_definition(")
+	_check(stat >= 0 and stat < definition and
+		source.find("\nfunc _weapon_projectile_scale(") < definition,
+		"legacy stat getters stay beside canonical weapon-definition adapters")
+	_check(not FileAccess.file_exists(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	), "grouping adds no new bridge or service layer")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
