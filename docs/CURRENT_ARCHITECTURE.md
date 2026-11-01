@@ -355,3 +355,16 @@ Live regression fills the realtime shell pool, checks that an
 alternate child round preserves existing shells, and verifies that
 an ordinary shell still evicts the oldest when the pool is full.
 No new component, state, or inheritance layer.
+
+## Non-mutating realtime camera target (PR #114)
+
+The special-weapons camera override no longer temporarily overwrites
+`explosion_timer` and `explosion_pos` to suppress AI explosion
+camera focus. The inherited `MainGame` and `WorldRuntimeBridge`
+realtime camera already choose a human projectile, human tank or
+explicit camera-hold target independent of those two fields. The
+scene now calls `super._camera_target_x()` directly, preserving
+the explosion's state while computing the same camera destination.
+Live camera regression checks the target with and without AI
+explosion metadata and verifies no mutation or temporary-field
+logic. No new class, hook or inheritance layer.
