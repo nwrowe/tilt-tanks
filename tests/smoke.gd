@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
 	_test_shared_projectile_launch_geometry()
+	_test_shared_projectile_impact_policy()
 	_test_turn_projectile_session_reset()
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
@@ -519,6 +520,53 @@ func _test_weapon_menu_view_lifecycle() -> void:
 	_check(not panel.visible, "missing optional weapon UI controls are safe")
 	# Free the parent once; it owns all three test buttons.
 	panel.free()
+
+func _test_shared_projectile_impact_policy() -> void:
+	var lookups: Array[String] = []
+	var pond_contains: Callable = func(point: Vector2) -> bool:
+		lookups.append("pond")
+		return is_equal_approx(point.x, 400.0)
+	var ground_height_at: Callable = func(_x: float) -> float:
+		lookups.append("ground")
+		return 200.0
+	var bottom_floor: Callable = func() -> float:
+		lookups.append("floor")
+		return 500.0
+	var target: Vector2 = Vector2(100.0, 100.0)
+	var hit: bool = ProjectileManager.should_shell_explode(
+		target, target, 24.0, 5.0, pond_contains, ground_height_at,
+		1200.0, bottom_floor
+	)
+	_check(hit and lookups.is_empty(),
+		"tank impact short-circuits pond, terrain and world queries")
+	lookups.clear()
+	hit = ProjectileManager.should_shell_explode(
+		Vector2(400.0, 80.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor
+	)
+	_check(hit and lookups == ["pond"],
+		"pond collision short-circuits terrain and world queries")
+	lookups.clear()
+	hit = ProjectileManager.should_shell_explode(
+		Vector2(300.0, 220.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor
+	)
+	_check(hit and lookups == ["pond", "ground"],
+		"ground collision short-circuits world-bottom lookup")
+	lookups.clear()
+	hit = ProjectileManager.should_shell_explode(
+		Vector2(-150.0, 80.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor
+	)
+	_check(hit and lookups == ["pond", "ground", "floor"],
+		"out-of-world collision runs last after other contact checks")
+	lookups.clear()
+	hit = ProjectileManager.should_shell_explode(
+		Vector2(300.0, 80.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor
+	)
+	_check(not hit and lookups == ["pond", "ground", "floor"],
+		"airborne in-world shell remains active with unchanged check ordering")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
