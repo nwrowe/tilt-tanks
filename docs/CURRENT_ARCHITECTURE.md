@@ -1,9 +1,9 @@
-# Current architecture — October 30, 2026
+# Current architecture — November 1, 2026
 
 The active Godot 4.6.3 scene is `res://scenes/Main.tscn`. It attaches
 `res://scripts/core/MainGameOnlineHostWaitingFacade.gd`.
 
-## Active inheritance: eight scripts
+## Active inheritance: seven scripts
 
 ```text
 MainGameOnlineHostWaitingFacade.gd
@@ -11,16 +11,22 @@ MainGameOnlineHostWaitingFacade.gd
   -> MainGameSpecialWeaponsFacade.gd
   -> MainGameModeFacade.gd
   -> MainGame.gd
-  -> WeaponRuntimeBridge.gd
   -> WorldRuntimeBridge.gd
   -> Main.gd (Node2D)
 ```
 
-Do not add additional facade/inheritance layers. The CI depth guard enforces
-**max-depth 8** against the actual scene script. The old
-`ModeRuntimeBridge.gd` is retired; see
-`docs/RETIRED_MODE_RUNTIME_BRIDGE.md`. Historical diagrams in earlier
-documents describe previous stages, not the current runtime.
+`WeaponRuntimeBridge.gd` was retired in PR #94. The last scene-facing
+weapon compatibility hooks were absorbed by `MainGame`, while actual
+projectile physics, impact decisions, weapon definitions, splitting
+logic and transient state remain in the existing grouped services.
+This removes one real inheritance layer **without adding a service
+or an additional horizontal wrapper**.
+
+Do not add new facade/inheritance layers. The CI depth guard now enforces
+**max-depth 7** against the actual scene script. The older
+`ModeRuntimeBridge.gd` was retired earlier; see
+`docs/RETIRED_MODE_RUNTIME_BRIDGE.md`. Older diagrams and PR
+descriptions are historical rather than the current inheritance graph.
 
 ## Composed gameplay services
 
@@ -57,7 +63,7 @@ Online as merely a placeholder are no longer accurate.
 
 The `.github/workflows/godot-smoke.yml` pipeline runs:
 
-1. Inheritance depth budget (eight scripts)
+1. Inheritance depth budget (seven scripts)
 2. Godot 4.6.3 import and script-class registration
 3. Standalone contracts and smoke tests
 4. Active-scene gameplay and menu integration
@@ -71,13 +77,31 @@ engine returns status 0. Preserve consistent RNG draw ordering and inherited
 lifecycle behavior in all follow-up extractions. Android export and on-device
 behavior are separate validation targets and are not covered by this CI.
 
-## Next architecture boundary
+## Keep the architecture deep enough to be clear, not wide enough to be messy
 
-Extract remaining independent responsibilities from
-`WeaponRuntimeBridge.gd` and its descendants before attempting to retire
-that layer. Avoid replacing the old inheritance chain with a large new
-monolith; the temporary compatibility methods in `WorldRuntimeBridge`
-must be slimmed over subsequent iterations.
+Retiring the weapon bridge is **not** permission to put independent algorithms
+in `MainGame.gd`. Its remaining compatibility functions are thin scene
+adapters and must continue forwarding work to the existing domain owners:
+
+- **Weapon data and loadout** — `scripts/weapons/WeaponDefinitionSession.gd`
+  with `WeaponDefinition`, `WeaponRegistry`, `WeaponLoadout` and
+  `WeaponSplitLogic`; avoid parallel registries
+- **Projectiles** — `scripts/weapons/ProjectileManager.gd` for step/impact
+  policy, `ProjectileFactory.gd` for geometry, and
+  `TurnProjectileSession.gd` for active shell state
+- **Effects** — `scripts/effects/DestroyedTankSmokeSession.gd` and
+  `EffectsManager.gd` for smoke/effect state, aging, and drawing policy
+- **AI** — the existing `scripts/ai/` planner, scorer and visual-aim
+  sessions; the world runtime coordinates AI turn timing
+- **UI, terrain and online play** — existing `scripts/ui/`,
+  `scripts/terrain/`, and `scripts/network/` groupings
+
+No new subclasses or one-method service wrappers should be introduced simply
+to lower a file's line count. When refactoring `WorldRuntimeBridge.gd`
+or `MainGame.gd`, first consolidate closely related methods within the
+*existing* domain services. Preserve the online serialization and RNG order.
+In particular, `MainGame` is still a large scene-facing orchestration script;
+**the seven-layer collapse does not complete the remaining modularization**.
 
 ## Mode identity compatibility
 
