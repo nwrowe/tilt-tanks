@@ -229,22 +229,6 @@ func _update_realtime_fire_charge(delta: float) -> void:
 	else:
 		MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
-func _update_ui() -> void:
-	super._update_ui()
-
-	if _is_hotseat_game_active() and not game_over:
-		if hotseat_fire_button_held or hotseat_keyboard_fire_held:
-			power_label.text = "Charge: %.0f%%" % hotseat_charge_percent
-		else:
-			power_label.text = "Hold FIRE"
-	elif _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) and menu_state == MENU_STATE_GAME and not game_over:
-		power_label.text = realtime_mode_controller.shell_status_label(
-			rt_player_shell_active,
-			rt_fire_button_held or rt_keyboard_fire_held,
-			rt_fire_charge_percent,
-			0.0
-		)
-
 # Migrated from the retired camera-hold compatibility layer. Keep super calls
 # and the special human-vs-AI explosion focus behavior unchanged.
 func _process(delta: float) -> void:

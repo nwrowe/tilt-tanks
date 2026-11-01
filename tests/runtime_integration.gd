@@ -65,6 +65,7 @@ func _run() -> void:
 	_test_composed_menu_view()
 	_test_menu_layer_retirement()
 	_test_weapon_startup_layout_live()
+	_test_mode_power_ui_single_owner_live()
 	_test_composed_weapon_menu_view_live()
 	_test_weapon_menu_owner_migration_live()
 	_test_weapon_frame_policy_live()
@@ -1298,6 +1299,52 @@ func _test_retired_world_mode_helpers_live() -> void:
 	game.call("_on_hotseat_pressed")
 	_check(int(game.get("menu_state")) == GAME_MENU_STATE,
 		"mode transitions still work after deleting unused world compatibility code")
+	game.call("reset_match")
+
+func _test_mode_power_ui_single_owner_live() -> void:
+	# The mode layer previously called MainGame._update_ui() and then
+	# immediately recalculated the same hotseat/realtime charge labels.
+	# Keep one label owner and exercise its behavior via the real scene.
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	_check(not mode_source.contains("\nfunc _update_ui(") and
+		main_source.contains("\nfunc _update_ui("),
+		"MainGame is the sole active hotseat/realtime charge-label owner")
+	var power: Label = game.get("power_label") as Label
+	_check(power != null, "power label is present for mode handoff")
+	if power == null:
+		return
+
+	game.call("_on_hotseat_pressed")
+	game.call("_on_hotseat_start_turn_pressed")
+	game.set("hotseat_fire_button_held", false)
+	game.set("hotseat_keyboard_fire_held", false)
+	game.call("_update_ui")
+	_check(power.text == "Hold FIRE",
+		"unheld hotseat fire keeps the normal prompt without the mode override")
+	game.set("hotseat_charge_percent", 72.0)
+	game.set("hotseat_fire_button_held", true)
+	game.call("_update_ui")
+	_check(power.text == "Charge: 72%",
+		"hotseat charge label keeps its percentage after mode deduplication")
+
+	game.call("_on_quick_game_pressed")
+	game.set("rt_player_shell_active", true)
+	game.set("rt_fire_button_held", false)
+	game.set("rt_keyboard_fire_held", false)
+	game.call("_update_ui")
+	_check(power.text == "Shell in flight",
+		"realtime mode still presents an active projectile label")
+	game.set("rt_player_shell_active", false)
+	game.set("rt_fire_charge_percent", 67.0)
+	game.set("rt_fire_button_held", true)
+	game.call("_update_ui")
+	_check(power.text == "Charge: 67%",
+		"realtime mode still presents live charging percentage")
 	game.call("reset_match")
 
 func _test_weapon_startup_layout_live() -> void:
