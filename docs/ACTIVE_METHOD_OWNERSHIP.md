@@ -292,23 +292,30 @@ unchanged. Deterministic and live-scene regression tests verify legacy
 property forwarding, retained array references, selected weapon and split
 state, successive resets, and the post-parent UI layout.
 
-## Shadowed weapon-bridge fallbacks retired (PR #84)
+## Safe realtime weapon-bridge fallbacks retired (PR #84)
 
-After tracing active method overrides and `super` calls, eight lower
-implementations have been removed from `WeaponRuntimeBridge`:
+Three shadowed lower realtime fallback implementations have been
+removed from `WeaponRuntimeBridge`:
+`_fire_realtime_projectile`,
+`_update_all_realtime_projectiles`, and
+`_spawn_realtime_cluster_children`.
+The active firing handler is in `MainGameSpecialWeaponsFacade`;
+the active realtime shell loop and cluster splitting are in
+`MainGameModeFacade`. The special facade's realtime
+`super._update_all_realtime_projectiles` call terminates at
+`MainGameModeFacade`. The lower `WorldRuntimeBridge` declarations
+remain available for inherited mode compatibility.
+
+Godot requires ancestor script methods called from an ancestor to
+retain declarations even when derived scripts override those methods
+in the active scene. In particular, the following `WeaponRuntimeBridge`
+fallbacks are **not** removable by deletion alone:
 `_build_weapon_ui`, `_toggle_weapon_menu`,
 `_split_turn_cluster_projectile`,
-`_update_turn_weapon_projectiles`, `_fire_realtime_projectile`,
-`_update_all_realtime_projectiles`,
-`_spawn_realtime_cluster_children`, and `_apply_weapon_damage`.
-The active implementations already existed in `MainGame`,
-`MainGameModeFacade` or `MainGameSpecialWeaponsFacade` and do not
-chain to these lower methods. In particular, the special realtime shell
-loop's `super` call enters the mode facade's working implementation,
-which does not continue into the bridge.
+`_update_turn_weapon_projectiles`, and `_apply_weapon_damage`.
+Those methods will need explicit replacement or ownership migration
+before the entire bridge layer can be retired.
 
-The active weapon metadata accessors, inherited turn-shell collision
-checks, ordinary turn-projectile update, camera drawing, reset, and
-other reached `super` hooks remain intact. Existing gameplay and
-real-ENet regression tests run alongside explicit source ownership and
-live weapon-menu checks. Active inherited layer count remains eight.
+The new live-scene test checks both sides of this boundary. All active
+physics, UI, turn shell, reset, effects, and network behavior remains
+in the original dispatch path; eight inherited layers remain.
