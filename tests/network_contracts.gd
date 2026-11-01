@@ -32,6 +32,7 @@ func _run() -> void:
 	_test_typed_wire_arrays()
 	_test_interpolation_math()
 	_test_host_coordinator()
+	_test_online_reset_and_disconnect_ownership()
 	_test_single_host_sync_owner()
 	_test_guest_command_validation()
 	_test_sequencer_reset()
@@ -205,6 +206,66 @@ func _test_single_host_sync_owner() -> void:
 	_check(owner.contains("ONLINE_DUEL_ACTIVE_SYNC_INTERVAL") and
 		owner.contains("ONLINE_DUEL_IDLE_SYNC_INTERVAL"),
 		"online facade retains distinct active and idle snapshot periods")
+
+func _test_online_reset_and_disconnect_ownership() -> void:
+	# The progression disconnect owns host-coordinator reset; the online
+	# facade owns smoothing and sequencing reset. Match reset must clear
+	# interpolation and fallback but leave sync scheduling state intact.
+	var online_script: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	var progression_script: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	_check(not online_script.contains("func _online_clear_client_smoothing(") and
+		not online_script.contains("func _online_clear_turn_advance_fallback("),
+		"online cleanup no longer uses one-line forwarding methods")
+	_check(progression_script.contains("online_host_coordinator.reset()"),
+		"progression disconnect retains canonical host timer reset")
+	var host: OnlineDuelHostCoordinator = game.get(
+		"online_host_coordinator") as OnlineDuelHostCoordinator
+	var smoothing: OnlineDuelInterpolation = game.get(
+		"online_interpolation") as OnlineDuelInterpolation
+	var seq: OnlineSnapshotSequencer = game.get(
+		"online_snapshot_sequencer") as OnlineSnapshotSequencer
+	_check(host != null and smoothing != null and seq != null,
+		"online runtime exposes its composed lifecycle owners")
+	if host == null or smoothing == null or seq == null:
+		return
+	host.reset()
+	seq.reset()
+	_check(host.due_for_sync(0.0, true, false, 0.033, 0.10),
+		"host sync timer can be armed before reset")
+	host.arm_fallback(0, 1.25)
+	smoothing.has_authoritative_state = true
+	smoothing.tank_targets = [Vector2(12.0, 13.0)]
+	smoothing.projectile_target = Vector2(20.0, 30.0)
+	smoothing.was_projectile_active = true
+	game.call("reset_match")
+	_check(host.fallback_owner == -1 and is_zero_approx(host.fallback_remaining),
+		"match reset clears pending online turn fallback through host coordinator")
+	_check(is_equal_approx(host.sync_remaining, 0.10),
+		"match reset leaves the host sync cadence untouched")
+	_check(not smoothing.has_authoritative_state and
+		smoothing.tank_targets.is_empty() and smoothing.projectile_target == Vector2.INF and
+		not smoothing.was_projectile_active,
+		"match reset clears all interpolation targets through the composed owner")
+	host.arm_fallback(1, 0.55)
+	host.force_next_sync()
+	smoothing.has_authoritative_state = true
+	smoothing.tank_targets = [Vector2(55.0, 66.0)]
+	smoothing.projectile_target = Vector2(77.0, 88.0)
+	_check(seq.accept_full({"seq": 10}),
+		"sequence tracker accepts a packet before disconnect")
+	game.call("_online_disconnect")
+	_check(host.fallback_owner == -1 and is_zero_approx(host.fallback_remaining) and
+		is_zero_approx(host.sync_remaining),
+		"disconnect resets host timer and fallback exactly through the progression owner")
+	_check(not smoothing.has_authoritative_state and
+		smoothing.tank_targets.is_empty() and smoothing.projectile_target == Vector2.INF,
+		"disconnect resets interpolation through online owner")
+	_check(seq.last_full_sequence < 0,
+		"disconnect resets the online snapshot sequence tracker")
 
 func _test_guest_command_validation() -> void:
 	_check(OnlineDuelCommandValidator.can_start_turn(42, 42, 1, 1, true), "connected guest can start its own turn")

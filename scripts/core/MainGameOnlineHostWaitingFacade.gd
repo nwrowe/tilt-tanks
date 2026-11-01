@@ -29,8 +29,8 @@ func _process(delta: float) -> void:
 		_online_process_host_sync(delta)
 
 func reset_match() -> void:
-	_online_clear_client_smoothing()
-	_online_clear_turn_advance_fallback()
+	online_interpolation.reset()
+	online_host_coordinator.clear_fallback()
 	super.reset_match()
 
 func _clear_menu_controls() -> void:
@@ -42,9 +42,10 @@ func _online_disconnect() -> void:
 	online_host_wait_seconds = 0.0
 	online_host_wait_label = null
 	online_snapshot_sequencer.reset()
-	online_host_coordinator.reset()
-	_online_clear_client_smoothing()
-	_online_clear_turn_advance_fallback()
+	# Progression's disconnect already resets the host coordinator,
+	# including its fallback timer. Only the online-owned client state
+	# remains to be cleared here.
+	online_interpolation.reset()
 
 func _on_online_host_pressed() -> void:
 	_online_disconnect()
@@ -160,7 +161,7 @@ func _on_fire_pressed() -> void:
 
 func _advance_turn() -> void:
 	super._advance_turn()
-	_online_clear_turn_advance_fallback()
+	online_host_coordinator.clear_fallback()
 	if _is_online_duel_active() and online_is_host:
 		online_host_coordinator.force_next_sync()
 		_online_send_snapshot(true)
@@ -179,7 +180,7 @@ func _maybe_advance_after_explosion_hold() -> void:
 	super._maybe_advance_after_explosion_hold()
 	if _is_online_duel_active() and online_is_host:
 		if player_before != current_player or (pending_before and not pending_advance_after_explosion_hold):
-			_online_clear_turn_advance_fallback()
+			online_host_coordinator.clear_fallback()
 			_online_send_snapshot(true)
 
 func _online_process_host_sync(delta: float) -> void:
@@ -372,9 +373,6 @@ func _online_update_client_interpolation(delta: float) -> void:
 	online_interpolation.interpolate_tanks(tank_positions, delta, ONLINE_DUEL_TANK_SMOOTH_TIME)
 	projectile_pos = online_interpolation.interpolate_projectile(projectile_pos, projectile_active, delta, ONLINE_DUEL_PROJECTILE_SMOOTH_TIME)
 
-func _online_clear_client_smoothing() -> void:
-	online_interpolation.reset()
-
 func _online_has_active_authoritative_motion() -> bool:
 	return (
 		projectile_active
@@ -405,9 +403,6 @@ func _online_process_turn_advance_fallback(delta: float) -> void:
 	machine_gun_camera_pos = Vector2.INF
 	_advance_turn()
 	_online_send_snapshot(true)
-
-func _online_clear_turn_advance_fallback() -> void:
-	online_host_coordinator.clear_fallback()
 
 func _online_maybe_force_pending_turn_advance() -> void:
 	if not _is_online_duel_active() or not online_is_host:
