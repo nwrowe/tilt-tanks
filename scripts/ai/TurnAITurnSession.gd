@@ -1,12 +1,13 @@
 extends RefCounted
 class_name TurnAITurnSession
 
-## Owns the computer player's pending-turn state and think timer.
-## The runtime's compatibility properties point here while weapon/gameplay
-## scripts continue to control visible aiming and actual shot firing.
+## Owns the computer player's pending-turn state, think timer and
+## visual aim plan. Gameplay continues to select paths and fire weapons;
+## the world and weapon bridges expose compatibility accessors.
 
 var pending: bool = false
 var think_timer: float = 0.0
+var visual: TurnAIVisualAimSession = TurnAIVisualAimSession.new()
 
 func begin(duration: float) -> void:
 	pending = true
@@ -22,6 +23,7 @@ func cancel() -> void:
 func reset() -> void:
 	pending = false
 	think_timer = 0.0
+	visual.clear_plan()
 
 static func can_act(
 	quick_game: bool, ai_player_turn: bool,
