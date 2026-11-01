@@ -1008,7 +1008,7 @@ func _test_identical_method_override_cleanup() -> void:
 		return
 	var inherited_names: Array[String] = [
 		"_update_projectile", "_spawn_destroyed_smoke_puff",
-		"_draw_destroyed_smoke_puffs", "_weapon_direct_damage",
+		"_weapon_direct_damage",
 		"_weapon_explosion_radius", "_has_active_realtime_shell_for_owner"
 	]
 	for name: String in inherited_names:
