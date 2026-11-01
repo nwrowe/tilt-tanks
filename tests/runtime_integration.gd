@@ -372,6 +372,32 @@ func _test_level_and_build_state_bridge() -> void:
 	game.call("reset_match")
 	_check(is_equal_approx(state.wind, float(game.get("wind"))), "level wind agrees with controller state after reset")
 	_check(state.tank_builds.size() >= 2, "reset initializes both tank builds")
+	var active_builds: Array[TankBuildState] = game.get("player_tank_builds")
+	_check(active_builds.size() == 2 and
+		state.tank_build_for_player(0) == active_builds[0] and
+		state.tank_build_for_player(1) == active_builds[1],
+		"one post-parent publish installs the progression-owned builds in MatchState")
+	var progression_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var construction_start: int = progression_source.find(
+		"\nfunc _initialize_player_tank_builds() -> void:")
+	var construction_end: int = progression_source.find(
+		"\nfunc ", construction_start + 2)
+	var construction_body: String = progression_source.substr(
+		construction_start, construction_end - construction_start)
+	_check(construction_start > 0 and
+		not construction_body.contains("_sync_match_state_tank_builds()"),
+		"build construction has no early MatchState writes before parent reset")
+	var startup_start: int = progression_source.find(
+		"\nfunc _initialize_progression_state() -> void:")
+	var startup_end: int = progression_source.find(
+		"\nfunc ", startup_start + 2)
+	var startup_body: String = progression_source.substr(
+		startup_start, startup_end - startup_start)
+	_check(startup_body.contains("_initialize_player_tank_builds()") and
+		startup_body.contains("_sync_match_state_tank_builds()"),
+		"initial progression setup still publishes the default builds")
 	var builds: Array[TankBuildState] = [
 		TankProgressionRegistry.default_player_build(0),
 		TankProgressionRegistry.default_player_build(1)

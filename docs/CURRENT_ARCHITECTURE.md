@@ -213,3 +213,15 @@ sequencer, interpolation and waiting-room presentation. Match reset
 retains its pre-parent interpolation/fallback clearing and does **not**
 reset the host sync cadence. Live network contract tests seed stale
 timers, interpolation and sequence state and verify both transitions.
+
+## Single-publish progression build reset (PR #104)
+
+`MainGameProgressionFacade._initialize_player_tank_builds` now only
+constructs per-player build instances. At initial startup,
+`_initialize_progression_state` publishes them once to the existing
+`MatchController`. At match reset, the parent
+`MatchController.start_match` replaces its built-in default builds,
+then the progression facade publishes its instances **once afterward**.
+The previous before-and-after pair of controller writes was redundant;
+this change preserves creation and `super.reset_match()` order, avoids
+a pre-parent state write, and adds live identity/default-value checks.
