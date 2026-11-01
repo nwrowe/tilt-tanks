@@ -35,6 +35,7 @@ func _run() -> void:
 	_test_online_reset_and_disconnect_ownership()
 	_test_single_host_sync_owner()
 	_test_shared_online_client_frame_ownership()
+	_test_shared_online_snapshot_application()
 	_test_guest_command_validation()
 	_test_sequencer_reset()
 	game.queue_free()
@@ -72,6 +73,64 @@ func _test_shared_online_client_frame_ownership() -> void:
 		guest_frame.find("if explosion_timer > 0.0:") <
 		guest_frame.find("_online_finish_client_frame(delta)"),
 		"guest interpolation, input, explosion expiry and camera stages keep prior ordering")
+
+func _test_shared_online_snapshot_application() -> void:
+	# Verify both network packet paths reuse a single mutable shell-array
+	# restoration and a single current-player settings/MatchState publish.
+	var progression: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var online: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	_check(progression.split("_online_apply_turn_shell_snapshot(snapshot)").size() == 2 and
+		online.contains("_online_apply_turn_shell_snapshot(snapshot)") and
+		not online.contains("turn_projectiles.append((shell as Dictionary).duplicate(true))"),
+		"full and motion snapshot receivers use one turn-shell restoration implementation")
+	_check(progression.split("_online_finish_received_snapshot()").size() == 2 and
+		online.contains("_online_finish_received_snapshot()") and
+		not online.contains("power_slider.value = power_percent"),
+		"full and motion receivers publish local aim/UI and MatchState once")
+
+	var shell_handle: Array[Dictionary] = game.get("turn_projectiles")
+	var saved_shells: Array[Dictionary] = shell_handle.duplicate(true)
+	var packet_shell: Dictionary = ProjectileFactory.make_shell(
+		1, WeaponCatalog.HEAVY, Vector2(420.0, 125.0), Vector2(40.0, -5.0)
+	)
+	game.call("_online_apply_turn_shell_snapshot", {
+		"turn_projectiles": [packet_shell, 123, "invalid"]
+	})
+	_check(shell_handle.size() == 1 and
+		int(shell_handle[0].get("owner", -1)) == 1 and
+		str(shell_handle[0].get("weapon", "")) == WeaponCatalog.HEAVY,
+		"shared shell receiver preserves typed array identity and filters invalid wire entries")
+	packet_shell["owner"] = 0
+	_check(int(shell_handle[0].get("owner", -1)) == 1,
+		"decoded shell dictionary is deep-copied rather than aliased to a packet")
+
+	var original_player: int = int(game.get("current_player"))
+	var original_angles: Array[float] = (game.get("player_angles") as Array[float]).duplicate()
+	var original_percents: Array[float] = (game.get("player_power_percents") as Array[float]).duplicate()
+	var angles: Array[float] = [20.0, 65.0]
+	var percents: Array[float] = [40.0, 78.0]
+	game.set("current_player", 1)
+	game.set("player_angles", angles)
+	game.set("player_power_percents", percents)
+	game.set("online_client_waiting_for_authority", true)
+	game.call("_online_finish_received_snapshot")
+	_check(not bool(game.get("online_client_waiting_for_authority")) and
+		is_equal_approx(float(game.get("angle_deg")), 65.0) and
+		is_equal_approx(float(game.get("power_percent")), 78.0),
+		"shared finish clears guest wait and restores current player's aim/charge")
+	_check((game.get("match_state") as MatchState).current_player == 1 and
+		is_equal_approx((game.get("match_state") as MatchState).player_angles[1], 65.0),
+		"snapshot finish publishes received player settings to authoritative MatchState")
+	game.set("current_player", original_player)
+	game.set("player_angles", original_angles)
+	game.set("player_power_percents", original_percents)
+	shell_handle.clear()
+	shell_handle.append_array(saved_shells)
+	game.call("reset_match")
 
 func _test_vector_round_trip() -> void:
 	var original: Vector2 = Vector2(123.25, -456.5)
