@@ -98,6 +98,7 @@ func _run() -> void:
 	_test_shared_turn_advance_clearance_live()
 	_test_special_weapon_terrain_delegation_live()
 	_test_laser_controller_authority_live()
+	_test_metadata_laser_profile_fire_dispatch()
 
 	game.queue_free()
 	await process_frame
@@ -1579,6 +1580,71 @@ func _test_laser_controller_authority_live() -> void:
 		controller.winner_index() == 0 and bool(game.get("game_over")),
 		"lethal Laser clamps health and publishes winner before subsequent frame")
 	laser.direct_damage = prior_damage
+	game.call("reset_match")
+
+func _test_metadata_laser_profile_fire_dispatch() -> void:
+	# Register a second Laser profile only in test memory. It must use the
+	# existing laser_cut behavior without another weapon-specific branch,
+	# preserve charge/realtime routes and resolve its own metadata.
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(source.split('_weapon_behavior(selected_weapon) == "laser_cut"').size() == 3 and
+		source.contains('_weapon_behavior(weapon) == "laser_cut"'),
+		"hotseat, realtime charged and realtime direct fire dispatch by behavior")
+	game.call("_on_hotseat_pressed")
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var old_loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
+	var id: String = "test_laser_profile"
+	session.definitions[id] = WeaponDefinition.new({
+		"id": id, "display_name": "Test Laser Profile",
+		"player_selectable": true, "menu_order": 100,
+		"behavior": "laser_cut", "direct_damage": 46,
+		"direct_radius": 12.0, "laser_cut_width": 3.0,
+		"laser_cut_depth": 42.0
+	})
+	var ids: Array[String] = old_loadout.weapon_ids.duplicate()
+	ids.append(id)
+	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, old_loadout.default_weapon_id))
+	game.call("_set_selected_weapon_for_current_player", id)
+	_check(str(game.get("selected_weapon")) == id,
+		"new laser profile is selectable via the existing weapon loadout")
+	var positions: Array[Vector2] = [
+		Vector2(200.0, 320.0), Vector2(450.0, 320.0)
+	]
+	var full_health: Array[int] = [100, 100]
+	game.set("tank_positions", positions)
+	game.set("tank_health", full_health)
+	game.set("angle_deg", 0.0)
+	game.set("power_percent", 60.0)
+	game.set("hotseat_release_in_progress", true)
+	game.call("_on_fire_pressed")
+	game.set("hotseat_release_in_progress", false)
+	var state: MatchState = game.get("match_state") as MatchState
+	_check((game.get("tank_health") as Array) == [100, 54] and
+		state.tank_health == [100, 54],
+		"new Laser profile uses its own damage metadata through real hotseat firing")
+	_check(not bool(game.get("projectile_active")) and
+		bool(game.get("pending_advance_after_explosion_hold")),
+		"behavior-dispatched Laser still performs instantaneous fire and delayed turn handoff")
+	var packet: Dictionary = game.call("_online_make_snapshot")
+	_check((packet["tank_health"] as Array) == [100, 54],
+		"custom Laser profile is reflected in same-frame online snapshot")
+	game.call("reset_match")
+	game.call("_on_quick_game_pressed")
+	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, old_loadout.default_weapon_id))
+	game.call("_set_selected_weapon_for_current_player", id)
+	game.set("tank_positions", positions)
+	game.set("tank_health", full_health.duplicate())
+	game.set("angle_deg", 0.0)
+	game.set("rt_fire_charge_percent", 72.0)
+	game.call("_release_realtime_charged_shot")
+	_check((game.get("tank_health") as Array) == [100, 54] and
+		not bool(game.get("rt_player_shell_active")) and
+		not bool(game.get("rt_fire_button_held")),
+		"new Laser profile uses charged realtime firing without creating a shell")
+	game.call("_set_active_weapon_loadout", old_loadout)
+	session.definitions.erase(id)
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
