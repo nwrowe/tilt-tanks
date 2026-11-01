@@ -128,8 +128,8 @@ func _on_fire_pressed() -> void:
 		if not game_over:
 			pending_advance_after_explosion_hold = true
 		return
-	if selected_weapon == SPECIAL_MACHINE_GUN:
-		_begin_machine_gun_burst(current_player, angle_deg, power_percent, false)
+	if _weapon_behavior(selected_weapon) == "machine_gun":
+		_begin_machine_gun_burst(current_player, angle_deg, power_percent, false, selected_weapon)
 		return
 
 	super._on_fire_pressed()
@@ -148,13 +148,13 @@ func _release_realtime_charged_shot() -> void:
 		quickgame_player_shot_hide_trajectory = true
 		_reset_realtime_charge_state()
 		return
-	if selected_weapon == SPECIAL_MACHINE_GUN:
+	if _weapon_behavior(selected_weapon) == "machine_gun":
 		if not _player_can_fire() or game_over or overlay_open or weapon_burst.active:
 			_reset_realtime_charge_state()
 			return
 		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
 		power = _power_from_percent(power_percent)
-		_begin_machine_gun_burst(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true)
+		_begin_machine_gun_burst(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true, selected_weapon)
 		rt_player_shell_active = true
 		quickgame_player_shot_hide_trajectory = true
 		_reset_realtime_charge_state()
@@ -201,7 +201,7 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 
 	turn_projectiles = remaining
 
-	if weapon_burst.turn_waiting_for_shells or _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND):
+	if weapon_burst.turn_waiting_for_shells or _turn_projectiles_include_weapon(_burst_round_weapon()):
 		_update_machine_gun_camera_from_shells(turn_projectiles, weapon_burst.owner)
 	elif any_center_shell_alive:
 		cluster_camera_hold_pos = last_center_pos
@@ -276,10 +276,10 @@ func _fire_realtime_projectile(owner: int) -> void:
 		var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
 		_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
 		return
-	if weapon == SPECIAL_MACHINE_GUN:
+	if _weapon_behavior(weapon) == "machine_gun":
 		var mg_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
 		var mg_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-		_begin_machine_gun_burst(owner, mg_angle, mg_power_percent, true)
+		_begin_machine_gun_burst(owner, mg_angle, mg_power_percent, true, weapon)
 		return
 	if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES:
 		rt_projectiles.pop_front()
@@ -304,7 +304,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if weapon != SPECIAL_MACHINE_GUN_ROUND:
+	if not _is_burst_round(weapon):
 		_start_global_explosion_camera_hold(pos)
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
 		game_over = true
@@ -320,7 +320,7 @@ func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = NO_CAME
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if owner == HUMAN_PLAYER_INDEX and weapon != SPECIAL_MACHINE_GUN_ROUND:
+	if owner == HUMAN_PLAYER_INDEX and not _is_burst_round(weapon):
 		_start_global_explosion_camera_hold(pos)
 	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
 		game_over = true
@@ -338,8 +338,15 @@ func _weapon_behavior(weapon: String) -> String:
 func _weapon_explosion_duration(weapon: String) -> float:
 	return float(_weapon_value(weapon, "explosion_duration", EXPLOSION_DURATION))
 
-func _weapon_machine_child() -> String:
-	return str(_weapon_value(SPECIAL_MACHINE_GUN, "child_weapon_id", SPECIAL_MACHINE_GUN_ROUND))
+func _weapon_machine_child(weapon: String = SPECIAL_MACHINE_GUN) -> String:
+	return str(_weapon_value(weapon, "child_weapon_id", SPECIAL_MACHINE_GUN_ROUND))
+
+func _burst_round_weapon() -> String:
+	return weapon_burst.child_weapon_id if not weapon_burst.child_weapon_id.is_empty() else SPECIAL_MACHINE_GUN_ROUND
+
+func _is_burst_round(weapon: String) -> bool:
+	# Preserve default-round behavior for standalone compatibility callers.
+	return weapon == SPECIAL_MACHINE_GUN_ROUND or weapon == weapon_burst.child_weapon_id
 
 func _update_bouncing_turn_projectile(delta: float) -> void:
 	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(projectile_pos, projectile_vel, gravity, wind, delta)
@@ -385,11 +392,15 @@ func _reflect_bouncer_velocity(
 		BOUNCER_MIN_UPWARD_SPEED
 	)
 
-func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
+func _begin_machine_gun_burst(
+	owner: int, shot_angle: float, shot_power_percent: float,
+	realtime: bool, weapon: String = SPECIAL_MACHINE_GUN
+) -> void:
 	weapon_burst.begin(
 		owner, shot_angle, shot_power_percent, realtime,
-		int(_weapon_value(SPECIAL_MACHINE_GUN, "burst_count", 10)),
-		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_interval", 0.1))
+		int(_weapon_value(weapon, "burst_count", 10)),
+		float(_weapon_value(weapon, "burst_interval", 0.1)),
+		weapon, _weapon_machine_child(weapon)
 	)
 	machine_gun_camera_active = true
 	machine_gun_camera_pos = tank_positions[owner]
@@ -410,12 +421,12 @@ func _fire_next_machine_gun_round() -> void:
 		return
 	var shot: Dictionary = weapon_burst.shot_settings(
 		rng,
-		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_angle_jitter", 3.0)),
-		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_power_jitter", 7.0)),
+		float(_weapon_value(weapon_burst.weapon_id, "burst_angle_jitter", 3.0)),
+		float(_weapon_value(weapon_burst.weapon_id, "burst_power_jitter", 7.0)),
 		MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
 	)
 	_spawn_special_shell(
-		weapon_burst.owner, _weapon_machine_child(), float(shot["angle"]),
+		weapon_burst.owner, _burst_round_weapon(), float(shot["angle"]),
 		float(shot["power_percent"]), weapon_burst.realtime
 	)
 	weapon_burst.round_fired()
@@ -488,7 +499,7 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 
 func _update_machine_gun_camera_from_shells(shells: Array[Dictionary], owner: int) -> void:
 	var focus: Vector2 = ProjectileManager.leading_shell_focus_for_weapon(
-		shells, SPECIAL_MACHINE_GUN_ROUND, owner != HUMAN_PLAYER_INDEX and owner != 0,
+		shells, _burst_round_weapon(), owner != HUMAN_PLAYER_INDEX and owner != 0,
 		MACHINE_GUN_CAMERA_LEAD_BIAS
 	)
 	# Keep the previous focus while a burst is between rounds.
@@ -511,7 +522,7 @@ func _realtime_special_projectiles_active() -> bool:
 		return true
 	for shell: Dictionary in rt_projectiles:
 		var weapon: String = str(shell.get("weapon", ""))
-		if _weapon_behavior(weapon) == "bounce" or weapon == SPECIAL_MACHINE_GUN_ROUND:
+		if _weapon_behavior(weapon) == "bounce" or _is_burst_round(weapon):
 			return true
 	return false
 

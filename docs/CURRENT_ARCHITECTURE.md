@@ -327,3 +327,19 @@ named for Bouncer physics rather than an unrelated camera subsystem.
 Live integration creates an additional temporary Bouncer definition,
 exercises turn bounce then max-bounce detonation and realtime rebound,
 and restores the default definitions/loadout. No new class or layer.
+
+## Metadata-driven burst profile routing (PR #112)
+
+Machine Gun firing in hotseat, charged realtime and AI/realtime routes
+now dispatches on the existing `behavior == "machine_gun"` metadata,
+not a literal parent ID. The current `WeaponBurstSession` owns the
+source profile ID and configured child-round ID alongside its prior
+cadence, owner and completion state. Actual counts/interval/jitter
+resolve from the selected profile; round spawning, camera tracking,
+special-projectile routing and per-round explosion hold suppression
+use the active child ID. Default round compatibility is retained.
+The old scene and session burst hooks retain optional parameter defaults
+for existing callers. Live tests add a temporary second burst profile
+and distinct child definition, exercise hotseat and charged realtime
+firing, timing, camera focus and session reset, then restore the registry.
+No new type, duplicated registry or inheritance layer was introduced.
