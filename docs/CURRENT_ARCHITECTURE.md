@@ -296,3 +296,19 @@ damage. Misses still do nothing; Laser still deals no splash
 damage. Unit and live tests cover targeting, configurable damage,
 copy isolation, overkill, winner assignment, and immediate network
 packet consistency. No new state owner, class or inheritance layer.
+
+## Behavior-driven Laser profile dispatch (PR #110)
+
+Hotseat, charged realtime and direct realtime Laser calls now dispatch
+on the existing `WeaponDefinition.behavior == "laser_cut"` rather than
+the literal weapon ID. The selected weapon ID flows through the
+existing Laser fire, terrain and direct-damage hooks so each profile
+uses its **own** width, depth, direct radius and damage. Their old
+signatures still default to `WeaponRegistry.WEAPON_LASER` for
+existing compatibility calls. The rest of the scene still owns
+input gating, camera, FX and gameplay turn advancement. A live
+regression test registers a second temporary Laser profile into
+the existing definition session and loadout, fires it in hotseat
+and realtime modes, verifies metadata-specific damage and
+network snapshots, and restores the original registry and loadout.
+No class, abstract factory, second registry or inheritance expansion.
