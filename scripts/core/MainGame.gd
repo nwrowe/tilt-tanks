@@ -310,8 +310,10 @@ func _resize_mobile_action_buttons() -> void:
 		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
 	)
 
-# The active loadout-driven weapon menu is built in MainGameModeFacade.
-# Do not reintroduce a fixed weapon list in this scene coordinator.
+# Virtual compile-time hook: the active mode facade builds the loadout-driven
+# selector. Keep the declaration for inherited _ready() without duplicating UI.
+func _build_weapon_ui() -> void:
+	pass
 
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
