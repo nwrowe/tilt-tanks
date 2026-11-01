@@ -94,6 +94,7 @@ func _run() -> void:
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
 	_test_machine_gun_projectile_camera_focus()
+	_test_composed_weapon_burst_session_live()
 
 	game.queue_free()
 	await process_frame
@@ -1305,6 +1306,85 @@ func _test_machine_gun_projectile_camera_focus() -> void:
 	_check(not bool(game.get("machine_gun_camera_active")) and
 		game.get("machine_gun_camera_pos") == Vector2.INF,
 		"match reset clears camera state through the existing burst reset hook")
+
+func _test_composed_weapon_burst_session_live() -> void:
+	# Exercise burst timing and RNG in isolation, then the live game adapter.
+	# It must consume exactly two jitter draws per emitted round, retain
+	# overshoot across frames, and never mutate camera or projectile arrays.
+	var burst: WeaponBurstSession = WeaponBurstSession.new()
+	burst.begin(1, 42.0, 63.0, true, 3, 0.1)
+	_check(burst.active and burst.realtime and burst.owner == 1 and
+		not burst.turn_waiting_for_shells and burst.round_due(),
+		"burst session initializes realtime shot ownership and immediate first round")
+	var expected_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var shot_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	expected_rng.seed = 20261101
+	shot_rng.seed = 20261101
+	var expected_angle: float = clampf(
+		42.0 + expected_rng.randf_range(-3.0, 3.0), 0.0, 90.0
+	)
+	var expected_power: float = clampf(
+		63.0 + expected_rng.randf_range(-7.0, 7.0), 0.0, 100.0
+	)
+	var shot: Dictionary = burst.shot_settings(shot_rng, 3.0, 7.0, 0.0, 90.0)
+	_check(is_equal_approx(float(shot["angle"]), expected_angle) and
+		is_equal_approx(float(shot["power_percent"]), expected_power),
+		"burst jitter consumes exactly one angle then one power RNG draw")
+	burst.round_fired()
+	_check(burst.remaining == 2 and is_equal_approx(burst.timer, 0.1) and
+		not burst.round_due(), "burst session accounts for fired round without oversending")
+	burst.advance(0.25)
+	_check(burst.round_due() and is_equal_approx(burst.timer, -0.15),
+		"variable-frame update preserves negative timer overshoot")
+	burst.round_fired()
+	burst.round_fired()
+	_check(burst.remaining == 0 and is_equal_approx(burst.timer, 0.05),
+		"large-frame burst emits due rounds and carries residual cadence")
+	_check(burst.finish() and not burst.active,
+		"realtime burst completion returns its mode and disables further firing")
+	burst.begin(0, 45.0, 50.0, false, 2, 0.1)
+	burst.round_fired()
+	_check(not burst.can_finish_turn(false, true, 0.0, 0.0) and
+		not burst.can_finish_turn(false, false, 0.1, 0.0),
+		"hotseat burst cannot finish while rounds or explosion hold remain")
+	burst.finish()
+	_check(burst.can_finish_turn(false, false, 0.0, 0.0),
+		"hotseat burst waits for all projectiles and effects before turn handoff")
+	burst.clear_active()
+	_check(not burst.active and not burst.turn_waiting_for_shells and
+		burst.remaining == 0 and is_zero_approx(burst.timer),
+		"burst session resets its state without touching external camera owners")
+
+	game.call("_on_hotseat_pressed")
+	var live: WeaponBurstSession = game.get("weapon_burst") as WeaponBurstSession
+	_check(live != null, "active scene composes the reusable burst lifecycle owner")
+	if live == null:
+		return
+	var def_session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var definition: WeaponDefinition = def_session.definition(WeaponRegistry.WEAPON_MACHINE_GUN)
+	var count_before: Variant = definition.extra_fields.get("burst_count", 10)
+	var interval_before: Variant = definition.extra_fields.get("burst_interval", 0.1)
+	definition.extra_fields["burst_count"] = 3
+	definition.extra_fields["burst_interval"] = 0.1
+	game.call("_begin_machine_gun_burst", 0, 45.0, 63.0, false)
+	_check(live.active and live.turn_waiting_for_shells and
+		live.remaining == 2 and bool(game.get("machine_gun_active")),
+		"live Machine Gun consumes its first metadata-configured round immediately")
+	_check((game.get("turn_projectiles") as Array).size() == 1,
+		"live burst creates a real turn projectile, not a synthetic counter")
+	game.call("_update_machine_gun_burst", 0.25)
+	_check(not live.active and live.remaining == 0 and
+		(game.get("turn_projectiles") as Array).size() == 3,
+		"live burst emits all due rounds with correct metadata-driven count and timing")
+	_check(bool(game.get("machine_gun_turn_waiting_for_shells")) and
+		not live.can_finish_turn(false, true, 0.0, 0.0),
+		"turn waits for actual burst shells after schedule completes")
+	definition.extra_fields["burst_count"] = count_before
+	definition.extra_fields["burst_interval"] = interval_before
+	game.call("reset_match")
+	_check(not live.active and not live.turn_waiting_for_shells and
+		live.remaining == 0 and (game.get("turn_projectiles") as Array).is_empty(),
+		"match reset clears both the burst session and all fired projectiles")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
