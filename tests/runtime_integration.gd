@@ -961,8 +961,10 @@ func _test_destroyed_smoke_session_live() -> void:
 func _test_turn_ai_visual_aim_session_live() -> void:
 	game.call("_on_hotseat_pressed")
 	var session: TurnAIVisualAimSession = game.get("turn_ai_visual") as TurnAIVisualAimSession
-	_check(session != null and session.plan.is_empty(),
-		"active weapon runtime composes turn AI visual session")
+	var turn_session: TurnAITurnSession = game.get("turn_ai_session") as TurnAITurnSession
+	_check(session != null and turn_session != null and
+		session == turn_session.visual and session.plan.is_empty(),
+		"bridge visual AI aliases the same world-owned turn session")
 	var rng: RandomNumberGenerator = game.get("rng") as RandomNumberGenerator
 	rng.seed = 20261030
 	game.call("_begin_ai_turn")
@@ -988,7 +990,9 @@ func _test_turn_ai_visual_aim_session_live() -> void:
 		clampf(float(session.plan.get("power_percent", 55.0)), 0.0, 100.0)),
 		"live AI shot interpretation reads the same composed visual plan without mutation")
 	game.call("reset_match")
-	_check(session.plan.is_empty(), "match reset clears the composed turn AI visual plan")
+	_check(session.plan.is_empty() and not turn_session.pending and
+		is_zero_approx(turn_session.think_timer),
+		"one inherited reset clears the world AI timer and bridge visual plan")
 
 func _test_identical_method_override_cleanup() -> void:
 	# MainGame no longer declares copies of its parent weapon/projectile hooks.
