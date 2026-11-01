@@ -1,3 +1,14 @@
+## Online turn-advance snapshot ownership (PR #119)
+
+A completed turn travels through the game's canonical virtual
+`_advance_turn` chain; only the top online-host coordinator publishes
+the reliable turn-transition snapshot. Progression's turn advance
+still arms the hotseat handoff but does not send a pre-cleanup
+snapshot. The previous upper explosion-hold wrapper and extra
+fallback snapshots have been deleted. Distinct launch and impact
+packets are unchanged. Source-level network regression checks
+prevent accidentally stacking full snapshots on each transition.
+
 ## Unified realtime projectile stepping (PR #116)
 
 Active owner: `MainGameModeFacade._update_all_realtime_projectiles`.
