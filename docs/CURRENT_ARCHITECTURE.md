@@ -312,3 +312,18 @@ the existing definition session and loadout, fires it in hotseat
 and realtime modes, verifies metadata-specific damage and
 network snapshots, and restores the original registry and loadout.
 No class, abstract factory, second registry or inheritance expansion.
+
+## Metadata-driven Bouncer profiles (PR #111)
+
+The Bouncer's turn-based and realtime projectile dispatch now uses
+the canonical `WeaponDefinition.behavior == "bounce"`, not a literal
+weapon ID. Bounce limits and reflection damping are resolved from the
+actual turn projectile or realtime shell weapon ID. The existing
+`WeaponBounceLogic` remains the sole reflection and mutable shell
+contact policy; terrain/water collision and scene explosion/FX remain
+on the scene. The old reflect hook retains its default Bouncer
+argument for source compatibility. Its upward-speed constant is now
+named for Bouncer physics rather than an unrelated camera subsystem.
+Live integration creates an additional temporary Bouncer definition,
+exercises turn bounce then max-bounce detonation and realtime rebound,
+and restores the default definitions/loadout. No new class or layer.

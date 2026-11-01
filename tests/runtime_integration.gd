@@ -93,6 +93,7 @@ func _run() -> void:
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
+	_test_metadata_bouncer_profile_dispatch()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
 	_test_shared_turn_advance_clearance_live()
@@ -1657,6 +1658,82 @@ func _test_metadata_laser_profile_fire_dispatch() -> void:
 		"charged realtime Laser clears charge input after firing")
 	game.call("_set_active_weapon_loadout", old_loadout)
 	session.definitions.erase(id)
+	game.call("reset_match")
+
+func _test_metadata_bouncer_profile_dispatch() -> void:
+	# Register a second Bouncer in the canonical definition session. The
+	# existing physics/turn dispatch must use this profile's bounce metadata
+	# rather than the default Bouncer ID and its hard-coded values.
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(special_source.contains('_weapon_behavior(turn_projectile_weapon) == "bounce"') and
+		special_source.split('_weapon_behavior(weapon) == "bounce"').size() == 3 and
+		not special_source.contains("MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED"),
+		"turn and realtime Bouncer dispatch use canonical behavior and bounce naming")
+	game.call("_on_hotseat_pressed")
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var original_loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
+	var profile: String = "test_spring_bouncer"
+	session.definitions[profile] = WeaponDefinition.new({
+		"id": profile, "display_name": "Test Spring Bouncer",
+		"behavior": "bounce", "player_selectable": true, "menu_order": 110,
+		"max_bounces": 1, "bounce_damping_x": 0.18, "bounce_damping_y": 0.34
+	})
+	var ids: Array[String] = original_loadout.weapon_ids.duplicate()
+	ids.append(profile)
+	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, original_loadout.default_weapon_id))
+	game.call("_set_selected_weapon_for_current_player", profile)
+	_check(str(game.get("selected_weapon")) == profile,
+		"new Bouncer profile is selectable without a second weapon registry")
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var x: float = 720.0
+	var ground_y: float = float(game.call("_ground_y_at_x", x))
+	var vel: Vector2 = Vector2(110.0, 140.0)
+	var reflected: Vector2 = WeaponBounceLogic.reflect_velocity(
+		vel, float(game.call("_terrain_slope_at_x", x)), 0.18, 0.34, 95.0
+	)
+	# First permitted ground contact changes only the turn projectile and
+	# its bounce counter, using the new profile's damping coefficients.
+	game.set("projectile_active", true)
+	game.set("turn_projectile_weapon", profile)
+	game.set("projectile_pos", Vector2(x, ground_y + 2.0))
+	game.set("projectile_vel", vel)
+	game.set("turn_bouncer_bounce_count", 0)
+	game.call("_update_projectile", 0.0)
+	_check(bool(game.get("projectile_active")) and
+		int(game.get("turn_bouncer_bounce_count")) == 1 and
+		(game.get("projectile_vel") as Vector2).is_equal_approx(reflected),
+		"hotseat custom Bouncer rebounds using its own damping profile")
+	# With max_bounces == 1, the next contact detonates without bouncing.
+	game.set("projectile_pos", Vector2(x, ground_y + 2.0))
+	game.set("projectile_vel", vel)
+	game.call("_update_projectile", 0.0)
+	_check(not bool(game.get("projectile_active")) and
+		(game.get("explosion_pos") as Vector2).is_equal_approx(Vector2(x, ground_y)),
+		"hotseat custom Bouncer obeys its own maximum bounce count")
+	game.call("reset_match")
+	game.call("_on_quick_game_pressed")
+	game.set("ponds", dry_ponds)
+	ground_y = float(game.call("_ground_y_at_x", x))
+	var shell: Dictionary = ProjectileFactory.make_shell(
+		0, profile, Vector2(x, ground_y + 2.0), vel
+	)
+	var shells: Array[Dictionary] = [shell]
+	game.set("rt_projectiles", shells)
+	game.call("_update_all_realtime_projectiles", 0.0)
+	var stepped: Array = game.get("rt_projectiles")
+	_check(stepped.size() == 1 and
+		str((stepped[0] as Dictionary).get("weapon", "")) == profile and
+		int((stepped[0] as Dictionary).get("bounces", 0)) == 1 and
+		((stepped[0] as Dictionary).get("vel", Vector2.ZERO) as Vector2).is_equal_approx(
+			WeaponBounceLogic.reflect_velocity(
+				vel, float(game.call("_terrain_slope_at_x", x)), 0.18, 0.34, 95.0
+			)),
+		"realtime custom Bouncer uses same profile metadata through active shell dispatch")
+	game.call("_set_active_weapon_loadout", original_loadout)
+	session.definitions.erase(profile)
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
