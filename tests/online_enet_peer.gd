@@ -69,10 +69,14 @@ func _run_host() -> void:
 	_check(not bool(game.get("hotseat_turn_start_pending")), "host starts first turn")
 	await create_timer(0.25).timeout
 	game.call("_set_selected_weapon_for_current_player", HEAVY)
+	var sequencer: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
+	var sequence_before_fire: int = sequencer.outgoing_sequence
 	game.set("hotseat_release_in_progress", true)
 	game.call("_on_fire_pressed")
 	game.set("hotseat_release_in_progress", false)
 	_check(bool(game.get("projectile_active")), "host fires authoritative Heavy shell")
+	_check(sequencer.outgoing_sequence == sequence_before_fire + 2,
+		"host launch sends exactly one fire event and one full state snapshot")
 	# Complete the actual scene explosion and delayed-turn lifecycle,
 	# instead of injecting damage and never allowing a handoff.
 	var tanks: Array = game.get("tank_positions")
