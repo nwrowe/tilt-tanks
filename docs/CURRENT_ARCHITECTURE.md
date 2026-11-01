@@ -444,3 +444,14 @@ and fallback advances still invoke the same virtual
 commands remain distinct reliable events. Source-level contracts
 protect the ownership and ordering; full ENet integration verifies
 the active host/guest transport behavior.
+
+## Two-process ENet complete-turn regression (PR #120)
+
+The two independent Godot ENet peers now test an actual heavy weapon
+impact through `_explode_turn_weapon`, physics/FX clearance,
+host-authoritative turn advancement to the guest, guest start-turn
+RPC approval, and a guest-originated standard shot accepted and
+simulated by the host. Both peers assert authoritative player/health
+and shell state, including the guest's wait-for-authority gate.
+This extends the former fire-plus-manually-injected-damage test
+without introducing a second game simulation or protocol.

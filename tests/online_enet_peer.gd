@@ -73,20 +73,43 @@ func _run_host() -> void:
 	game.call("_on_fire_pressed")
 	game.set("hotseat_release_in_progress", false)
 	_check(bool(game.get("projectile_active")), "host fires authoritative Heavy shell")
-	# Simulate a direct impact at the actual guest tank position. Damage
-	# must be calculated by the live MatchController rather than assigned.
+	# Complete the actual scene explosion and delayed-turn lifecycle,
+	# instead of injecting damage and never allowing a handoff.
 	var tanks: Array = game.get("tank_positions")
 	var direct_damage: int = int(game.call("_weapon_direct_damage", HEAVY))
 	var impact: Vector2 = tanks[1]
-	game.call("_apply_weapon_damage", impact, HEAVY)
+	game.call("_explode_turn_weapon", impact, HEAVY, true)
 	var remaining_health: int = maxi(0, 100 - direct_damage)
 	_check(int((game.get("tank_health") as Array)[1]) == remaining_health, "host combat path applies Heavy direct damage")
 	var state: MatchState = game.get("match_state") as MatchState
 	_check(int(state.tank_health[1]) == remaining_health, "host MatchState agrees with combat damage")
-	game.call("_online_send_snapshot", true)
-	# Keep the server alive long enough for guest to receive authoritative
-	# motion/full snapshots and the fire event.
-	await create_timer(2.0).timeout
+	if not await _until(func() -> bool:
+		return (int(game.get("current_player")) == 1 and
+			bool(game.get("hotseat_turn_start_pending")))
+	):
+		_fail("host never completed explosion hold and passed the turn to guest")
+		return
+	_check(not bool(game.get("projectile_active")) and
+		int(game.get("current_player")) == 1,
+		"host uses normal delayed turn advancement after the impact")
+	if not await _until(func() -> bool:
+		return not bool(game.get("hotseat_turn_start_pending"))
+	):
+		_fail("host never accepted guest's start-turn RPC")
+		return
+	_check(int(game.get("current_player")) == 1 and
+		not bool(game.get("hotseat_turn_start_pending")),
+		"host authorizes guest to begin the next turn")
+	if not await _until(func() -> bool:
+		return (bool(game.get("projectile_active")) and
+			str(game.get("selected_weapon")) == WeaponCatalog.STANDARD)
+	):
+		_fail("host did not accept and simulate guest-originated standard shot")
+		return
+	_check(int(game.get("current_player")) == 1,
+		"guest-originated projectile is simulated by the authoritative host")
+	# Let the guest receive the authoritative response and interpolation.
+	await create_timer(0.35).timeout
 
 func _run_guest() -> void:
 	var host_field: LineEdit = game.get("online_join_host_field") as LineEdit
@@ -125,6 +148,44 @@ func _run_guest() -> void:
 	_check(int((game.get("tank_health") as Array)[1]) == expected_health, "guest received authoritative Heavy impact damage")
 	var state: MatchState = game.get("match_state") as MatchState
 	_check(int(state.tank_health[1]) == expected_health, "guest MatchState agrees with networked combat damage")
+
+	if not await _until(func() -> bool:
+		return (int(game.get("current_player")) == 1 and
+			bool(game.get("hotseat_turn_start_pending")))
+	):
+		_fail("guest never received the completed turn transition from host")
+		return
+	_check(not bool(game.get("projectile_active")) and
+		bool(game.get("hotseat_turn_start_pending")),
+		"guest receives next-player turn prompt after host's explosion")
+	game.call("_on_hotseat_start_turn_pressed")
+	_check(bool(game.get("online_client_waiting_for_authority")),
+		"guest start-turn request waits for host authority")
+	if not await _until(func() -> bool:
+		return (not bool(game.get("hotseat_turn_start_pending")) and
+			not bool(game.get("online_client_waiting_for_authority")))
+	):
+		_fail("guest never received authoritative start-turn acknowledgement")
+		return
+	_check(int(game.get("current_player")) == 1,
+		"guest can aim only after host authorizes the next turn")
+	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.STANDARD)
+	game.set("hotseat_release_in_progress", true)
+	game.call("_on_fire_pressed")
+	game.set("hotseat_release_in_progress", false)
+	_check(bool(game.get("online_client_waiting_for_authority")),
+		"guest shot is submitted as an RPC rather than simulated locally")
+	if not await _until(func() -> bool:
+		return (bool(game.get("projectile_active")) and
+			not bool(game.get("online_client_waiting_for_authority")))
+	):
+		_fail("guest never received authoritative response to its own shot")
+		return
+	_check(int(game.get("current_player")) == 1 and
+		str(game.get("selected_weapon")) == WeaponCatalog.STANDARD,
+		"guest observes host-authoritative standard shot from player two")
+	_check((game.get("match_state") as MatchState).current_player == 1,
+		"guest MatchState agrees with the completed turn handoff")
 
 func _until(predicate: Callable) -> bool:
 	var started: int = Time.get_ticks_msec()
