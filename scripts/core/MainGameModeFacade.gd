@@ -242,15 +242,6 @@ func _explode(pos: Vector2) -> void:
 	super._explode(pos)
 	_start_global_explosion_camera_hold(pos)
 
-func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
-	super._explode_turn_weapon(pos, weapon, advance_after)
-	_start_global_explosion_camera_hold(pos)
-
-func _explode_realtime_weapon(pos: Vector2, weapon: String, _owner: int = -1) -> void:
-	# Ordinary realtime camera holds are applied after the shared loop;
-	# special-shell impacts forward the actual owner to the higher facade.
-	super._explode_realtime_weapon(pos, weapon)
-
 func _update_all_realtime_projectiles(delta: float) -> void:
 	if rt_projectiles.is_empty():
 		return
