@@ -187,3 +187,16 @@ controller's realtime label method delegates to the same
 `game_mode` flag. The repeated override has been retired rather than
 creating another UI policy or forwarding class. Active scene tests cover
 hotseat idle/charging and realtime shell-in-flight/charging states.
+
+## Composed match-reset state ownership (PR #102)
+
+The seven-layer `reset_match` order is unchanged. `MainGame` now uses
+its existing `_reset_hotseat_charge` hook and no longer clears the
+world-owned turn-AI visual plan before its parent does so again:
+`TurnAITurnSession.reset()` remains the sole owner of the turn timer
+and visual-plan reset. `WorldRuntimeBridge` now uses its existing
+`_reset_realtime_charge_state` for both match reset and realtime-mode
+setup. Realtime shell activation remains separately reset by the world.
+No new services or repeated state mirrors were introduced. Live
+integration seeds stale AI, hotseat charge, realtime charge and button
+appearance state before testing the real reset hierarchy.
