@@ -407,3 +407,21 @@ does **not** claim an eight-to-seven collapse yet. Live-scene tests
 assert no locally declared lifecycle overrides, dispatch ordering and
 the actual reset/UI result. Existing Godot import, camera, combat and
 real two-process ENet gates protect end-to-end behavior.
+
+## Turn-based AI ownership moved into WorldRuntimeBridge (PR #90)
+
+The world runtime already owns the turn-based AI's pending phase/timer,
+planning and movement. Its formerly dormant implementations of
+`_begin_ai_turn`, `_process_ai_turn` and `_take_ai_shot` were replaced
+with the previously active exact weapon-bridge implementations, including
+visual-plan generation and barrel slew. The corresponding two other
+methods (`_make_ai_visual_shot_plan`, `_update_ai_visual_aim`) and
+turn visual compatibility properties also reside in the world runtime.
+The weapon bridge no longer declares or owns those AI methods/properties.
+
+Visual ownership remains in `TurnAITurnSession.visual`; its RNG
+consumption and movement/firing order are unchanged. Existing tests
+for seeded plan noise, firing and timing are supplemented by active
+scene tests for the new method owner and animation/reset behavior.
+This removes active AI behavior from a weapon-specific inheritance
+ancestor without altering the eight-layer chain.
