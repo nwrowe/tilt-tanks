@@ -1114,14 +1114,6 @@ func _is_in_pond(pos: Vector2) -> bool:
 		ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH
 	)
 
-func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
-	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
-	return ProjectileManager.should_shell_explode(
-		pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS,
-		Callable(self, "_is_in_pond"), Callable(self, "_ground_y_at_x"),
-		active_world_width, Callable(self, "_bottom_floor_y")
-	)
-
 func _reset_realtime_charge_state() -> void:
 	rt_fire_charge_time = 0.0
 	rt_fire_charge_percent = 0.0
