@@ -175,3 +175,15 @@ the timer and safe-advance policy; the online facade retains distinct
 active/idle cadence (0.033 s / 0.10 s). Gameplay, hotseat handoff and
 client interpolation paths retain their original dispatch. Source
 regression checks and real two-process ENet tests protect this boundary.
+
+## Single owner for mode power labels (PR #101)
+
+`MainGameModeFacade._update_ui` previously called
+`MainGame._update_ui` and then recalculated the same hotseat/realtime
+power label, producing two UI updates on each gameplay frame. The mode
+controller's realtime label method delegates to the same
+`RealtimeSinglePlayerMode.shell_status_label` policy already used by
+`MainGame`, and `_is_active_mode` resolves realtime from the same
+`game_mode` flag. The repeated override has been retired rather than
+creating another UI policy or forwarding class. Active scene tests cover
+hotseat idle/charging and realtime shell-in-flight/charging states.
