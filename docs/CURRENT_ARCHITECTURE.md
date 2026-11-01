@@ -137,3 +137,13 @@ the active, loadout-driven selector remains
 `MainGameModeFacade._build_weapon_ui` backed by `WeaponSelectMenu`
 and `WeaponDefinitionSession`. These changes do not create another
 class, alter the seven-layer chain or change weapon availability.
+
+## Fire-button presentation ownership (PR #97)
+
+The hotseat/realtime fire-button charge gradient, unavailable colors and
+theme application now live in the existing `MobileControls` module,
+reusing `UIManager.style_button`. `WorldRuntimeBridge` retains only
+its input/charge lifecycle and passes button + charge ratio to the UI.
+The scene and mode overrides use the same UI owner, with no new class
+or additional facade. Contract tests cover the gradient, clamping,
+style geometry, pressed state and unavailable palette.
