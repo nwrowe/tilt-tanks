@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_weapon_bridge_retirement()
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
+	_test_turn_projectile_session_reset_live()
 	_test_runtime_player_frame_bridge()
 	_test_level_and_build_state_bridge()
 	_test_level_session_configs()
@@ -1321,6 +1322,45 @@ func _test_weapon_frame_policy_live() -> void:
 	) == WeaponFramePolicy.Stage.NORMAL,
 		"live realtime mode keeps normal update stage even with stored turn shells")
 	game.call("reset_match")
+
+func _test_turn_projectile_session_reset_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var session: TurnProjectileSession = game.get("turn_projectile_session") as TurnProjectileSession
+	_check(session != null, "active weapon bridge composes turn projectile state owner")
+	if session == null:
+		return
+	var active_shells: Array[Dictionary] = [
+		ProjectileFactory.make_shell(
+			0, WeaponCatalog.CLUSTER_CHILD, Vector2(310.0, 140.0), Vector2(35.0, -65.0)
+		)
+	]
+	game.set("turn_projectiles", active_shells)
+	game.set("turn_projectile_weapon", WeaponCatalog.CLUSTER)
+	game.set("turn_projectile_split_done", true)
+	_check(session.shells.size() == 1 and session.weapon == WeaponCatalog.CLUSTER and
+		session.split_done, "legacy turn shell properties write into the composed session")
+	var retained_shells: Array[Dictionary] = session.shells
+	game.call("reset_match")
+	_check(session.shells.is_empty() and retained_shells.is_empty() and
+		(game.get("turn_projectiles") as Array).is_empty(),
+		"reset clears active shells before world gameplay resumes, preserving array handles")
+	_check(session.weapon == str(game.get("selected_weapon")) and
+		str(game.get("turn_projectile_weapon")) == session.weapon and
+		not session.split_done and not bool(game.get("turn_projectile_split_done")),
+		"reset preserves mode-selected weapon and clears split flag via legacy aliases")
+	retained_shells.append(ProjectileFactory.make_shell(
+		0, WeaponCatalog.STANDARD, Vector2(150.0, 100.0), Vector2(0.0, 40.0)
+	))
+	_check((game.get("turn_projectiles") as Array).size() == 1,
+		"online and hotseat holders of the old shell array still see the composed owner")
+	game.call("reset_match")
+	_check(session.shells.is_empty(),
+		"subsequent inherited match resets clear the same composed turn-shell array")
+	_check(not bool(game.get("weapon_menu_open")),
+		"post-parent weapon menu closing still occurs after projectile reset")
+	var fire_button: Button = game.get("mobile_fire_button") as Button
+	_check(fire_button != null and fire_button.position == Vector2(696, 448),
+		"post-parent mobile layout still runs after projectile reset")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
