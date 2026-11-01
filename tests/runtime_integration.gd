@@ -69,6 +69,7 @@ func _run() -> void:
 	_test_weapon_menu_owner_migration_live()
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
+	_test_seven_layer_weapon_domain_ownership_live()
 	_test_rendering_owner_migration_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
@@ -1000,9 +1001,8 @@ func _test_turn_ai_visual_aim_session_live() -> void:
 		"one inherited reset clears the world AI timer and bridge visual plan")
 
 func _test_identical_method_override_cleanup() -> void:
-	# MainGame no longer declares copies of its parent weapon/projectile hooks.
-	# Active registry overrides and the inherited projectile implementation
-	# must still behave as they did before the removal.
+	# MainGame now owns compatibility hooks previously inherited via the
+	# retired weapon bridge; the original projectile behavior must remain intact.
 	var main_script: Script = load("res://scripts/core/MainGame.gd") as Script
 	_check(main_script != null, "seven-layer MainGame script remains loadable")
 	if main_script == null:
@@ -1202,10 +1202,8 @@ func _test_single_weapon_metadata_owner() -> void:
 	bouncer.extra_fields["bounce_damping_x"] = original_damping
 
 func _test_pruned_weapon_collision_dispatch_live() -> void:
-	# Both turn and realtime shell checks now use the inherited weapon bridge
-	# implementations rather than equivalent copies in MainGame.
-	# Godot's get_script_method_list includes inherited methods, so inspect
-	# only local declarations in the stored MainGame source instead.
+	# Both turn and realtime shell checks are now scene adapters on MainGame.
+	# Higher overrides still own mode-specific realtime firing and splitting.
 	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
 	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
 	for method_name: String in [
@@ -1371,8 +1369,8 @@ func _test_turn_projectile_session_reset_live() -> void:
 		"post-parent mobile layout still runs after projectile reset")
 
 func _test_shadowed_bridge_removal_live() -> void:
-	# Realtime fallbacks are fully shadowed and do not have bridge callers.
-	# Other legacy signatures must remain for Godot ancestor compilation.
+	# The bridge is retired. Compiler-visible scene methods are consolidated
+	# in MainGame; higher special/mode dispatch remains unchanged.
 	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
 		"retired weapon bridge is absent from the scene's source tree")
 	var mode_source: String = FileAccess.get_file_as_string(
@@ -1712,6 +1710,37 @@ func _test_destroyed_smoke_game_ownership_live() -> void:
 	game.call("reset_match")
 	_check(smoke.tank_index == -1 and smoke.puffs.is_empty(),
 		"world and scene resets continue clearing effect state")
+
+func _test_seven_layer_weapon_domain_ownership_live() -> void:
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	_check(main_source.begins_with(
+		"extends \"res://scripts/modes/WorldRuntimeBridge.gd\""
+	), "active MainGame now directly extends world runtime")
+	_check(not FileAccess.file_exists(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	), "weapon bridge ancestor is deleted rather than left dormant")
+	var scene_script: Script = game.get_script()
+	var layers: int = 0
+	while scene_script != null:
+		layers += 1
+		scene_script = scene_script.get_base_script()
+	_check(layers == 7, "active scene has exactly seven GDScript inheritance layers")
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var shells: TurnProjectileSession = game.get("turn_projectile_session") as TurnProjectileSession
+	var smoke: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
+	_check(session != null and shells != null and smoke != null,
+		"seven-layer scene keeps existing domain services without introducing adapters")
+	for name: String in [
+		"_update_projectile", "_split_turn_cluster_projectile",
+		"_update_turn_weapon_projectiles", "_turn_shell_should_explode",
+		"_realtime_projectile_should_explode", "_explode_realtime_weapon",
+		"_apply_weapon_crater", "_weapon_explosion_radius",
+		"_weapon_direct_damage", "_weapon_projectile_scale"
+	]:
+		_check(main_source.contains("\nfunc " + name + "("),
+			"scene retains the required weapon compatibility hook " + name)
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
