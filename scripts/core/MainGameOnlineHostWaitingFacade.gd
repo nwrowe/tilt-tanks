@@ -130,27 +130,19 @@ func _process_online_client(delta: float) -> void:
 
 	_online_finish_client_frame(delta)
 
-func _on_fire_pressed() -> void:
-	var send_fire_event: bool = (
-		_is_online_duel_active()
-		and online_is_host
-		and _online_is_local_turn()
-		and not projectile_active
-		and turn_projectiles.is_empty()
-		and not game_over
-		and not overlay_open
-		and not _is_hotseat_turn_start_prompt_active()
+func _online_publish_authoritative_shot(
+	owner: int, shot_angle: float, shot_power_percent: float, weapon: String
+) -> void:
+	# Called by both accepted host-local and validated guest-originated
+	# shots. Queue physical launch FX before the one full snapshot.
+	if _is_online_duel_active() and online_is_host and online_remote_peer_id != 0:
+		if projectile_active and current_player == owner:
+			_online_send_fire_event(
+				owner, shot_angle, shot_power_percent, weapon, projectile_pos
+			)
+	super._online_publish_authoritative_shot(
+		owner, shot_angle, shot_power_percent, weapon
 	)
-	var firing_player: int = current_player
-	var firing_angle: float = angle_deg
-	var firing_power_percent: float = power_percent
-	var firing_weapon: String = selected_weapon
-
-	super._on_fire_pressed()
-
-	if send_fire_event and projectile_active and online_remote_peer_id != 0:
-		_online_send_fire_event(firing_player, firing_angle, firing_power_percent, firing_weapon, projectile_pos)
-		_online_send_snapshot(true)
 
 func _advance_turn() -> void:
 	super._advance_turn()

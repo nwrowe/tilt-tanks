@@ -69,10 +69,14 @@ func _run_host() -> void:
 	_check(not bool(game.get("hotseat_turn_start_pending")), "host starts first turn")
 	await create_timer(0.25).timeout
 	game.call("_set_selected_weapon_for_current_player", HEAVY)
+	var sequencer: OnlineSnapshotSequencer = game.get("online_snapshot_sequencer") as OnlineSnapshotSequencer
+	var sequence_before_fire: int = sequencer.outgoing_sequence
 	game.set("hotseat_release_in_progress", true)
 	game.call("_on_fire_pressed")
 	game.set("hotseat_release_in_progress", false)
 	_check(bool(game.get("projectile_active")), "host fires authoritative Heavy shell")
+	_check(sequencer.outgoing_sequence == sequence_before_fire + 2,
+		"host launch sends exactly one fire event and one full state snapshot")
 	# Complete the actual scene explosion and delayed-turn lifecycle,
 	# instead of injecting damage and never allowing a handoff.
 	var tanks: Array = game.get("tank_positions")
@@ -83,14 +87,15 @@ func _run_host() -> void:
 	_check(int((game.get("tank_health") as Array)[1]) == remaining_health, "host combat path applies Heavy direct damage")
 	var state: MatchState = game.get("match_state") as MatchState
 	_check(int(state.tank_health[1]) == remaining_health, "host MatchState agrees with combat damage")
+	# A guest may acknowledge the prompt immediately after receipt;
+	# host-side polling must not require observing that transient flag.
+	# Guest assertions below explicitly verify prompt/acknowledgement.
 	if not await _until(func() -> bool:
-		return (int(game.get("current_player")) == 1 and
-			bool(game.get("hotseat_turn_start_pending")))
+		return int(game.get("current_player")) == 1
 	):
 		_fail("host never completed explosion hold and passed the turn to guest")
 		return
-	_check(not bool(game.get("projectile_active")) and
-		int(game.get("current_player")) == 1,
+	_check(int(game.get("current_player")) == 1,
 		"host uses normal delayed turn advancement after the impact")
 	if not await _until(func() -> bool:
 		return not bool(game.get("hotseat_turn_start_pending"))

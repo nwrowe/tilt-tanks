@@ -455,3 +455,18 @@ simulated by the host. Both peers assert authoritative player/health
 and shell state, including the guest's wait-for-authority gate.
 This extends the former fire-plus-manually-injected-damage test
 without introducing a second game simulation or protocol.
+
+## Single authoritative shot publication (PR #121)
+
+The previous online `_on_fire_pressed` override retransmitted a
+second full snapshot after the progression-level snapshot, while
+guest-originated shots bypassed that top override and therefore had
+no matching projectile launch event. Both accepted fire routes now
+use `_online_publish_authoritative_shot`: the online facade emits
+one physical launch event first, then the progression facade sends
+one reliable authoritative state snapshot. Instant Laser and burst
+shots still send one snapshot without a fictitious standalone shell
+event. A blocked or unreleased local charge sends no shot snapshot;
+remote command validation also respects pending turn and burst state.
+The live two-process ENet test asserts the exact event+snapshot
+sequence increment for a host fire and exercises guest-originated fire.
