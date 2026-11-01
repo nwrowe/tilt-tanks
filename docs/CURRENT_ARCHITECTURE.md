@@ -238,3 +238,20 @@ existing weapon/projectile owner, without adding a new class. The
 machine-gun camera twice: `_clear_machine_gun_burst` already owns
 that state. Live and policy tests cover either firing direction,
 mixed shell types, the empty-round sentinel, and match reset.
+
+## Composed weapon burst session (PR #106)
+
+`WeaponBurstSession` is one new, substantive state owner in the existing
+`scripts/weapons/` domain. It owns the multi-round sequence: owner,
+shot angle/power, realtime or turn mode, remaining rounds, cadence,
+random jitter calculation and waiting-for-projectiles completion rule.
+The special-weapons facade retains weapon metadata selection, actual
+shell/FX spawning, camera view, damage and turn advancement. Only
+`machine_gun_active` and `machine_gun_turn_waiting_for_shells` remain
+as forwarding properties for the higher online/network facades; all
+other burst state is directly read from the composed session. This
+creates a reusable lifecycle for future burst-capable weapons without
+adding an inheritance layer or a collection of one-method helpers.
+Live scene and isolated policy tests assert per-round RNG order,
+overshoot timing, metadata-driven shot counts, projectile creation
+and match reset.
