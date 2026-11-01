@@ -827,9 +827,48 @@ func _spawn_steam_puff() -> void:
 
 func _draw() -> void:
 	super._draw()
+	# Preserve former bridge overlay order after the world draw and
+	# before MainGame's recoil, muzzle smoke and cluster shells.
+	_draw_destroyed_smoke_puffs()
 	_draw_recoil_barrels()
 	_draw_muzzle_smoke_puffs()
 	_draw_turn_cluster_projectiles()
+
+func _draw_tank(index: int, color: Color) -> void:
+	var pos: Vector2 = _world_to_screen(tank_positions[index])
+	var facing: float = 1.0 if index == 0 else -1.0
+	var stored_angle: float = angle_deg
+	if index >= 0 and index < player_angles.size():
+		stored_angle = player_angles[index]
+	TankVisualRenderer.draw_tank(
+		self, pos, facing, CAMERA_SCALE, color,
+		index != current_player or game_over, stored_angle, CANNON_LENGTH,
+		Vector2.ZERO, 4.0
+	)
+
+func _draw_destroyed_smoke_puffs() -> void:
+	EffectsManager.draw_rising_puffs(
+		self, destroyed_smoke_puffs,
+		camera_x, CAMERA_SCALE, CAMERA_Y_OFFSET,
+		DESTROYED_SMOKE_LIFETIME, DESTROYED_SMOKE_START_RADIUS,
+		DESTROYED_SMOKE_END_RADIUS, 0.58, Color(0.78, 0.80, 0.77)
+	)
+
+func _draw_realtime_projectiles() -> void:
+	for shell: Dictionary in rt_projectiles:
+		var owner: int = int(shell.get("owner", HUMAN_PLAYER_INDEX))
+		var weapon: String = str(shell.get("weapon", WEAPON_STANDARD))
+		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
+		var radius: float = PROJECTILE_RADIUS * CAMERA_SCALE * _weapon_projectile_scale(weapon)
+		var color: Color = Color(1.0, 0.92, 0.2) if owner == HUMAN_PLAYER_INDEX else Color(1.0, 0.38, 0.25)
+		draw_circle(_world_to_screen(pos), radius, color)
+
+func _draw_explosion() -> void:
+	var elapsed_ratio: float = 1.0 - explosion_timer / EXPLOSION_DURATION
+	EffectsManager.draw_explosion(
+		self, _world_to_screen(explosion_pos),
+		elapsed_ratio, last_explosion_visual_radius * CAMERA_SCALE
+	)
 
 func _draw_recoil_barrels() -> void:
 	for owner: int in range(2):
@@ -906,6 +945,14 @@ func _camera_target_x() -> float:
 	if cluster_camera_hold_pos != Vector2.INF and cluster_camera_hold_timer > 0.0:
 		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
 		return clampf(cluster_camera_hold_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+	if game_over and destroyed_tank_index >= 0 and destroyed_tank_index < tank_positions.size():
+		var focus_x: float = tank_positions[destroyed_tank_index].x
+		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+		return clampf(
+			focus_x - camera_world_width * 0.5,
+			0.0,
+			maxf(0.0, active_world_width - camera_world_width)
+		)
 	return super._camera_target_x()
 
 # Existing gameplay callbacks remain on the game node; pure state sync
