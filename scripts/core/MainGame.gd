@@ -69,6 +69,10 @@ var muzzle_smoke_puffs: Array[Dictionary] = []
 
 func _ready() -> void:
 	super._ready()
+	# Former bridge startup stage, after world initialization and before
+	# MainGame fire-button wiring. The derived mode owns weapon UI creation.
+	_resize_mobile_action_buttons()
+	_build_weapon_ui()
 	if mobile_fire_button != null:
 		if not mobile_fire_button.button_down.is_connected(_on_hotseat_fire_button_down):
 			mobile_fire_button.button_down.connect(_on_hotseat_fire_button_down)
@@ -97,7 +101,16 @@ func reset_match() -> void:
 	muzzle_smoke_puffs.clear()
 	# Retains the former weapon-definition bridge reset guard before base reset.
 	selected_weapon = _safe_selected_weapon(selected_weapon)
+	# Former weapon bridge pre-parent reset stage: projectiles and visual
+	# state must be cleared before the world resets its terrain/mode state.
+	turn_projectile_session.reset_for_match(selected_weapon)
+	last_explosion_visual_radius = EXPLOSION_RADIUS
+	destroyed_smoke_session.reset()
+	turn_ai_visual.clear_plan()
 	super.reset_match()
+	# Former weapon bridge post-parent reset stage, before MainGame sync.
+	_resize_mobile_action_buttons()
+	_close_weapon_menu()
 	_initialize_match_controller_from_runtime_reset()
 	_sync_match_state_from_runtime()
 	_update_power_slider_visibility()
@@ -113,7 +126,31 @@ func _process(delta: float) -> void:
 		manual_camera_timer = maxf(0.0, manual_camera_timer - delta)
 		if manual_camera_timer <= 0.0:
 			manual_camera_active = false
-	super._process(delta)
+	# Former bridge frame stage, after MainGame input/camera timers and before
+	# its match-state sync and muzzle effects. World runs only in NORMAL.
+	var stage: WeaponFramePolicy.Stage = WeaponFramePolicy.select_stage(
+		menu_state == MENU_STATE_GAME, game_over, weapon_menu_open,
+		game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME, not turn_projectiles.is_empty()
+	)
+	match stage:
+		WeaponFramePolicy.Stage.GAME_OVER:
+			_process_game_over_visuals(delta)
+		WeaponFramePolicy.Stage.WEAPON_MENU:
+			_update_destroyed_smoke(delta)
+			queue_redraw()
+		WeaponFramePolicy.Stage.TURN_SHELLS:
+			_update_turn_weapon_projectiles(delta)
+			if explosion_timer > 0.0:
+				explosion_timer -= delta
+				if explosion_timer <= 0.0:
+					explosion_pos = Vector2.INF
+			_update_camera(delta)
+			_update_ui()
+			_update_destroyed_smoke(delta)
+			queue_redraw()
+		_:
+			super._process(delta)
+			_update_destroyed_smoke(delta)
 	_sync_match_state_from_runtime()
 	_update_muzzle_effects(delta)
 

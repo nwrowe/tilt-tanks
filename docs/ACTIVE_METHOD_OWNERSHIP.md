@@ -381,3 +381,29 @@ retains its prior pre-parent visual-plan clear to preserve reset timing.
 it after applying the selected settings. All existing visual properties,
 random draw order, gameplay, and external scene callbacks are unchanged.
 Unit and active scene tests validate shared ownership and reset behavior.
+
+## Weapon lifecycle override retirement (PR #89)
+
+`WeaponRuntimeBridge` no longer defines `_ready`, `_process`, or
+`reset_match`. These three deeply chained stages are consolidated into
+the already-active `MainGame` lifecycle, with precisely the same order:
+
+- Startup: run the world/legacy parent startup, apply the weapon mobile
+  layout, build the active mode-facade weapon menu, then connect
+  `MainGame`'s hotseat fire handlers and its remaining UI setup.
+- Frame: run `MainGame`'s camera/input timer work, select the same
+  `WeaponFramePolicy` stage and perform the same stage effects, enter
+  `WorldRuntimeBridge._process` only for `NORMAL`, then synchronize
+  match state and update muzzle effects.
+- Reset: clear MainGame input/camera state, sanitize the selected weapon,
+  reset the turn projectile, smoke and AI visual sessions before the world
+  reset; then restore mobile control layout and close the selector before
+  MainGame controller/UI synchronization.
+
+The remaining `WeaponRuntimeBridge` is still inherited for active
+AI, weapon, projectile and drawing hooks, compatibility properties,
+and Godot ancestor compile-time method contracts. This intentionally
+does **not** claim an eight-to-seven collapse yet. Live-scene tests
+assert no locally declared lifecycle overrides, dispatch ordering and
+the actual reset/UI result. Existing Godot import, camera, combat and
+real two-process ENet gates protect end-to-end behavior.

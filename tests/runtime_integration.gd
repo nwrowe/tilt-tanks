@@ -67,6 +67,7 @@ func _run() -> void:
 	_test_weapon_startup_layout_live()
 	_test_composed_weapon_menu_view_live()
 	_test_weapon_frame_policy_live()
+	_test_weapon_lifecycle_consolidation_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
@@ -1508,6 +1509,61 @@ func _test_canonical_weapon_alias_forwarding_live() -> void:
 	_check(game.get("weapon_definitions") == session.definitions and
 		game.get("active_weapon_loadout") == session.loadout,
 		"restored legacy metadata still shares one canonical owner")
+
+func _test_weapon_lifecycle_consolidation_live() -> void:
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	var game_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in ["_ready", "_process", "reset_match"]:
+		_check(not bridge_source.contains("\nfunc " + name + "("),
+			"weapon bridge no longer intercepts " + name + " lifecycle")
+		_check(game_source.contains("\nfunc " + name + "("),
+			"MainGame retains direct " + name + " lifecycle ownership")
+	var ready_start: int = game_source.find("\nfunc _ready(")
+	var reset_start: int = game_source.find("\nfunc reset_match(")
+	var process_start: int = game_source.find("\nfunc _process(")
+	var ready_end: int = game_source.find("\nfunc ", ready_start + 2)
+	var reset_end: int = game_source.find("\nfunc ", reset_start + 2)
+	var process_end: int = game_source.find("\nfunc ", process_start + 2)
+	var ready_code: String = game_source.substr(ready_start, ready_end - ready_start)
+	var reset_code: String = game_source.substr(reset_start, reset_end - reset_start)
+	var process_code: String = game_source.substr(process_start, process_end - process_start)
+	_check(ready_code.find("super._ready()") < ready_code.find("_build_weapon_ui()") and
+		ready_code.find("_build_weapon_ui()") < ready_code.find("_on_hotseat_fire_button_down"),
+		"merged startup retains world, weapon UI, then MainGame fire-button ordering")
+	_check(reset_code.find("turn_projectile_session.reset_for_match(selected_weapon)") <
+		reset_code.find("super.reset_match()") and
+		reset_code.find("super.reset_match()") <
+		reset_code.find("_close_weapon_menu()") and
+		reset_code.find("_close_weapon_menu()") <
+		reset_code.find("_initialize_match_controller_from_runtime_reset()"),
+		"merged reset retains pre-world weapon cleanup and post-world UI before match sync")
+	_check(process_code.find("_update_hotseat_charge(delta)") <
+		process_code.find("WeaponFramePolicy.select_stage(") and
+		process_code.find("WeaponFramePolicy.select_stage(") <
+		process_code.find("_sync_match_state_from_runtime()"),
+		"merged frame still brackets weapon stage with MainGame pre/post processing")
+	game.call("_on_hotseat_pressed")
+	game.call("_open_weapon_menu")
+	var shells: Array[Dictionary] = [
+		ProjectileFactory.make_shell(0, WeaponCatalog.CLUSTER_CHILD,
+			Vector2(290.0, 140.0), Vector2(40.0, -70.0))
+	]
+	game.set("turn_projectiles", shells)
+	game.set("turn_projectile_split_done", true)
+	game.call("reset_match")
+	var session: TurnProjectileSession = game.get("turn_projectile_session") as TurnProjectileSession
+	var panel: Panel = game.get("weapon_panel") as Panel
+	_check(session != null and session.shells.is_empty() and
+		not session.split_done and (game.get("turn_projectiles") as Array).is_empty(),
+		"merged reset retains existing session-owned projectile cleanup")
+	_check(not bool(game.get("weapon_menu_open")) and panel != null and
+		not panel.visible and
+		(game.get("mobile_fire_button") as Button).position == Vector2(696, 448),
+		"merged post-world reset still closes weapon menu and restores mobile layout")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
