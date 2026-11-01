@@ -101,6 +101,31 @@ static func apply_crater(points: Array[Vector2], pos: Vector2, radius: float, de
 			point.y = clampf(maxf(point.y, target_y), min_y, floor_y)
 			points[i] = point
 
+## Laser and Ground Bomb deform the same mutable terrain array as craters.
+## The scene still owns redrawing, pond reflow and post-impact tank settling.
+static func apply_laser_cut(
+	points: Array[Vector2], start_pos: Vector2, end_pos: Vector2,
+	cut_width: float, cut_depth: float, min_y: float, floor_y: float
+) -> void:
+	for i: int in range(points.size()):
+		var point: Vector2 = points[i]
+		if TerrainMath.point_to_segment_distance(point, start_pos, end_pos) <= cut_width:
+			point.y = clampf(point.y + cut_depth, min_y, floor_y)
+			points[i] = point
+
+static func apply_ground_mound(
+	points: Array[Vector2], impact_pos: Vector2,
+	radius: float, raise_amount: float, min_y: float, floor_y: float
+) -> void:
+	for i: int in range(points.size()):
+		var point: Vector2 = points[i]
+		var dx: float = point.x - impact_pos.x
+		if absf(dx) <= radius:
+			var normalized_x: float = dx / maxf(radius, 0.001)
+			var mound: float = sqrt(maxf(0.0, 1.0 - normalized_x * normalized_x))
+			point.y = clampf(point.y - raise_amount * mound, min_y, floor_y)
+			points[i] = point
+
 static func clamp_tank_x(x: float, world_width: float, edge_margin: float) -> float:
 	return clampf(x, edge_margin, maxf(edge_margin, world_width - edge_margin))
 
