@@ -115,27 +115,20 @@ func _on_online_peer_connected(peer_id: int) -> void:
 
 func _process_online_client(delta: float) -> void:
 	if menu_state != MENU_STATE_GAME:
-		queue_redraw()
+		super._process_online_client(delta)
 		return
 
+	# Keep the original guest ordering: interpolate authoritative motion,
+	# accept/clear local input, age explosion visuals, then draw the frame.
 	_online_update_client_interpolation(delta)
-
-	if _online_is_local_turn() and not _is_hotseat_turn_start_prompt_active() and not online_client_waiting_for_authority:
-		_update_angle_from_input(delta)
-		_update_hotseat_charge(delta)
-	else:
-		_clear_hotseat_handoff_input_state()
+	_online_process_client_input(delta)
 
 	if explosion_timer > 0.0:
 		explosion_timer = maxf(0.0, explosion_timer - delta)
 		if explosion_timer <= 0.0:
 			explosion_pos = Vector2.INF
 
-	_update_camera(delta)
-	_update_ui()
-	_update_muzzle_effects(delta)
-	_update_hotseat_start_turn_button()
-	queue_redraw()
+	_online_finish_client_frame(delta)
 
 func _on_fire_pressed() -> void:
 	var send_fire_event: bool = (

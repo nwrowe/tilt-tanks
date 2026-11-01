@@ -34,11 +34,44 @@ func _run() -> void:
 	_test_host_coordinator()
 	_test_online_reset_and_disconnect_ownership()
 	_test_single_host_sync_owner()
+	_test_shared_online_client_frame_ownership()
 	_test_guest_command_validation()
 	_test_sequencer_reset()
 	game.queue_free()
 	await process_frame
 	_finish()
+
+func _test_shared_online_client_frame_ownership() -> void:
+	# Online client interpolation and explosion aging remain guest-specific;
+	# input gating and post-frame camera/UI/effects must have one owner.
+	var parent: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var guest: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	var parent_start: int = parent.find("func _process_online_client(")
+	var parent_end: int = parent.find("\nfunc ", parent_start + 4)
+	var parent_frame: String = parent.substr(parent_start, parent_end - parent_start)
+	var guest_start: int = guest.find("func _process_online_client(")
+	var guest_end: int = guest.find("\nfunc ", guest_start + 4)
+	var guest_frame: String = guest.substr(guest_start, guest_end - guest_start)
+	_check(parent_frame.contains("_online_process_client_input(delta)") and
+		parent_frame.contains("_online_finish_client_frame(delta)"),
+		"base online client frame composes input and visual stages once")
+	_check(guest_frame.contains("_online_update_client_interpolation(delta)") and
+		guest_frame.contains("_online_process_client_input(delta)") and
+		guest_frame.contains("_online_finish_client_frame(delta)") and
+		not guest_frame.contains("_update_camera(delta)") and
+		not guest_frame.contains("_update_hotseat_charge(delta)"),
+		"online guest adds interpolation/visual aging without duplicating input and UI")
+	_check(guest_frame.find("_online_update_client_interpolation(delta)") <
+		guest_frame.find("_online_process_client_input(delta)") and
+		guest_frame.find("_online_process_client_input(delta)") <
+		guest_frame.find("if explosion_timer > 0.0:") and
+		guest_frame.find("if explosion_timer > 0.0:") <
+		guest_frame.find("_online_finish_client_frame(delta)"),
+		"guest interpolation, input, explosion expiry and camera stages keep prior ordering")
 
 func _test_vector_round_trip() -> void:
 	var original: Vector2 = Vector2(123.25, -456.5)

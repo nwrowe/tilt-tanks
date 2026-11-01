@@ -132,11 +132,17 @@ func _process_online_client(delta: float) -> void:
 	if menu_state != MENU_STATE_GAME:
 		queue_redraw()
 		return
+	_online_process_client_input(delta)
+	_online_finish_client_frame(delta)
+
+func _online_process_client_input(delta: float) -> void:
 	if _online_is_local_turn() and not _is_hotseat_turn_start_prompt_active() and not online_client_waiting_for_authority:
 		_update_angle_from_input(delta)
 		_update_hotseat_charge(delta)
 	else:
 		_clear_hotseat_handoff_input_state()
+
+func _online_finish_client_frame(delta: float) -> void:
 	_update_camera(delta)
 	_update_ui()
 	_update_muzzle_effects(delta)
