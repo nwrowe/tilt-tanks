@@ -34,9 +34,24 @@ var weapon_menu_open: bool = false
 var weapon_definition_session: WeaponDefinitionSession = WeaponDefinitionSession.new()
 var selected_weapon: String = WEAPON_STANDARD
 
-var turn_projectile_weapon: String = WEAPON_STANDARD
-var turn_projectile_split_done: bool = false
-var turn_projectiles: Array[Dictionary] = []
+# Composed owner; keep the legacy game-facing names for special weapons,
+# match snapshots, AI, hotseat input and active scene tests.
+var turn_projectile_session: TurnProjectileSession = TurnProjectileSession.new()
+var turn_projectile_weapon: String:
+	get:
+		return turn_projectile_session.weapon
+	set(value):
+		turn_projectile_session.weapon = value
+var turn_projectile_split_done: bool:
+	get:
+		return turn_projectile_session.split_done
+	set(value):
+		turn_projectile_session.split_done = value
+var turn_projectiles: Array[Dictionary]:
+	get:
+		return turn_projectile_session.shells
+	set(value):
+		turn_projectile_session.shells = value
 var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 
 var destroyed_smoke_session: DestroyedTankSmokeSession = DestroyedTankSmokeSession.new()
@@ -182,12 +197,12 @@ func _return_to_main_menu() -> void:
 	_show_main_menu()
 
 func reset_match() -> void:
-	turn_projectiles.clear()
-	turn_projectile_weapon = selected_weapon
-	turn_projectile_split_done = false
+	# Preserve order: clear turn shells and effects before the inherited
+	# world reset, then restore scene-facing controls after it returns.
+	turn_projectile_session.reset_for_match(selected_weapon)
 	last_explosion_visual_radius = EXPLOSION_RADIUS
 	destroyed_smoke_session.reset()
-	ai_visual_shot_plan.clear()
+	turn_ai_visual.clear_plan()
 	super.reset_match()
 	_resize_mobile_action_buttons()
 	_close_weapon_menu()
