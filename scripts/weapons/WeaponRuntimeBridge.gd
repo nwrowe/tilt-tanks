@@ -371,48 +371,6 @@ func _turn_shell_should_explode(owner: int, pos: Vector2) -> bool:
 		return true
 	return ProjectileManager.is_out_of_world(pos, active_world_width, _bottom_floor_y())
 
-func _fire_realtime_projectile(owner: int) -> void:
-	if game_over:
-		return
-	if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES:
-		rt_projectiles.pop_front()
-	var weapon: String = selected_weapon if owner == HUMAN_PLAYER_INDEX else WEAPON_STANDARD
-	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
-	var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
-	var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-	var shot_power: float = _power_from_percent(shot_power_percent)
-	var rad: float = deg_to_rad(shot_angle)
-	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	var start_pos: Vector2 = tank_positions[owner] + muzzle_offset
-	var start_vel: Vector2 = Vector2(facing * shot_power * cos(rad), -shot_power * sin(rad))
-	rt_projectiles.append(ProjectileFactory.make_shell(owner, weapon, start_pos, start_vel, false))
-	projectile_active = false
-
-func _update_all_realtime_projectiles(delta: float) -> void:
-	if rt_projectiles.is_empty():
-		return
-	var remaining: Array[Dictionary] = []
-	for shell: Dictionary in rt_projectiles:
-		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
-		var owner: int = int(stepped.get("owner", HUMAN_PLAYER_INDEX))
-		var weapon: String = str(stepped.get("weapon", WEAPON_STANDARD))
-		var split_done: bool = bool(stepped.get("split", false))
-		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
-		var vel: Vector2 = stepped.get("vel", Vector2.ZERO)
-		if weapon == WEAPON_CLUSTER and not split_done and vel.y >= 0.0:
-			_spawn_realtime_cluster_children(owner, pos, vel)
-		elif _realtime_projectile_should_explode(owner, pos):
-			_explode_realtime_weapon(pos, weapon)
-		else:
-			remaining.append(stepped)
-	rt_projectiles = remaining
-	rt_player_shell_active = ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX)
-
-func _spawn_realtime_cluster_children(owner: int, pos: Vector2, vel: Vector2) -> void:
-	var children: Array[Dictionary] = ProjectileFactory.make_cluster_children(owner, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y, WEAPON_CLUSTER_CHILD)
-	for child: Dictionary in children:
-		rt_projectiles.append(child)
-
 func _has_active_realtime_shell_for_owner(owner: int) -> bool:
 	return ProjectileManager.has_shell_for_owner(rt_projectiles, owner)
 

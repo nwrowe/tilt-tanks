@@ -10,7 +10,7 @@ The source of truth remains the scene script and Godot's runtime dispatch.
 | Hook | Active owner/dispatch | Lower compatibility implementation |
 |---|---|---|
 | `_update_projectile` | `MainGameSpecialWeaponsFacade` handles Bouncer; ordinary turn shells go through `super` to `WeaponRuntimeBridge`, which calls `ProjectileManager`. | `Main.gd` has its earlier prototype update, shadowed in this scene. |
-| `_update_all_realtime_projectiles` | `MainGameSpecialWeaponsFacade` handles special shells; for ordinary shells it calls `super` into `MainGameModeFacade`, which owns human/AI-aware cluster tracking, hit handling and camera focus. | `WeaponRuntimeBridge` has the older simple simulation fallback; `WorldRuntimeBridge` retains a no-op compatibility hook. Neither is reached by the current normal/special scene path. |
+| `_update_all_realtime_projectiles` | `MainGameSpecialWeaponsFacade` handles special shells; for ordinary shells it calls `super` into `MainGameModeFacade`, which owns human/AI-aware cluster tracking, hit handling and camera focus. | The unreachable older simulation fallback in `WeaponRuntimeBridge` was removed in PR #84; `WorldRuntimeBridge` retains a no-op compatibility hook. |
 | `_realtime_projectile_should_explode` | The most-derived `MainGame` implementation in the active chain handles terrain and pond checks; `WeaponRuntimeBridge` and `WorldRuntimeBridge` retain fallback methods. | Do not remove fallback signatures without checking callers and `super` references. |
 
 The old `MainGame._update_all_realtime_projectiles` loop was shadowed
@@ -291,3 +291,31 @@ The surrounding mode/level/progression/online reset stages remain
 unchanged. Deterministic and live-scene regression tests verify legacy
 property forwarding, retained array references, selected weapon and split
 state, successive resets, and the post-parent UI layout.
+
+## Safe realtime weapon-bridge fallbacks retired (PR #84)
+
+Three shadowed lower realtime fallback implementations have been
+removed from `WeaponRuntimeBridge`:
+`_fire_realtime_projectile`,
+`_update_all_realtime_projectiles`, and
+`_spawn_realtime_cluster_children`.
+The active firing handler is in `MainGameSpecialWeaponsFacade`;
+the active realtime shell loop and cluster splitting are in
+`MainGameModeFacade`. The special facade's realtime
+`super._update_all_realtime_projectiles` call terminates at
+`MainGameModeFacade`. The lower `WorldRuntimeBridge` declarations
+remain available for inherited mode compatibility.
+
+Godot requires ancestor script methods called from an ancestor to
+retain declarations even when derived scripts override those methods
+in the active scene. In particular, the following `WeaponRuntimeBridge`
+fallbacks are **not** removable by deletion alone:
+`_build_weapon_ui`, `_toggle_weapon_menu`,
+`_split_turn_cluster_projectile`,
+`_update_turn_weapon_projectiles`, and `_apply_weapon_damage`.
+Those methods will need explicit replacement or ownership migration
+before the entire bridge layer can be retired.
+
+The new live-scene test checks both sides of this boundary. All active
+physics, UI, turn shell, reset, effects, and network behavior remains
+in the original dispatch path; eight inherited layers remain.
