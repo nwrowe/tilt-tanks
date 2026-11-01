@@ -1,3 +1,15 @@
+## Unified realtime projectile stepping (PR #116)
+
+Active owner: `MainGameModeFacade._update_all_realtime_projectiles`.
+It integrates each realtime shell exactly once. Only the
+`MainGameSpecialWeaponsFacade._realtime_special_shell_step` hook
+implements Bouncer contact, while the special facade's realtime
+override now performs post-frame burst availability and camera
+focus only. Normal frames retain the earlier mode-level cluster
+camera aggregate; special frames retain the owner-aware explosion
+semantics and bypass the normal cluster camera aggregate. Do not
+reintroduce a second simulation loop into the special facade.
+
 # Active gameplay method ownership — updated November 1, 2026
 
 This document identifies which implementations actually own selected
