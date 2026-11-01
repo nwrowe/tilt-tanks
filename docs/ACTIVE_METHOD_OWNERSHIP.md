@@ -425,3 +425,24 @@ for seeded plan noise, firing and timing are supplemented by active
 scene tests for the new method owner and animation/reset behavior.
 This removes active AI behavior from a weapon-specific inheritance
 ancestor without altering the eight-layer chain.
+
+## Rendering and game-over camera ownership (PR #91)
+
+The active `MainGame` now directly owns tank geometry rendering,
+destroyed-smoke drawing, realtime projectile drawing and explosion
+drawing (still delegating to the existing pure
+`TankVisualRenderer` and `EffectsManager`). The weapon bridge no
+longer implements `_draw`, `_draw_tank`,
+`_draw_destroyed_smoke_puffs`, `_draw_realtime_projectiles` or
+`_draw_explosion`.
+
+`MainGame._draw` retains exact ordering after the world draw:
+destroyed smoke, recoil barrels, muzzle smoke, and cluster shells.
+The game-over destroyed-tank camera fallback formerly in the
+weapon bridge now resides in `MainGame._camera_target_x` **after**
+manual camera/cluster focus/hold precedence and **before**
+`super._camera_target_x` (the unchanged world fallback).
+This preserves both higher special-weapon camera overrides and
+the original game-over focus behavior. Rendering tests assert
+source ownership, draw order and an active-scene destroyed-tank
+camera target. No new inheritance layer or rendering service.
