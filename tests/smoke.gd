@@ -36,6 +36,7 @@ func _run() -> void:
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
 	_test_mobile_weapon_runtime_layout()
+	_test_fire_button_presentation_policy()
 	_test_pause_menu_composition()
 	_test_weapon_menu_view_lifecycle()
 	_test_weapon_runtime_frame_priority()
@@ -435,6 +436,41 @@ func _test_shared_effect_render_geometry() -> void:
 		float(puff["age"]), float(puff["life"]), 0.58
 	), 0.58 * (1.0 - 0.65 / 1.35)),
 		"shared smoke visuals preserve existing lifetime, radius and alpha policy")
+
+func _test_fire_button_presentation_policy() -> void:
+	var button: Button = Button.new()
+	var start: Color = MobileControls.fire_charge_color(0.0)
+	var midpoint: Color = MobileControls.fire_charge_color(0.5)
+	var full: Color = MobileControls.fire_charge_color(1.0)
+	_check(start.is_equal_approx(Color(0.10, 0.80, 0.12, 0.92)),
+		"fire charge starts in the original green color")
+	_check(midpoint.is_equal_approx(Color(1.0, 0.80, 0.08, 0.92)),
+		"fire charge midpoint retains the yellow-orange transition")
+	_check(full.is_equal_approx(Color(1.0, 0.12, 0.08, 0.92)),
+		"fire charge reaches the original red color")
+	_check(MobileControls.fire_charge_color(-2.0).is_equal_approx(start) and
+		MobileControls.fire_charge_color(2.0).is_equal_approx(full),
+		"fire charge presentation clamps out-of-range input")
+	MobileControls.style_charge_button(button, 0.25)
+	var normal: StyleBoxFlat = button.get_theme_stylebox("normal") as StyleBoxFlat
+	var pressed: StyleBoxFlat = button.get_theme_stylebox("pressed") as StyleBoxFlat
+	var expected: Color = MobileControls.fire_charge_color(0.25)
+	_check(normal != null and normal.bg_color.is_equal_approx(expected) and
+		normal.border_color.is_equal_approx(expected.darkened(0.35)) and
+		normal.border_width_left == 3 and normal.corner_radius_top_left == 16,
+		"charge appearance retains the fill, dark border and original geometry")
+	_check(pressed != null and pressed.bg_color.is_equal_approx(expected.lightened(0.12)),
+		"pressed fire button uses the original lightening policy")
+	MobileControls.style_unavailable_fire_button(button)
+	normal = button.get_theme_stylebox("normal") as StyleBoxFlat
+	_check(normal != null and normal.bg_color.is_equal_approx(Color(0.18, 0.18, 0.20, 0.86)) and
+		normal.border_color.is_equal_approx(Color(0.08, 0.08, 0.10, 0.96)),
+		"unavailable fire state keeps its muted palette")
+	_check(button.get_theme_color("font_color").is_equal_approx(Color(0.75, 0.75, 0.78, 1.0)),
+		"unavailable fire state preserves muted text")
+	MobileControls.style_charge_button(null, 0.3)
+	MobileControls.style_unavailable_fire_button(null)
+	button.free()
 
 func _test_mobile_weapon_runtime_layout() -> void:
 	var left: Button = Button.new()
