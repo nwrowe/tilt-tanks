@@ -23,6 +23,13 @@ static func ground_y_at_x(points: Array[Vector2], x: float, terrain_step: float)
 	var t: float = clampf((clamped_x - left.x) / denom, 0.0, 1.0)
 	return lerpf(left.y, right.y, t)
 
+## Shortest Euclidean distance to a finite segment, including degenerate ones.
+## Shared by laser terrain cutting and direct-impact selection.
+static func point_to_segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab: Vector2 = b - a
+	var t: float = clampf((point - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+	return point.distance_to(a + ab * t)
+
 static func deepest_index_in_range(points: Array[Vector2], start_i: int, end_i: int) -> int:
 	if points.is_empty():
 		return 0
