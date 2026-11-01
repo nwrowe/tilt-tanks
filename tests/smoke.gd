@@ -35,6 +35,7 @@ func _run() -> void:
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
 	_test_mobile_weapon_runtime_layout()
+	_test_weapon_menu_view_lifecycle()
 	_test_weapon_runtime_frame_priority()
 	_test_bouncer_weapon_policy()
 	_test_weapon_definition_session()
@@ -498,6 +499,24 @@ func _test_turn_projectile_session_reset() -> void:
 	session.reset_for_match(WeaponCatalog.STANDARD)
 	_check(retained_shells.is_empty() and session.weapon == WeaponCatalog.STANDARD,
 		"subsequent match resets reuse the array and refresh selected weapon")
+
+func _test_weapon_menu_view_lifecycle() -> void:
+	var panel: Panel = Panel.new()
+	var left: Button = Button.new()
+	var right: Button = Button.new()
+	var fire: Button = Button.new()
+	panel.visible = false
+	WeaponSelectMenu.show_panel(panel, left, right, fire)
+	_check(panel.visible, "weapon menu component opens its own panel view")
+	WeaponSelectMenu.hide_panel(panel)
+	_check(not panel.visible, "weapon menu component closes its own panel view")
+	WeaponSelectMenu.show_panel(null, null, null, null)
+	WeaponSelectMenu.hide_panel(null)
+	_check(not panel.visible, "missing optional weapon UI controls are safe")
+	panel.free()
+	left.free()
+	right.free()
+	fire.free()
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
