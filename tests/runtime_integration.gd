@@ -98,6 +98,7 @@ func _run() -> void:
 	_test_composed_weapon_burst_session_live()
 	_test_metadata_burst_profile_dispatch()
 	_test_shared_turn_advance_clearance_live()
+	_test_shared_scene_weapon_impact_lifecycle()
 	_test_special_weapon_terrain_delegation_live()
 	_test_laser_controller_authority_live()
 	_test_metadata_laser_profile_fire_dispatch()
@@ -1837,6 +1838,55 @@ func _test_metadata_burst_profile_dispatch() -> void:
 	game.call("_set_active_weapon_loadout", original_loadout)
 	definitions.definitions.erase(parent_id)
 	definitions.definitions.erase(child_id)
+	game.call("reset_match")
+
+func _test_shared_scene_weapon_impact_lifecycle() -> void:
+	# Same weapon/impact + same initial world must produce the same damage,
+	# crater and explosion presentation regardless of turn/realtime mode.
+	# Mode-specific camera ownership remains separate.
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(source.split("_apply_weapon_impact(pos, weapon)").size() == 3,
+		"turn and realtime weapons call exactly one shared impact sequence")
+	game.call("_on_hotseat_pressed")
+	var empty_ponds: Array[Dictionary] = []
+	game.set("ponds", empty_ponds)
+	var initial_points: Array[Vector2] = (game.get("terrain_points") as Array[Vector2]).duplicate()
+	var initial_positions: Array[Vector2] = (game.get("tank_positions") as Array[Vector2]).duplicate()
+	var initial_health: Array[int] = [100, 100]
+	var impact: Vector2 = initial_positions[0]
+	game.set("tank_health", initial_health.duplicate())
+	game.call("_sync_health_state_to_match_controller")
+	game.call("_explode_turn_weapon", impact, WeaponCatalog.STANDARD, false)
+	var turn_health: Array[int] = (game.get("tank_health") as Array[int]).duplicate()
+	var turn_points: Array[Vector2] = (game.get("terrain_points") as Array[Vector2]).duplicate()
+	var turn_positions: Array[Vector2] = (game.get("tank_positions") as Array[Vector2]).duplicate()
+	var turn_timer: float = float(game.get("explosion_timer"))
+	var turn_radius: float = float(game.get("last_explosion_visual_radius"))
+	_check(turn_health[0] < 100 and turn_health[1] == 100 and
+		float(game.get("cluster_camera_hold_timer")) > 0.0,
+		"turn impact applies direct damage and retains its own camera hold")
+	game.call("reset_match")
+	game.call("_on_quick_game_pressed")
+	game.set("terrain_points", initial_points.duplicate())
+	game.set("tank_positions", initial_positions.duplicate())
+	game.set("tank_health", initial_health.duplicate())
+	game.set("ponds", empty_ponds)
+	game.call("_refresh_terrain_line")
+	game.call("_sync_health_state_to_match_controller")
+	game.call("_explode_realtime_weapon", impact, WeaponCatalog.STANDARD, 1)
+	_check((game.get("tank_health") as Array[int]) == turn_health and
+		(game.get("terrain_points") as Array[Vector2]) == turn_points and
+		(game.get("tank_positions") as Array[Vector2]) == turn_positions,
+		"same projectile impact yields identical health, terrain and tank settlement in both modes")
+	_check(is_equal_approx(float(game.get("explosion_timer")), turn_timer) and
+		is_equal_approx(float(game.get("last_explosion_visual_radius")), turn_radius) and
+		game.get("explosion_pos") == impact,
+		"realtime and turn use the same visual timer, radius and impact location")
+	_check(is_zero_approx(float(game.get("cluster_camera_hold_timer"))) and
+		(game.get("match_state") as MatchState).tank_health == turn_health,
+		"AI realtime impact does not steal human camera yet publishes authoritative damage")
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:

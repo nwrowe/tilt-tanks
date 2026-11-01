@@ -292,12 +292,7 @@ func _fire_realtime_projectile(owner: int) -> void:
 
 func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
 	projectile_active = false
-	explosion_pos = pos
-	explosion_timer = _weapon_explosion_duration(weapon)
-	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
-	_apply_weapon_crater(pos, weapon)
-	_apply_weapon_damage(pos, weapon)
-	_settle_tanks_on_terrain()
+	_apply_weapon_impact(pos, weapon)
 	if not _is_burst_round(weapon):
 		_start_global_explosion_camera_hold(pos)
 	if tank_health[0] <= 0 or tank_health[1] <= 0:
@@ -308,17 +303,22 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 
 func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = NO_CAMERA_OWNER) -> void:
 	realtime_explosion_camera_owner = owner
+	_apply_weapon_impact(pos, weapon)
+	if owner == HUMAN_PLAYER_INDEX and not _is_burst_round(weapon):
+		_start_global_explosion_camera_hold(pos)
+	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
+		game_over = true
+		_show_end_popup()
+
+## Shared scene-facing impact sequence for turn and realtime projectiles.
+## Camera ownership, turn advance and end popup stay in the callers.
+func _apply_weapon_impact(pos: Vector2, weapon: String) -> void:
 	explosion_pos = pos
 	explosion_timer = _weapon_explosion_duration(weapon)
 	last_explosion_visual_radius = _weapon_explosion_radius(weapon)
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if owner == HUMAN_PLAYER_INDEX and not _is_burst_round(weapon):
-		_start_global_explosion_camera_hold(pos)
-	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
-		game_over = true
-		_show_end_popup()
 
 func _apply_weapon_crater(pos: Vector2, weapon: String) -> void:
 	if _weapon_behavior(weapon) == "add_ground":

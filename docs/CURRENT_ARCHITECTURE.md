@@ -368,3 +368,16 @@ the explosion's state while computing the same camera destination.
 Live camera regression checks the target with and without AI
 explosion metadata and verifies no mutation or temporary-field
 logic. No new class, hook or inheritance layer.
+
+## Shared special-weapon impact lifecycle (PR #115)
+
+`MainGameSpecialWeaponsFacade._apply_weapon_impact` is now the
+single scene-facing sequence for weapon explosion position and
+duration, radius, crater and damage, and tank settlement. Turn and
+realtime callers retain their original projectile flag, camera owner,
+per-round camera hold, winner popup and delayed turn advance steps.
+No new helper class or cross-domain service; only a cohesive shared
+method in the existing scene owner. A live regression restores identical
+terrain, tank positions, health and impact in turn/realtime modes and
+compares resulting terrain, settled tanks, controller health and FX
+while verifying owner-sensitive camera behavior.
