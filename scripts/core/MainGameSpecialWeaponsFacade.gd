@@ -83,7 +83,15 @@ func _camera_x_for_focus(focus_x: float) -> float:
 	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
 
 func _should_freeze_camera_until_pending_hotseat_advance_runs() -> bool:
-	return pending_advance_after_explosion_hold and game_mode == GAME_MODE_HOTSEAT and not game_over and not projectile_active and turn_projectiles.is_empty() and not weapon_burst.active and not weapon_burst.turn_waiting_for_shells and explosion_timer <= 0.0 and cluster_camera_hold_timer <= 0.0
+	return (
+		pending_advance_after_explosion_hold
+		and game_mode == GAME_MODE_HOTSEAT
+		and WeaponFramePolicy.can_advance_turn(
+			game_over, projectile_active, not turn_projectiles.is_empty(),
+			weapon_burst.active, weapon_burst.turn_waiting_for_shells,
+			explosion_timer, cluster_camera_hold_timer
+		)
+	)
 
 func _should_hold_hotseat_camera_at_current_position() -> bool:
 	return hotseat_camera_already_valid and game_mode == GAME_MODE_HOTSEAT and not projectile_active and turn_projectiles.is_empty() and not weapon_burst.active and not weapon_burst.turn_waiting_for_shells and not pending_advance_after_explosion_hold
@@ -427,9 +435,11 @@ func _maybe_finish_machine_gun_turn() -> void:
 func _maybe_advance_after_explosion_hold() -> void:
 	if not pending_advance_after_explosion_hold:
 		return
-	if game_over or projectile_active or not turn_projectiles.is_empty() or weapon_burst.active or weapon_burst.turn_waiting_for_shells:
-		return
-	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
+	if not WeaponFramePolicy.can_advance_turn(
+		game_over, projectile_active, not turn_projectiles.is_empty(),
+		weapon_burst.active, weapon_burst.turn_waiting_for_shells,
+		explosion_timer, cluster_camera_hold_timer
+	):
 		return
 	pending_advance_after_explosion_hold = false
 	machine_gun_camera_active = false
