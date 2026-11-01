@@ -381,3 +381,22 @@ method in the existing scene owner. A live regression restores identical
 terrain, tank positions, health and impact in turn/realtime modes and
 compares resulting terrain, settled tanks, controller health and FX
 while verifying owner-sensitive camera behavior.
+
+## One realtime projectile simulation owner (PR #116)
+
+`MainGameModeFacade._update_all_realtime_projectiles` now owns
+one projectile update loop for both ordinary and special shells.
+The special-weapons facade no longer reimplements stepping,
+collision/split dispatch and array replacement: its remaining
+override calls `super`, then maintains active burst availability
+and Machine Gun camera focus. A narrow
+`_realtime_special_shell_step` hook delegates Bouncer-only terrain
+contact to the already-existing special-weapon physics logic. The
+mode facade's default hook is a no-op for ordinary shells and its
+special-active gate preserves the previous behavior of suppressing
+ordinary cluster camera aggregation while special rounds are active.
+Special explosions still receive the actual owner; ordinary
+explosions still use the existing mode-owned camera aggregate.
+Live camera tests exercise mixed Bouncer/human/AI shells and protect
+the single-loop source ownership; full ENet regression remains required.
+No new class or inheritance layer.
