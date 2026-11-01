@@ -76,9 +76,10 @@ the deleted middle-method declarations.
   generic `_weapon_value` live in `WeaponRuntimeBridge` and route through
   its composed session. The duplicate higher-facade getters in
   `MainGameModeFacade` were removed.
-- **Compatibility aliases:** `MainGame` still exposes
-  `weapon_definitions` and `active_weapon_loadout` initialized from the
-  same inherited session. Its loadout lifecycle remains unchanged.
+- **Compatibility aliases:** `MainGame` now exposes
+  `weapon_definitions` and `active_weapon_loadout` as typed forwarding
+  properties on the composed session, with no separate references to sync.
+  Assignment and reset of the loadout go through that sole owner.
 - **Legacy catalog:** `WeaponCatalog` remains an immutable data input for
   base weapons and external compatibility code, **not** a second live
   weapon-stat lookup. Do not reintroduce catalog-backed runtime getters.
@@ -355,3 +356,15 @@ contact outcomes **and the exact short-circuit lookup order**.
 Active-scene tests check both owners, airborne and ground contact,
 world boundaries and delegation to the canonical policy. No
 additional physics state, random draws or network changes.
+
+## Canonical weapon metadata compatibility (PR #87)
+
+`MainGame` formerly maintained its own `weapon_definitions` dictionary
+reference and `active_weapon_loadout` object reference, with explicit
+copy-back assignments in its loadout update/reset methods. These are now
+forwarding properties of `WeaponDefinitionSession`. There is no second
+mutable reference to become stale when a level or registry changes.
+The loadout setter uses the session's existing null guard; registration
+and gameplay/weapon stat APIs remain unchanged. A live-scene test
+replaces the dictionary and loadout, validates read/write forwarding,
+rejects null, resets the default loadout and restores prior state.
