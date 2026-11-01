@@ -29,6 +29,24 @@ static func is_out_of_world(pos: Vector2, world_width: float, bottom_y: float) -
 static func projectile_hits_tank(pos: Vector2, tank_pos: Vector2, tank_radius: float, projectile_radius: float) -> bool:
 	return pos.distance_to(tank_pos) <= tank_radius + projectile_radius
 
+## Canonical turn/realtime shell contact order. Callables keep pond,
+## terrain and bottom-floor queries lazy: a tank or pond hit must not
+## evaluate later world geometry, matching the original scene hooks.
+static func should_shell_explode(
+	pos: Vector2, target_pos: Vector2,
+	tank_radius: float, projectile_radius: float,
+	pond_contains: Callable, ground_height_at: Callable,
+	world_width: float, bottom_floor: Callable
+) -> bool:
+	if projectile_hits_tank(pos, target_pos, tank_radius, projectile_radius):
+		return true
+	if bool(pond_contains.call(pos)):
+		return true
+	var ground_y: float = float(ground_height_at.call(pos.x))
+	if pos.y >= ground_y:
+		return true
+	return is_out_of_world(pos, world_width, float(bottom_floor.call()))
+
 static func average_shell_position(shells: Array[Dictionary]) -> Vector2:
 	if shells.is_empty():
 		return Vector2.INF

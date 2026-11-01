@@ -44,6 +44,7 @@ func _run() -> void:
 	_test_metadata_weapon_overrides()
 	_test_single_weapon_metadata_owner()
 	_test_pruned_weapon_collision_dispatch_live()
+	_test_shared_shell_impact_policy_live()
 	_test_retired_world_mode_helpers_live()
 	_test_composed_weapon_definition_session()
 	_test_weapon_bridge_retirement()
@@ -1438,6 +1439,38 @@ func _test_composed_weapon_menu_view_live() -> void:
 	game.call("_return_to_main_menu")
 	_check(not panel.visible and not bool(game.get("weapon_menu_open")),
 		"return to main menu hides composed selector")
+	game.call("reset_match")
+
+func _test_shared_shell_impact_policy_live() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	_check(source.contains("func _turn_shell_should_explode(") and
+		source.contains("func _realtime_projectile_should_explode("),
+		"both compile-time collision hooks remain in active weapon bridge")
+	var count: int = source.split("ProjectileManager.should_shell_explode(").size() - 1
+	_check(count == 2, "both active projectile paths use canonical impact policy")
+	game.call("_on_hotseat_pressed")
+	var old_ponds: Array[Dictionary] = game.get("ponds")
+	var empty_ponds: Array[Dictionary] = []
+	game.set("ponds", empty_ponds)
+	var positions: Array[Vector2] = game.get("tank_positions")
+	for owner: int in [0, 1]:
+		var enemy: Vector2 = positions[1 - owner]
+		_check(bool(game.call("_turn_shell_should_explode", owner, enemy)),
+			"turn shell collision retains target ownership " + str(owner))
+		_check(bool(game.call("_realtime_projectile_should_explode", owner, enemy)),
+			"realtime shell collision retains target ownership " + str(owner))
+	var safe_x: float = 540.0
+	var ground: float = float(game.call("_ground_y_at_x", safe_x))
+	for name: String in ["_turn_shell_should_explode", "_realtime_projectile_should_explode"]:
+		_check(not bool(game.call(name, 0, Vector2(safe_x, ground - 130.0))),
+			name + " allows safe airborne shells")
+		_check(bool(game.call(name, 0, Vector2(safe_x, ground + 2.0))),
+			name + " detects ground contact")
+		_check(bool(game.call(name, 0, Vector2(-150.0, -200.0))),
+			name + " detects world boundary")
+	game.set("ponds", old_ponds)
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
