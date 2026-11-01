@@ -428,3 +428,19 @@ filtered/deep-copied packet shells and local-current-player settings.
 Tests cover both call sites, deep-copy isolation and MatchState sync.
 The full/motion wire formats, sequencing, UI, interpolation and host
 authority are unchanged.
+
+## Single online turn-transition snapshot authority (PR #119)
+
+Turn progression previously sent a full snapshot from
+`MainGameProgressionFacade._advance_turn`, a second from
+`MainGameOnlineHostWaitingFacade._advance_turn`, and a third from
+the upper explosion-hold/fallback wrapper. The online-host
+`_advance_turn` override is now the sole publisher for a completed
+turn, after it clears the fallback coordinator and requests the next
+host sync. The redundant upper
+`_maybe_advance_after_explosion_hold` method is retired; regular
+and fallback advances still invoke the same virtual
+`_advance_turn` path. Fire/impact snapshots and explicit remote
+commands remain distinct reliable events. Source-level contracts
+protect the ownership and ordering; full ENet integration verifies
+the active host/guest transport behavior.
