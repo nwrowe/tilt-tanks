@@ -290,27 +290,12 @@ func _online_receive_motion_snapshot(snapshot: Dictionary) -> void:
 		projectile_pos = authoritative_projectile_pos
 		projectile_vel = authoritative_projectile_vel
 
-	turn_projectiles.clear()
-	for shell: Variant in snapshot.get("turn_projectiles", []):
-		if shell is Dictionary:
-			turn_projectiles.append((shell as Dictionary).duplicate(true))
+	_online_apply_turn_shell_snapshot(snapshot)
 	if not turn_projectiles.is_empty() and previous_turn_projectile_count == 0:
 		_trigger_fire_fx(current_player, angle_deg)
 
 	turn_cluster_camera_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("turn_cluster_camera_pos", OnlineDuelCodec.pack_vec2(turn_cluster_camera_pos)))
-	online_client_waiting_for_authority = false
-
-	if current_player >= 0 and current_player < player_angles.size():
-		angle_deg = player_angles[current_player]
-	if current_player >= 0 and current_player < player_power_percents.size():
-		power_percent = player_power_percents[current_player]
-		power = _power_from_percent(power_percent)
-	if power_slider != null:
-		power_slider.value = power_percent
-
-	_sync_match_state_from_runtime()
-	_update_hotseat_start_turn_button()
-	queue_redraw()
+	_online_finish_received_snapshot()
 
 func _online_send_fire_event(owner: int, shot_angle: float, shot_power_percent: float, weapon: String, pos: Vector2) -> void:
 	if online_remote_peer_id == 0:

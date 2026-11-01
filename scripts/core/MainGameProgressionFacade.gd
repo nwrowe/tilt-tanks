@@ -495,6 +495,27 @@ func _online_apply_shared_snapshot_fields(snapshot: Dictionary) -> void:
 	cluster_camera_hold_timer = float(state["cluster_camera_hold_timer"])
 	cluster_camera_hold_pos = state["cluster_camera_hold_pos"]
 
+## Full and motion packets share mutable turn-shell replacement and current
+## player presentation. Keep both scene-state operations in one owner.
+func _online_apply_turn_shell_snapshot(snapshot: Dictionary) -> void:
+	turn_projectiles.clear()
+	for shell: Variant in snapshot.get("turn_projectiles", []):
+		if shell is Dictionary:
+			turn_projectiles.append((shell as Dictionary).duplicate(true))
+
+func _online_finish_received_snapshot() -> void:
+	online_client_waiting_for_authority = false
+	if current_player >= 0 and current_player < player_angles.size():
+		angle_deg = player_angles[current_player]
+	if current_player >= 0 and current_player < player_power_percents.size():
+		power_percent = player_power_percents[current_player]
+		power = _power_from_percent(power_percent)
+	if power_slider != null:
+		power_slider.value = power_percent
+	_sync_match_state_from_runtime()
+	_update_hotseat_start_turn_button()
+	queue_redraw()
+
 func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	active_world_width = float(snapshot.get("active_world_width", active_world_width))
 	active_right_start_x = float(snapshot.get("active_right_start_x", active_right_start_x))
@@ -515,21 +536,8 @@ func _online_apply_snapshot(snapshot: Dictionary) -> void:
 	_online_apply_shared_snapshot_fields(snapshot)
 	projectile_pos = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_pos", projectile_pos))
 	projectile_vel = OnlineDuelCodec.unpack_vec2(snapshot.get("projectile_vel", projectile_vel))
-	turn_projectiles.clear()
-	for shell: Variant in snapshot.get("turn_projectiles", []):
-		if shell is Dictionary:
-			turn_projectiles.append((shell as Dictionary).duplicate(true))
-	online_client_waiting_for_authority = false
-	if current_player >= 0 and current_player < player_angles.size():
-		angle_deg = player_angles[current_player]
-	if current_player >= 0 and current_player < player_power_percents.size():
-		power_percent = player_power_percents[current_player]
-		power = _power_from_percent(power_percent)
-	if power_slider != null:
-		power_slider.value = power_percent
-	_sync_match_state_from_runtime()
-	_update_hotseat_start_turn_button()
-	queue_redraw()
+	_online_apply_turn_shell_snapshot(snapshot)
+	_online_finish_received_snapshot()
 
 func _update_online_duel_status_ui() -> void:
 	if status_label == null or power_label == null:
