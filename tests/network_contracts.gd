@@ -199,7 +199,8 @@ func _test_single_host_sync_owner() -> void:
 		owner.contains("_online_process_turn_advance_fallback(delta)") and
 		owner.contains("_online_maybe_force_pending_turn_advance()"),
 		"online facade retains post-gameplay authority/turn-advance ordering")
-	_check(owner.split("_online_process_host_sync(delta)").size() == 3,
+	_check(owner.split("_online_process_host_sync(delta)").size() == 2 and
+		owner.split("func _online_process_host_sync(delta: float)").size() == 2,
 		"online facade alone owns one host sync call and implementation")
 	_check(owner.contains("ONLINE_DUEL_ACTIVE_SYNC_INTERVAL") and
 		owner.contains("ONLINE_DUEL_IDLE_SYNC_INTERVAL"),
