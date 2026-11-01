@@ -166,7 +166,9 @@ func _test_single_online_turn_snapshot_owner() -> void:
 	]:
 		var start: int = online.find("func " + method_name + "(")
 		var end: int = online.find("\nfunc ", start + 4)
-		var implementation: String = online.substr(start, end - start)
+		var implementation: String = online.substr(
+			start, online.length() - start if end < 0 else end - start
+		)
 		_check(implementation.contains("_advance_turn()") and
 			not implementation.contains("_online_send_snapshot(true)"),
 			method_name + " relies on the sole online turn snapshot owner")
