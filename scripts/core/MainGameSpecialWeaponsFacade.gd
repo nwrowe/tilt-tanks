@@ -67,15 +67,9 @@ func _camera_target_x() -> float:
 		return camera_x
 	if machine_gun_camera_active and machine_gun_camera_pos != Vector2.INF:
 		return _camera_x_for_focus(machine_gun_camera_pos.x)
-	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and explosion_timer > 0.0 and realtime_explosion_camera_owner != HUMAN_PLAYER_INDEX:
-		var saved_explosion_pos: Vector2 = explosion_pos
-		var saved_explosion_timer: float = explosion_timer
-		explosion_pos = Vector2.INF
-		explosion_timer = 0.0
-		var target_x: float = super._camera_target_x()
-		explosion_pos = saved_explosion_pos
-		explosion_timer = saved_explosion_timer
-		return target_x
+	# The inherited realtime camera chooses a human-owned projectile or tank
+	# (and explicit camera holds) independently of explosion_pos/timer.
+	# Do not mutate live explosion state merely to calculate camera focus.
 	return super._camera_target_x()
 
 func _camera_x_for_focus(focus_x: float) -> float:

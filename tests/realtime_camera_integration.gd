@@ -64,6 +64,25 @@ func _run() -> void:
 	game.call("_explode_realtime_weapon", aim_point, WeaponCatalog.STANDARD, 1)
 	_check(is_zero_approx(float(game.get("cluster_camera_hold_timer"))), "AI explosion does not trigger human camera hold")
 	_check(game.get("cluster_camera_hold_pos") == Vector2.INF, "AI explosion does not move camera target")
+	var ai_explosion_timer: float = float(game.get("explosion_timer"))
+	var ai_explosion_pos: Vector2 = game.get("explosion_pos")
+	var target_during_ai_explosion: float = float(game.call("_camera_target_x"))
+	_check(is_equal_approx(float(game.get("explosion_timer")), ai_explosion_timer) and
+		game.get("explosion_pos") == ai_explosion_pos,
+		"AI camera focus calculation does not modify active explosion state")
+	game.set("explosion_timer", 0.0)
+	game.set("explosion_pos", Vector2.INF)
+	var target_without_explosion: float = float(game.call("_camera_target_x"))
+	game.set("explosion_timer", ai_explosion_timer)
+	game.set("explosion_pos", ai_explosion_pos)
+	_check(is_equal_approx(target_during_ai_explosion, target_without_explosion),
+		"AI explosion metadata does not steal realtime camera focus")
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(not special_source.contains("saved_explosion_timer") and
+		not special_source.contains("saved_explosion_pos"),
+		"special camera override contains no temporary explosion-state manipulation")
 
 	var human_impact: Vector2 = Vector2(560.0, 280.0)
 	game.call("_explode_realtime_weapon", human_impact, WeaponCatalog.STANDARD, 0)
