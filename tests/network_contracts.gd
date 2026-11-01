@@ -174,6 +174,9 @@ func _test_host_coordinator() -> void:
 	_check(not host.fallback_due(0.5, 1, true), "owner change cancels pending fallback")
 	_check(host.fallback_owner == -1, "owner switch clears host fallback state")
 	_check(OnlineDuelHostCoordinator.can_advance(false, false, false, false, false, 0.0, 0.0), "clear host turn may advance")
+	_check(OnlineDuelHostCoordinator.can_advance(false, false, false, false, false, 0.0, 0.0) ==
+		WeaponFramePolicy.can_advance_turn(false, false, false, false, false, 0.0, 0.0),
+		"host coordinator delegates clearance to the canonical weapon frame policy")
 	_check(not OnlineDuelHostCoordinator.can_advance(false, true, false, false, false, 0.0, 0.0), "projectile blocks forced advance")
 	_check(not OnlineDuelHostCoordinator.can_advance(false, false, false, true, false, 0.0, 0.0), "machine gun burst blocks advance")
 	_check(not OnlineDuelHostCoordinator.can_advance(false, false, false, false, false, 0.1, 0.0), "explosion delay blocks advance")
