@@ -785,10 +785,12 @@ func _on_fire_pressed() -> void:
 	turn_projectile_split_done = false
 	turn_cluster_camera_pos = Vector2.INF
 	var facing: float = 1.0 if current_player == 0 else -1.0
-	var rad: float = deg_to_rad(angle_deg)
-	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	projectile_pos = tank_positions[current_player] + muzzle_offset
-	projectile_vel = Vector2(facing * power * cos(rad), -power * sin(rad))
+	var shell: Dictionary = ProjectileFactory.make_fired_shell(
+		current_player, turn_projectile_weapon, tank_positions[current_player],
+		facing, angle_deg, power, CANNON_LENGTH
+	)
+	projectile_pos = shell["pos"]
+	projectile_vel = shell["vel"]
 	projectile_active = true
 	manual_camera_active = false
 	_trigger_fire_fx(current_player, angle_deg)

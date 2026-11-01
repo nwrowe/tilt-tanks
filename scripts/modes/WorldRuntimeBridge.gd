@@ -791,13 +791,13 @@ func _on_fire_pressed() -> void:
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
-	var facing: float = 1.0
-	if current_player != 0:
-		facing = -1.0
-	var rad: float = deg_to_rad(angle_deg)
-	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	projectile_pos = tank_positions[current_player] + muzzle_offset
-	projectile_vel = Vector2(facing * power * cos(rad), -power * sin(rad))
+	var facing: float = 1.0 if current_player == 0 else -1.0
+	var shell: Dictionary = ProjectileFactory.make_fired_shell(
+		current_player, WeaponCatalog.STANDARD, tank_positions[current_player],
+		facing, angle_deg, power, CANNON_LENGTH
+	)
+	projectile_pos = shell["pos"]
+	projectile_vel = shell["vel"]
 	projectile_active = true
 
 func _load_current_player_settings() -> void:
@@ -1113,19 +1113,6 @@ func _is_in_pond(pos: Vector2) -> bool:
 	return WaterManager.is_in_pond(
 		ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH
 	)
-
-func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
-	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
-	if pos.distance_to(tank_positions[target]) <= TANK_RADIUS + PROJECTILE_RADIUS:
-		return true
-	if _is_in_pond(pos):
-		return true
-	var ground_y: float = _ground_y_at_x(pos.x)
-	if pos.y >= ground_y:
-		return true
-	if pos.x < -100.0 or pos.x > active_world_width + 100.0 or pos.y > _bottom_floor_y() + 180.0:
-		return true
-	return false
 
 func _reset_realtime_charge_state() -> void:
 	rt_fire_charge_time = 0.0

@@ -147,3 +147,18 @@ its input/charge lifecycle and passes button + charge ratio to the UI.
 The scene and mode overrides use the same UI owner, with no new class
 or additional facade. Contract tests cover the gradient, clamping,
 style geometry, pressed state and unavailable palette.
+
+## Canonical launch geometry and world collision fallback (PR #98)
+
+The world compatibility launcher and active standard/Heavy/Cluster turn
+launcher now use the existing `ProjectileFactory.make_fired_shell`.
+Both launch paths still own their input gating, weapon/owner selection,
+projectile flags and effects; only the previously repeated muzzle and
+velocity trigonometry was consolidated. No random draws or packet
+formats were changed. The shadowed lower realtime collision fallback was retired instead of
+reintroducing an identical implementation of the active
+`MainGame._realtime_projectile_should_explode` hook. That active hook
+uses `ProjectileManager.should_shell_explode`, preserving
+tank/pond/terrain/out-of-world ordering. Live tests verify both turn
+and realtime contact policy, as well as canonical turn, realtime and
+special weapon launch geometry.
