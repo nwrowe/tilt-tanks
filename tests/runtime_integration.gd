@@ -93,6 +93,7 @@ func _run() -> void:
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
+	_test_machine_gun_projectile_camera_focus()
 
 	game.queue_free()
 	await process_frame
@@ -1258,6 +1259,52 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 		world_source.contains("ProjectileFactory.make_fired_shell("),
 		"world compatibility launch delegates to canonical shell factory")
 	game.call("reset_match")
+
+func _test_machine_gun_projectile_camera_focus() -> void:
+	# Machine-gun camera geometry is a reusable projectile collection
+	# calculation, not stateful scene or weapon-facade logic.
+	var round_id: String = WeaponRegistry.WEAPON_MACHINE_GUN_ROUND
+	var shots: Array[Dictionary] = [
+		ProjectileFactory.make_shell(0, round_id, Vector2(110.0, 80.0), Vector2.ZERO),
+		ProjectileFactory.make_shell(0, round_id, Vector2(220.0, 120.0), Vector2.ZERO),
+		ProjectileFactory.make_shell(0, round_id, Vector2(160.0, 90.0), Vector2.ZERO),
+		ProjectileFactory.make_shell(0, WeaponCatalog.HEAVY, Vector2(900.0, 400.0), Vector2.ZERO)
+	]
+	var before: Array[Dictionary] = shots.duplicate(true)
+	var avg: Vector2 = (Vector2(110.0, 80.0) + Vector2(220.0, 120.0) + Vector2(160.0, 90.0)) / 3.0
+	var forward: Vector2 = ProjectileManager.leading_shell_focus_for_weapon(
+		shots, round_id, false, 0.72
+	)
+	var reverse: Vector2 = ProjectileManager.leading_shell_focus_for_weapon(
+		shots, round_id, true, 0.72
+	)
+	_check(forward.is_equal_approx(avg.lerp(Vector2(220.0, 120.0), 0.72)),
+		"right-facing machine-gun camera biases average toward the forward-most round")
+	_check(reverse.is_equal_approx(avg.lerp(Vector2(110.0, 80.0), 0.72)),
+		"left-facing machine-gun camera biases average toward the left-most round")
+	_check(shots == before,
+		"machine-gun camera focus never mutates the live projectile dictionaries")
+	_check(ProjectileManager.leading_shell_focus_for_weapon(
+		shots, "__missing_weapon__", false, 0.72) == Vector2.INF,
+		"no matching rounds yields the sentinel for retaining previous camera focus")
+
+	game.call("_on_hotseat_pressed")
+	game.set("machine_gun_camera_pos", Vector2(40.0, 60.0))
+	game.call("_update_machine_gun_camera_from_shells", shots, 0)
+	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(forward),
+		"active scene's machine-gun camera delegates to canonical projectile focus")
+	var no_rounds: Array[Dictionary] = []
+	game.call("_update_machine_gun_camera_from_shells", no_rounds, 0)
+	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(forward),
+		"active camera retains focus when the last burst round has disappeared")
+	game.call("_update_machine_gun_camera_from_shells", shots, 1)
+	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(reverse),
+		"active camera handles opposite owner direction")
+	game.set("machine_gun_camera_active", true)
+	game.call("reset_match")
+	_check(not bool(game.get("machine_gun_camera_active")) and
+		game.get("machine_gun_camera_pos") == Vector2.INF,
+		"match reset clears camera state through the existing burst reset hook")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
