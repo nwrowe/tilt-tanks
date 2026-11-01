@@ -1669,10 +1669,14 @@ func _test_metadata_bouncer_profile_dispatch() -> void:
 	var special_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 	)
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
 	_check(special_source.contains('_weapon_behavior(turn_projectile_weapon) == "bounce"') and
-		special_source.split('_weapon_behavior(weapon) == "bounce"').size() == 3 and
+		special_source.contains('_weapon_behavior(str(shell.get("weapon", ""))) != "bounce"') and
+		mode_source.contains("_realtime_special_shell_step(stepped, owner)") and
 		not special_source.contains("MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED"),
-		"turn and realtime Bouncer dispatch use canonical behavior and bounce naming")
+		"turn Bouncer dispatch and unified realtime contact hook use canonical behavior")
 	game.call("_on_hotseat_pressed")
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	var original_loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
