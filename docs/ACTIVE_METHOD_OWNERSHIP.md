@@ -319,3 +319,19 @@ before the entire bridge layer can be retired.
 The new live-scene test checks both sides of this boundary. All active
 physics, UI, turn shell, reset, effects, and network behavior remains
 in the original dispatch path; eight inherited layers remain.
+
+## Weapon menu presentation lifecycle (PR #85)
+
+The existing `WeaponSelectMenu` view helper now owns opening and
+closing the weapon selector panel, as well as releasing focus from the
+three mobile action buttons when opening. The `WeaponRuntimeBridge`
+still owns the gameplay flags `weapon_menu_open` and `overlay_open`,
+mobile movement states, and inherited menu/return lifecycle. It calls
+the view helper at the same points and in the same order as the
+previous inline visibility/focus operations.
+
+This consolidates the UI representation without creating another
+gameplay service or changing mode, progression, online or weapon
+selection callbacks. Standalone tests cover visibility and optional
+controls; live-scene tests cover opening, closing, global overlay hide,
+and returning to the main menu.
