@@ -39,8 +39,6 @@ func reset_match() -> void:
 	quickgame_player_shot_hide_trajectory = false
 	realtime_explosion_camera_owner = NO_CAMERA_OWNER
 	hotseat_camera_already_valid = false
-	machine_gun_camera_active = false
-	machine_gun_camera_pos = Vector2.INF
 	turn_bouncer_bounce_count = 0
 	super.reset_match()
 
@@ -477,26 +475,13 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	machine_gun_camera_pos = Vector2.INF
 
 func _update_machine_gun_camera_from_shells(shells: Array[Dictionary], owner: int) -> void:
-	var count: int = 0
-	var avg_pos: Vector2 = Vector2.ZERO
-	var lead_pos: Vector2 = Vector2.INF
-	var lead_initialized: bool = false
-	var forward_sign: float = 1.0
-	if owner != HUMAN_PLAYER_INDEX and owner != 0:
-		forward_sign = -1.0
-	for shell: Dictionary in shells:
-		if str(shell.get("weapon", "")) != SPECIAL_MACHINE_GUN_ROUND:
-			continue
-		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
-		avg_pos += pos
-		count += 1
-		if not lead_initialized or pos.x * forward_sign > lead_pos.x * forward_sign:
-			lead_pos = pos
-			lead_initialized = true
-	if count <= 0:
-		return
-	avg_pos /= float(count)
-	machine_gun_camera_pos = avg_pos.lerp(lead_pos, MACHINE_GUN_CAMERA_LEAD_BIAS)
+	var focus: Vector2 = ProjectileManager.leading_shell_focus_for_weapon(
+		shells, SPECIAL_MACHINE_GUN_ROUND, owner != HUMAN_PLAYER_INDEX and owner != 0,
+		MACHINE_GUN_CAMERA_LEAD_BIAS
+	)
+	# Keep the previous focus while a burst is between rounds.
+	if focus != Vector2.INF:
+		machine_gun_camera_pos = focus
 
 func _clear_machine_gun_burst() -> void:
 	machine_gun_active = false
