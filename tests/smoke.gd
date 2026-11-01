@@ -98,9 +98,9 @@ func _test_special_weapon_terrain_algorithms() -> void:
 		Vector2(40.0, 400.0), Vector2(50.0, 400.0)
 	]
 	TerrainManager.apply_ground_mound(
-		mound_points, Vector2(20.0, 200.0), 20.0, 60.0, 350.0, 500.0
+		mound_points, Vector2(20.0, 200.0), 20.0, 60.0, 340.0, 500.0
 	)
-	_check(mound_points[0].y == 400.0 and mound_points[2].y == 350.0 and
+	_check(mound_points[0].y == 400.0 and mound_points[2].y == 340.0 and
 		mound_points[4].y == 400.0 and mound_points[5].y == 400.0,
 		"Ground Bomb raises the terrain center with ceiling clamp and unchanged edges")
 	_check(is_equal_approx(mound_points[1].y, 400.0 - 60.0 * sqrt(0.75)) and
