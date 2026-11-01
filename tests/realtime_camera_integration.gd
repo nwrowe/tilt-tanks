@@ -161,10 +161,10 @@ func _run() -> void:
 		is_zero_approx(float(game.get("cluster_camera_hold_timer"))),
 		"mixed AI explosion cannot steal the human camera in special frame")
 	var mode_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameModeFacade.gd")
-	var special_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameSpecialWeaponsFacade.gd")
-	var special_frame_start: int = special_source.find("func _update_all_realtime_projectiles(")
-	var special_frame_end: int = special_source.find("\nfunc ", special_frame_start + 4)
-	var special_frame_source: String = special_source.substr(
+	var special_sim_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameSpecialWeaponsFacade.gd")
+	var special_frame_start: int = special_sim_source.find("func _update_all_realtime_projectiles(")
+	var special_frame_end: int = special_sim_source.find("\nfunc ", special_frame_start + 4)
+	var special_frame_source: String = special_sim_source.substr(
 		special_frame_start, special_frame_end - special_frame_start
 	)
 	_check(mode_source.contains("ProjectileManager.step_shell(shell, gravity, wind, delta)") and
