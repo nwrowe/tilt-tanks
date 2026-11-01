@@ -46,12 +46,6 @@ var turn_projectiles: Array[Dictionary]:
 		turn_projectile_session.shells = value
 var last_explosion_visual_radius: float = EXPLOSION_RADIUS
 
-const MENU_PANEL_BUTTON_X: float = 16.0
-const MENU_PANEL_BUTTON_W: float = 198.0
-const MENU_PANEL_BUTTON_H: float = 36.0
-const MENU_PANEL_START_Y: float = 46.0
-const MENU_PANEL_GAP_Y: float = 46.0
-
 const CLUSTER_CAMERA_HOLD_AFTER_EXPLOSION: float = 0.85
 
 # Terrain/snow presentation constants formerly inherited with the weapon bridge.
@@ -272,23 +266,7 @@ func _build_overlay_ui() -> void:
 		_on_mobile_fire_pressed()
 	)
 
-	menu_panel = Panel.new()
-	menu_panel.visible = false
-	menu_panel.position = Vector2(640, 58)
-	menu_panel.size = Vector2(230, 145)
-	ui_layer.add_child(menu_panel)
-
-	var menu_title: Label = Label.new()
-	menu_title.text = "Menu"
-	menu_title.position = Vector2(16, 12)
-	menu_title.size = Vector2(180, 24)
-	menu_panel.add_child(menu_title)
-
-	var rematch_button: Button = MobileControls.make_button("Rematch", Vector2(16, 46), Vector2(198, 36), menu_panel)
-	rematch_button.pressed.connect(reset_match)
-
-	var main_menu_button: Button = MobileControls.make_button("Main Menu", Vector2(16, 92), Vector2(198, 36), menu_panel)
-	main_menu_button.pressed.connect(_return_to_main_menu)
+	menu_panel = PauseMenu.make_active_panel(ui_layer, reset_match, _return_to_main_menu)
 
 	end_panel = EndPopup.make_panel(ui_layer)
 	end_label = EndPopup.make_label(end_panel)
@@ -311,23 +289,7 @@ func _add_true_quit_button() -> void:
 	)
 
 func _relayout_three_line_menu() -> void:
-	if menu_panel == null:
-		return
-	var buttons_by_label: Dictionary = {}
-	for child: Node in menu_panel.get_children():
-		if child is Button:
-			var button: Button = child as Button
-			if button.text in ["Rematch", "Main Menu", "Quit"] and not buttons_by_label.has(button.text):
-				buttons_by_label[button.text] = button
-	var desired_order: Array[String] = ["Rematch", "Main Menu", "Quit"]
-	var y: float = MENU_PANEL_START_Y
-	for label: String in desired_order:
-		if buttons_by_label.has(label):
-			var button: Button = buttons_by_label[label] as Button
-			button.position = Vector2(MENU_PANEL_BUTTON_X, y)
-			button.size = Vector2(MENU_PANEL_BUTTON_W, MENU_PANEL_BUTTON_H)
-			y += MENU_PANEL_GAP_Y
-	menu_panel.size = Vector2(230.0, y + 12.0)
+	PauseMenu.layout_active_panel(menu_panel)
 
 func _toggle_menu() -> void:
 	if game_over:
@@ -348,33 +310,8 @@ func _resize_mobile_action_buttons() -> void:
 		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
 	)
 
-func _build_weapon_ui() -> void:
-	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
-	weapon_button.pressed.connect(_toggle_weapon_menu)
-
-	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
-	WeaponSelectMenu.add_title(weapon_panel)
-
-	var standard_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_STANDARD), Vector2(42, 66))
-	standard_button.pressed.connect(func() -> void:
-		selected_weapon = WEAPON_STANDARD
-		_close_weapon_menu()
-	)
-
-	var heavy_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_HEAVY), Vector2(42, 120))
-	heavy_button.pressed.connect(func() -> void:
-		selected_weapon = WEAPON_HEAVY
-		_close_weapon_menu()
-	)
-
-	var cluster_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_CLUSTER), Vector2(42, 174))
-	cluster_button.pressed.connect(func() -> void:
-		selected_weapon = WEAPON_CLUSTER
-		_close_weapon_menu()
-	)
-
-	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
-	close_button.pressed.connect(_close_weapon_menu)
+# The active loadout-driven weapon menu is built in MainGameModeFacade.
+# Do not reintroduce a fixed weapon list in this scene coordinator.
 
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
