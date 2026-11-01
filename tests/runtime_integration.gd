@@ -50,6 +50,7 @@ func _run() -> void:
 	_test_runtime_match_health_bridge()
 	_test_runtime_projectile_bridge()
 	_test_turn_projectile_session_reset_live()
+	_test_shadowed_bridge_removal_live()
 	_test_runtime_player_frame_bridge()
 	_test_level_and_build_state_bridge()
 	_test_level_session_configs()
@@ -1361,6 +1362,59 @@ func _test_turn_projectile_session_reset_live() -> void:
 	var fire_button: Button = game.get("mobile_fire_button") as Button
 	_check(fire_button != null and fire_button.position == Vector2(696, 448),
 		"post-parent mobile layout still runs after projectile reset")
+
+func _test_shadowed_bridge_removal_live() -> void:
+	# The active scene already exercises all these dispatch paths elsewhere
+	# in this suite. Check the lower legacy branch cannot grow duplicate logic.
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in [
+		"_build_weapon_ui", "_toggle_weapon_menu",
+		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
+		"_fire_realtime_projectile", "_update_all_realtime_projectiles",
+		"_spawn_realtime_cluster_children", "_apply_weapon_damage"
+	]:
+		_check(not bridge_source.contains("\nfunc " + name + "("),
+			"weapon bridge no longer defines shadowed compatibility hook " + name)
+	for name: String in [
+		"_build_weapon_ui", "_split_turn_cluster_projectile",
+		"_update_all_realtime_projectiles", "_spawn_realtime_cluster_children"
+	]:
+		_check(mode_source.contains("\nfunc " + name + "("),
+			"mode facade retains active weapon implementation " + name)
+	for name: String in [
+		"_update_turn_weapon_projectiles", "_fire_realtime_projectile"
+	]:
+		_check(special_source.contains("\nfunc " + name + "("),
+			"special facade retains active weapon implementation " + name)
+	for name: String in ["_toggle_weapon_menu", "_apply_weapon_damage"]:
+		_check(main_source.contains("\nfunc " + name + "("),
+			"MainGame retains active override " + name)
+	_check(special_source.contains("super._update_all_realtime_projectiles(delta)") and
+		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
+		"realtime special super dispatch terminates in mode facade before weapon bridge")
+	game.call("_on_hotseat_pressed")
+	var weapon_button: Button = game.get("weapon_button") as Button
+	var weapon_panel: Panel = game.get("weapon_panel") as Panel
+	_check(weapon_button != null and weapon_panel != null,
+		"active mode still builds the loadout weapon menu")
+	game.call("_toggle_weapon_menu")
+	_check(bool(game.get("weapon_menu_open")) and weapon_panel.visible,
+		"active weapon selector opens via derived MainGame handler")
+	game.call("_toggle_weapon_menu")
+	_check(not bool(game.get("weapon_menu_open")) and not weapon_panel.visible,
+		"active weapon selector closes via derived MainGame handler")
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
