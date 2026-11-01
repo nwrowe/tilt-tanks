@@ -67,13 +67,17 @@ func _initialize_progression_state() -> void:
 	if tank_crew.is_empty():
 		tank_crew = TankProgressionRegistry.build_default_crew()
 	_initialize_player_tank_builds()
+	# Initial startup publishes builds before the base scene initializes.
+	_sync_match_state_tank_builds()
 
 func _initialize_player_tank_builds() -> void:
+	# Construct only. During reset the parent MatchController.start_match()
+	# replaces tank builds, so publishing before super.reset_match()
+	# would be immediately overwritten and then need repeating afterward.
 	player_tank_builds = [
 		TankProgressionRegistry.default_player_build(0),
 		TankProgressionRegistry.default_player_build(1)
 	]
-	_sync_match_state_tank_builds()
 
 func _sync_match_state_tank_builds() -> void:
 	if match_controller == null:
