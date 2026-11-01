@@ -505,6 +505,10 @@ func _test_weapon_menu_view_lifecycle() -> void:
 	var left: Button = Button.new()
 	var right: Button = Button.new()
 	var fire: Button = Button.new()
+	root.add_child(panel)
+	panel.add_child(left)
+	panel.add_child(right)
+	panel.add_child(fire)
 	panel.visible = false
 	WeaponSelectMenu.show_panel(panel, left, right, fire)
 	_check(panel.visible, "weapon menu component opens its own panel view")
@@ -513,10 +517,8 @@ func _test_weapon_menu_view_lifecycle() -> void:
 	WeaponSelectMenu.show_panel(null, null, null, null)
 	WeaponSelectMenu.hide_panel(null)
 	_check(not panel.visible, "missing optional weapon UI controls are safe")
+	# Free the parent once; it owns all three test buttons.
 	panel.free()
-	left.free()
-	right.free()
-	fire.free()
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
