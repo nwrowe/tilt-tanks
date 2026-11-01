@@ -1642,7 +1642,8 @@ func _test_rendering_owner_migration_live() -> void:
 	game.set("realtime_cluster_focus_pos", Vector2.INF)
 	game.set("turn_cluster_camera_pos", Vector2.INF)
 	game.set("cluster_camera_hold_pos", Vector2.INF)
-	var view_width: float = 900.0 / float(game.get("CAMERA_SCALE"))
+	# Main.gd uses VIEW_SIZE.x=900 and CAMERA_SCALE=0.66.
+	var view_width: float = 900.0 / 0.66
 	var max_camera_x: float = maxf(0.0, float(game.get("active_world_width")) - view_width)
 	var expected_focus: float = clampf(target_x - 0.5 * view_width, 0.0, max_camera_x)
 	_check(is_equal_approx(float(game.call("_camera_target_x")), expected_focus),
