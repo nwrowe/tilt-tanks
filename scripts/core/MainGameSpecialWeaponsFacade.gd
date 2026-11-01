@@ -511,7 +511,7 @@ func _realtime_special_projectiles_active() -> bool:
 		return true
 	for shell: Dictionary in rt_projectiles:
 		var weapon: String = str(shell.get("weapon", ""))
-		if weapon == SPECIAL_BOUNCER or weapon == SPECIAL_MACHINE_GUN_ROUND:
+		if _weapon_behavior(weapon) == "bounce" or weapon == SPECIAL_MACHINE_GUN_ROUND:
 			return true
 	return false
 
