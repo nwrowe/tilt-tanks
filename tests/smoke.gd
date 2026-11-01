@@ -171,12 +171,16 @@ func _test_turn_ai_session() -> void:
 	_check(not session.step(0.60) and session.pending and is_equal_approx(session.think_timer, 1.15),
 		"AI turn session decrements think timer without firing early")
 	_check(session.step(1.20) and session.pending, "AI turn session reports elapsed think delay")
+	session.visual.track({"angle": 61.0, "power_percent": 49.0}, 45.0, 55.0)
 	session.cancel()
-	_check(not session.pending and session.think_timer < 0.0,
-		"cancelling an AI turn preserves the original elapsed timer")
+	_check(not session.pending and session.think_timer < 0.0 and
+		not session.visual.plan.is_empty(),
+		"cancelling the think timer retains the visible shot plan until firing/reset")
 	session.reset()
-	_check(not session.pending and is_zero_approx(session.think_timer),
-		"match reset clears AI turn session completely")
+	_check(not session.pending and is_zero_approx(session.think_timer) and
+		session.visual.plan.is_empty() and
+		is_equal_approx(session.visual.target_angle, 61.0),
+		"match reset clears both AI timer and plan but retains prior visual target")
 	_check(TurnAITurnSession.can_act(true, true, false, false, false),
 		"quick game AI can act while idle")
 	_check(not TurnAITurnSession.can_act(true, true, true, false, false),
