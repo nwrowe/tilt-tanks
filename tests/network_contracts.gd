@@ -232,6 +232,8 @@ func _test_online_reset_and_disconnect_ownership() -> void:
 		"online runtime exposes its composed lifecycle owners")
 	if host == null or smoothing == null or seq == null:
 		return
+	host.reset()
+	seq.reset()
 	_check(host.due_for_sync(0.0, true, false, 0.033, 0.10),
 		"host sync timer can be armed before reset")
 	host.arm_fallback(0, 1.25)
