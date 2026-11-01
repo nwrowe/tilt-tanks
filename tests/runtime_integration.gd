@@ -1004,21 +1004,20 @@ func _test_identical_method_override_cleanup() -> void:
 	# Active registry overrides and the inherited projectile implementation
 	# must still behave as they did before the removal.
 	var main_script: Script = load("res://scripts/core/MainGame.gd") as Script
-	var weapon_script: Script = load("res://scripts/weapons/WeaponRuntimeBridge.gd") as Script
-	_check(main_script != null and weapon_script != null, "deduplicated scripts remain loadable")
-	if main_script == null or weapon_script == null:
+	_check(main_script != null, "seven-layer MainGame script remains loadable")
+	if main_script == null:
 		return
-	var inherited_names: Array[String] = [
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in [
 		"_update_projectile", "_weapon_direct_damage",
 		"_weapon_explosion_radius", "_has_active_realtime_shell_for_owner"
-	]
-	for name: String in inherited_names:
-		var parent_declares: bool = false
-		for entry: Dictionary in weapon_script.get_script_method_list():
-			if str(entry.get("name", "")) == name:
-				parent_declares = true
-				break
-		_check(parent_declares, "weapon runtime retains inherited method " + name)
+	]:
+		_check(main_source.contains("\nfunc " + name + "("),
+			"MainGame exposes the former bridge compatibility hook " + name)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired WeaponRuntimeBridge file is absent")
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	var heavy: WeaponDefinition = session.definition(WeaponCatalog.HEAVY)
 	var old_damage: int = heavy.direct_damage
@@ -1210,10 +1209,7 @@ func _test_pruned_weapon_collision_dispatch_live() -> void:
 	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
 	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
 	for method_name: String in [
-		"_split_turn_cluster_projectile",
-		"_update_turn_weapon_projectiles", "_fire_realtime_projectile",
-		"_spawn_realtime_cluster_children",
-		"_turn_shell_should_explode", "_realtime_projectile_should_explode"
+		"_fire_realtime_projectile", "_spawn_realtime_cluster_children"
 	]:
 		_check(not main_source.contains("\nfunc " + method_name + "("),
 			"MainGame does not redeclare shadowed weapon override " + method_name)
@@ -1277,7 +1273,7 @@ func _test_retired_world_mode_helpers_live() -> void:
 
 func _test_weapon_startup_layout_live() -> void:
 	# WorldRuntimeBridge's old prototype layout is overridden through
-	# WeaponRuntimeBridge in both the ready and reset dispatch chains.
+	# MainGame in both the ready and reset dispatch chains.
 	var left: Button = game.get("mobile_left_button") as Button
 	var right: Button = game.get("mobile_right_button") as Button
 	var fire: Button = game.get("mobile_fire_button") as Button
@@ -1296,11 +1292,11 @@ func _test_weapon_startup_layout_live() -> void:
 		weapon.size == WeaponSelectMenu.BUTTON_SIZE,
 		"weapon button keeps the menu-helper placement")
 	var source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+		"res://scripts/core/MainGame.gd"
 	)
 	_check(not source.contains("\nfunc _add_main_menu_controls(") and
 		not source.contains("\nfunc _relabel_quit_buttons("),
-		"bridge no longer declares dead startup menu hooks")
+		"MainGame has no dead startup menu hooks")
 	game.call("reset_match")
 	_check(fire.position == Vector2(696, 448) and
 		weapon.position == WeaponSelectMenu.BUTTON_POS,
@@ -1377,9 +1373,8 @@ func _test_turn_projectile_session_reset_live() -> void:
 func _test_shadowed_bridge_removal_live() -> void:
 	# Realtime fallbacks are fully shadowed and do not have bridge callers.
 	# Other legacy signatures must remain for Godot ancestor compilation.
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
-	)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge is absent from the scene's source tree")
 	var mode_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGameModeFacade.gd"
 	)
@@ -1389,24 +1384,15 @@ func _test_shadowed_bridge_removal_live() -> void:
 	var world_source: String = FileAccess.get_file_as_string(
 		"res://scripts/modes/WorldRuntimeBridge.gd"
 	)
-	for name: String in [
-		"_fire_realtime_projectile", "_update_all_realtime_projectiles",
-		"_spawn_realtime_cluster_children"
-	]:
-		_check(not bridge_source.contains("\nfunc " + name + "("),
-			"weapon bridge no longer declares unreachable realtime fallback " + name)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
 	for name: String in [
 		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
-		"_apply_weapon_damage"
+		"_apply_weapon_damage", "_build_weapon_ui", "_toggle_weapon_menu"
 	]:
-		_check(bridge_source.contains("\nfunc " + name + "("),
-			"weapon bridge preserves ancestor compiler method contract " + name)
-	for name: String in ["_build_weapon_ui", "_toggle_weapon_menu"]:
-		_check(not bridge_source.contains("\nfunc " + name + "(") and
-			FileAccess.get_file_as_string(
-				"res://scripts/core/MainGame.gd"
-			).contains("\nfunc " + name + "("),
-			"game-level menu method now satisfies compile-time contract " + name)
+		_check(main_source.contains("\nfunc " + name + "("),
+			"seven-layer game retains compiler-visible method " + name)
 	_check(mode_source.contains("\nfunc _update_all_realtime_projectiles(") and
 		special_source.contains("super._update_all_realtime_projectiles(delta)") and
 		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
@@ -1457,11 +1443,11 @@ func _test_composed_weapon_menu_view_live() -> void:
 
 func _test_shared_shell_impact_policy_live() -> void:
 	var source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+		"res://scripts/core/MainGame.gd"
 	)
 	_check(source.contains("func _turn_shell_should_explode(") and
 		source.contains("func _realtime_projectile_should_explode("),
-		"both compile-time collision hooks remain in active weapon bridge")
+		"both compile-time collision hooks remain in MainGame")
 	var count: int = source.split("ProjectileManager.should_shell_explode(").size() - 1
 	_check(count == 2, "both active projectile paths use canonical impact policy")
 	game.call("_on_hotseat_pressed")
@@ -1519,15 +1505,12 @@ func _test_canonical_weapon_alias_forwarding_live() -> void:
 		"restored legacy metadata still shares one canonical owner")
 
 func _test_weapon_lifecycle_consolidation_live() -> void:
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
-	)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge is absent from the scene's source tree")
 	var game_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
 	for name: String in ["_ready", "_process", "reset_match"]:
-		_check(not bridge_source.contains("\nfunc " + name + "("),
-			"weapon bridge no longer intercepts " + name + " lifecycle")
 		_check(game_source.contains("\nfunc " + name + "("),
 			"MainGame retains direct " + name + " lifecycle ownership")
 	var ready_start: int = game_source.find("\nfunc _ready(")
@@ -1577,18 +1560,18 @@ func _test_turn_ai_world_ownership_live() -> void:
 	var world_source: String = FileAccess.get_file_as_string(
 		"res://scripts/modes/WorldRuntimeBridge.gd"
 	)
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
 	)
 	for name: String in [
 		"_begin_ai_turn", "_make_ai_visual_shot_plan",
 		"_process_ai_turn", "_update_ai_visual_aim", "_take_ai_shot"
 	]:
 		_check(world_source.contains("\nfunc " + name + "(") and
-			not bridge_source.contains("\nfunc " + name + "("),
+			not main_source.contains("\nfunc " + name + "("),
 			"world runtime now solely declares active turn AI hook " + name)
 	_check(world_source.contains("var turn_ai_visual: TurnAIVisualAimSession:") and
-		not bridge_source.contains("var turn_ai_visual:"),
+		not main_source.contains("var turn_ai_visual:"),
 		"turn AI visual compatibility property is owned alongside world timer")
 	game.call("_on_hotseat_pressed")
 	game.call("reset_match")
@@ -1614,9 +1597,8 @@ func _test_turn_ai_world_ownership_live() -> void:
 		"parent reset still clears both turn AI timer and shot plan")
 
 func _test_rendering_owner_migration_live() -> void:
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
-	)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge is absent from the scene's source tree")
 	var main_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
@@ -1624,8 +1606,6 @@ func _test_rendering_owner_migration_live() -> void:
 		"_draw", "_draw_tank", "_draw_destroyed_smoke_puffs",
 		"_draw_realtime_projectiles", "_draw_explosion", "_camera_target_x"
 	]:
-		_check(not bridge_source.contains("\nfunc " + name + "("),
-			"weapon bridge no longer declares rendering/camera owner " + name)
 		_check(main_source.contains("\nfunc " + name + "("),
 			"MainGame owns active rendering/camera method " + name)
 	var drawing: String = main_source.get_slice("\nfunc _draw() -> void:", 1)
@@ -1659,9 +1639,8 @@ func _test_rendering_owner_migration_live() -> void:
 	game.call("reset_match")
 
 func _test_weapon_menu_owner_migration_live() -> void:
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
-	)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge is absent from the scene's source tree")
 	var main_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
@@ -1671,11 +1650,9 @@ func _test_weapon_menu_owner_migration_live() -> void:
 		"_close_weapon_menu", "_hide_overlays", "_quit_game",
 		"_return_to_main_menu"
 	]:
-		_check(not bridge_source.contains("\nfunc " + name + "(") and
-			main_source.contains("\nfunc " + name + "("),
+		_check(main_source.contains("\nfunc " + name + "("),
 			"active MainGame exclusively owns weapon menu lifecycle " + name)
-	_check(not bridge_source.contains("\nfunc _build_weapon_ui(") and
-		main_source.contains("\nfunc _build_weapon_ui(") and
+	_check(main_source.contains("\nfunc _build_weapon_ui(") and
 		main_source.contains("\nfunc _toggle_weapon_menu("),
 		"MainGame now provides fallback builder and toggle while mode facade still overrides")
 	game.call("_on_hotseat_pressed")
@@ -1709,9 +1686,8 @@ func _test_weapon_menu_owner_migration_live() -> void:
 	game.call("reset_match")
 
 func _test_destroyed_smoke_game_ownership_live() -> void:
-	var bridge_source: String = FileAccess.get_file_as_string(
-		"res://scripts/weapons/WeaponRuntimeBridge.gd"
-	)
+	_check(not FileAccess.file_exists("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge is absent from the scene's source tree")
 	var main_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
@@ -1720,11 +1696,9 @@ func _test_destroyed_smoke_game_ownership_live() -> void:
 		"_start_destroyed_tank_smoke", "_update_destroyed_smoke",
 		"_spawn_destroyed_smoke_puff"
 	]:
-		_check(not bridge_source.contains("\nfunc " + name + "(") and
-			main_source.contains("\nfunc " + name + "("),
+		_check(main_source.contains("\nfunc " + name + "("),
 			"MainGame owns scene-facing destroyed-smoke hook " + name)
-	_check(not bridge_source.contains("var destroyed_smoke_session:") and
-		main_source.contains("var destroyed_smoke_session: DestroyedTankSmokeSession"),
+	_check(main_source.contains("var destroyed_smoke_session: DestroyedTankSmokeSession"),
 		"destroyed smoke session sits with the game effects state")
 	game.call("reset_match")
 	var smoke: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
