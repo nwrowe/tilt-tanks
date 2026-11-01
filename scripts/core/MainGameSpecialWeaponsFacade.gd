@@ -549,40 +549,25 @@ func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realt
 		_show_end_popup()
 
 func _cut_laser_path(start_pos: Vector2, end_pos: Vector2) -> void:
-	var width: float = float(_weapon_value(SPECIAL_LASER, "laser_cut_width", 18.0))
-	var depth: float = float(_weapon_value(SPECIAL_LASER, "laser_cut_depth", 180.0))
-	var seg: Vector2 = end_pos - start_pos
-	var seg_len_sq: float = maxf(seg.length_squared(), 1.0)
-	for i: int in range(terrain_points.size()):
-		var p: Vector2 = terrain_points[i]
-		var t: float = clampf((p - start_pos).dot(seg) / seg_len_sq, 0.0, 1.0)
-		var closest: Vector2 = start_pos + seg * t
-		if p.distance_to(closest) <= width:
-			p.y = clampf(p.y + depth, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
-			terrain_points[i] = p
+	TerrainManager.apply_laser_cut(
+		terrain_points, start_pos, end_pos,
+		float(_weapon_value(SPECIAL_LASER, "laser_cut_width", 18.0)),
+		float(_weapon_value(SPECIAL_LASER, "laser_cut_depth", 180.0)),
+		VAR_TERRAIN_MIN_Y, _bottom_floor_y()
+	)
 	_refresh_terrain_line()
 	_reflow_water_after_terrain_change(start_pos.x)
 
 func _apply_laser_damage(owner: int, start_pos: Vector2, end_pos: Vector2) -> void:
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
-	var dist: float = _point_to_segment_distance(tank_positions[target], start_pos, end_pos)
+	var dist: float = TerrainMath.point_to_segment_distance(tank_positions[target], start_pos, end_pos)
 	if dist <= float(_weapon_value(SPECIAL_LASER, "direct_radius", 14.0)) + TANK_RADIUS:
 		tank_health[target] = maxi(0, tank_health[target] - int(_weapon_value(SPECIAL_LASER, "direct_damage", 18)))
 
-func _point_to_segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
-	var ab: Vector2 = b - a
-	var t: float = clampf((point - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
-	return point.distance_to(a + ab * t)
-
 func _apply_ground_bomb(pos: Vector2, weapon: String) -> void:
-	var radius: float = _weapon_crater_radius(weapon)
-	var raise_amount: float = float(_weapon_value(weapon, "ground_raise_amount", absf(_weapon_crater_depth(weapon))))
-	for i: int in range(terrain_points.size()):
-		var point: Vector2 = terrain_points[i]
-		var dx: float = point.x - pos.x
-		if absf(dx) <= radius:
-			var normalized_x: float = dx / maxf(radius, 0.001)
-			var mound: float = sqrt(maxf(0.0, 1.0 - normalized_x * normalized_x))
-			point.y = clampf(point.y - raise_amount * mound, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
-			terrain_points[i] = point
+	TerrainManager.apply_ground_mound(
+		terrain_points, pos, _weapon_crater_radius(weapon),
+		float(_weapon_value(weapon, "ground_raise_amount", absf(_weapon_crater_depth(weapon)))),
+		VAR_TERRAIN_MIN_Y, _bottom_floor_y()
+	)
 	_refresh_terrain_line()

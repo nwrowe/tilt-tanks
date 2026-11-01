@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_weapon_menu_view_lifecycle()
 	_test_weapon_runtime_frame_priority()
 	_test_bouncer_weapon_policy()
+	_test_special_weapon_terrain_algorithms()
 	_test_weapon_definition_session()
 	_test_level_definitions()
 	_test_tank_progression_data()
@@ -61,6 +62,50 @@ func _movement_test_ground(_x: float) -> float:
 
 func _movement_test_score(shooter_pos: Vector2) -> Dictionary:
 	return {"score": absf(shooter_pos.x - 900.0) * 1000.0}
+
+func _test_special_weapon_terrain_algorithms() -> void:
+	var points: Array[Vector2] = [
+		Vector2(0.0, 320.0), Vector2(10.0, 320.0),
+		Vector2(20.0, 320.0), Vector2(30.0, 320.0),
+		Vector2(40.0, 320.0), Vector2(50.0, 320.0)
+	]
+	_check(is_equal_approx(TerrainMath.point_to_segment_distance(
+		Vector2(20.0, 324.0), Vector2(10.0, 320.0), Vector2(40.0, 320.0)), 4.0),
+		"laser segment distance uses the nearest interior point")
+	_check(is_equal_approx(TerrainMath.point_to_segment_distance(
+		Vector2(0.0, 320.0), Vector2(10.0, 320.0), Vector2(40.0, 320.0)), 10.0),
+		"laser segment distance clamps at its endpoint")
+	_check(is_equal_approx(TerrainMath.point_to_segment_distance(
+		Vector2(10.0, 325.0), Vector2(10.0, 320.0), Vector2(10.0, 320.0)), 5.0),
+		"laser segment distance handles degenerate segments")
+	TerrainManager.apply_laser_cut(
+		points, Vector2(10.0, 320.0), Vector2(40.0, 320.0),
+		1.0, 40.0, 250.0, 500.0
+	)
+	_check(points[0].y == 320.0 and points[1].y == 360.0 and
+		points[2].y == 360.0 and points[3].y == 360.0 and
+		points[4].y == 360.0 and points[5].y == 320.0,
+		"laser cut changes only points within the finite segment")
+	TerrainManager.apply_laser_cut(
+		points, Vector2(10.0, 360.0), Vector2(40.0, 360.0),
+		1.0, 400.0, 250.0, 500.0
+	)
+	_check(points[2].y == 500.0 and points[0].y == 320.0,
+		"laser terrain displacement is clamped to the allowed floor")
+	var mound_points: Array[Vector2] = [
+		Vector2(0.0, 400.0), Vector2(10.0, 400.0),
+		Vector2(20.0, 400.0), Vector2(30.0, 400.0),
+		Vector2(40.0, 400.0), Vector2(50.0, 400.0)
+	]
+	TerrainManager.apply_ground_mound(
+		mound_points, Vector2(20.0, 200.0), 20.0, 60.0, 340.0, 500.0
+	)
+	_check(mound_points[0].y == 400.0 and mound_points[2].y == 340.0 and
+		mound_points[4].y == 400.0 and mound_points[5].y == 400.0,
+		"Ground Bomb raises the terrain center with ceiling clamp and unchanged edges")
+	_check(is_equal_approx(mound_points[1].y, 400.0 - 60.0 * sqrt(0.75)) and
+		is_equal_approx(mound_points[1].y, mound_points[3].y),
+		"Ground Bomb mound retains symmetric semicircular falloff")
 
 func _test_realtime_ai_movement_planner() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()

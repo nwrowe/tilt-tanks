@@ -268,3 +268,16 @@ duplicate rule. Actual `_advance_turn`, camera changes, host fallback,
 and authoritative RPCs remain in their owning scene/network code.
 Regression tests exercise every blocking condition and a live
 delayed hotseat turn switch. No new class or inheritance layer.
+
+## Special-weapon terrain geometry ownership (PR #108)
+
+Laser terrain cutting and Ground Bomb mound deformation now use
+`TerrainManager` alongside the established crater calculation, with
+nearest-segment geometry centralized in `TerrainMath`.
+`MainGameSpecialWeaponsFacade` still chooses weapon metadata and owns
+scene state, refresh, water reflow, FX and camera behavior. Laser reflow
+still executes **after** terrain redraw; Ground Bomb still refreshes
+only (no new water algorithm). No additional behavior class, scene
+ancestor or weapon-specific service was created. Pure geometry and live
+metadata override tests cover the cuts, mounds, endpoint and floor
+bounds, and forward delegation.

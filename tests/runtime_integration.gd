@@ -96,6 +96,7 @@ func _run() -> void:
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
 	_test_shared_turn_advance_clearance_live()
+	_test_special_weapon_terrain_delegation_live()
 
 	game.queue_free()
 	await process_frame
@@ -1478,6 +1479,56 @@ func _test_shared_turn_advance_clearance_live() -> void:
 	_check(int(game.get("current_player")) == 1 and
 		not bool(game.get("pending_advance_after_explosion_hold")),
 		"live turn advances once, after all burst and explosion gates clear")
+	game.call("reset_match")
+
+func _test_special_weapon_terrain_delegation_live() -> void:
+	# Test actual scene dispatch with metadata-driven geometry. Preserve the
+	# historical difference: laser reflows water, Ground Bomb only refreshes.
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(source.contains("TerrainManager.apply_laser_cut(") and
+		source.contains("TerrainManager.apply_ground_mound(") and
+		not source.contains("func _point_to_segment_distance("),
+		"special weapon facade delegates numerical terrain geometry to existing owners")
+	game.call("_on_hotseat_pressed")
+	var definitions: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var laser: WeaponDefinition = definitions.definition(WeaponRegistry.WEAPON_LASER)
+	var ground: WeaponDefinition = definitions.definition(WeaponRegistry.WEAPON_GROUND_BOMB)
+	var old_cut_depth: Variant = laser.extra_fields.get("laser_cut_depth", 180.0)
+	var old_cut_width: Variant = laser.extra_fields.get("laser_cut_width", 18.0)
+	var old_raise: Variant = ground.extra_fields.get("ground_raise_amount", 174.0)
+	var old_radius: float = ground.crater_radius
+	var saved_points: Array[Vector2] = game.get("terrain_points")
+	var saved_ponds: Array[Dictionary] = game.get("ponds")
+	var points: Array[Vector2] = [
+		Vector2(0.0, 360.0), Vector2(10.0, 360.0),
+		Vector2(20.0, 360.0), Vector2(30.0, 360.0),
+		Vector2(40.0, 360.0), Vector2(50.0, 360.0)
+	]
+	game.set("terrain_points", points)
+	var no_ponds: Array[Dictionary] = []
+	game.set("ponds", no_ponds)
+	laser.extra_fields["laser_cut_depth"] = 35.0
+	laser.extra_fields["laser_cut_width"] = 0.5
+	game.call("_cut_laser_path", Vector2(10.0, 360.0), Vector2(40.0, 360.0))
+	_check(points[0].y == 360.0 and points[1].y == 395.0 and
+		points[2].y == 395.0 and points[3].y == 395.0 and
+		points[4].y == 395.0 and points[5].y == 360.0,
+		"live Laser uses registry depth and width to cut finite terrain segment")
+	ground.extra_fields["ground_raise_amount"] = 35.0
+	ground.crater_radius = 20.0
+	game.call("_apply_ground_bomb", Vector2(20.0, 400.0), WeaponRegistry.WEAPON_GROUND_BOMB)
+	_check(points[2].y == 360.0 and points[1].y < 395.0 and
+		points[0].y == 360.0 and points[5].y == 360.0,
+		"live Ground Bomb uses mutable definition radius and raise amount")
+	laser.extra_fields["laser_cut_depth"] = old_cut_depth
+	laser.extra_fields["laser_cut_width"] = old_cut_width
+	ground.extra_fields["ground_raise_amount"] = old_raise
+	ground.crater_radius = old_radius
+	game.set("terrain_points", saved_points)
+	game.set("ponds", saved_ponds)
+	game.call("_refresh_terrain_line")
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
