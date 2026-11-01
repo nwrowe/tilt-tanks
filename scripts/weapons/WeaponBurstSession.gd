@@ -18,10 +18,15 @@ var angle: float = 45.0
 var power_percent: float = 50.0
 var realtime: bool = false
 var turn_waiting_for_shells: bool = false
+# Profile and child identity are stable for the entire burst, even if the
+# selected menu weapon changes after the first round launches.
+var weapon_id: String = ""
+var child_weapon_id: String = ""
 
 func begin(
 	owner_id: int, aim_angle: float, charge_percent: float,
-	realtime_mode: bool, round_count: int, round_interval: float
+	realtime_mode: bool, round_count: int, round_interval: float,
+	source_weapon: String = "", child_weapon: String = ""
 ) -> void:
 	active = true
 	turn_waiting_for_shells = not realtime_mode
@@ -32,6 +37,8 @@ func begin(
 	angle = aim_angle
 	power_percent = charge_percent
 	realtime = realtime_mode
+	weapon_id = source_weapon
+	child_weapon_id = child_weapon
 
 func advance(delta: float) -> void:
 	if active:
@@ -76,3 +83,5 @@ func clear_active() -> void:
 	remaining = 0
 	timer = 0.0
 	turn_waiting_for_shells = false
+	weapon_id = ""
+	child_weapon_id = ""
