@@ -104,11 +104,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Compatibility hook for MainGame.gd while flattening the inheritance chain.
 	return
 
-func _ready() -> void:
-	super._ready()
-	_resize_mobile_action_buttons()
-	_build_weapon_ui()
-
 func _resize_mobile_action_buttons() -> void:
 	MobileControls.layout_weapon_runtime_actions(
 		mobile_left_button, mobile_right_button, mobile_fire_button,
@@ -193,42 +188,6 @@ func _return_to_main_menu() -> void:
 		end_panel.visible = false
 	WeaponSelectMenu.hide_panel(weapon_panel)
 	_show_main_menu()
-
-func reset_match() -> void:
-	# Preserve order: clear turn shells and effects before the inherited
-	# world reset, then restore scene-facing controls after it returns.
-	turn_projectile_session.reset_for_match(selected_weapon)
-	last_explosion_visual_radius = EXPLOSION_RADIUS
-	destroyed_smoke_session.reset()
-	turn_ai_visual.clear_plan()
-	super.reset_match()
-	_resize_mobile_action_buttons()
-	_close_weapon_menu()
-
-func _process(delta: float) -> void:
-	var stage: WeaponFramePolicy.Stage = WeaponFramePolicy.select_stage(
-		menu_state == MENU_STATE_GAME, game_over, weapon_menu_open,
-		game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME, not turn_projectiles.is_empty()
-	)
-	match stage:
-		WeaponFramePolicy.Stage.GAME_OVER:
-			_process_game_over_visuals(delta)
-		WeaponFramePolicy.Stage.WEAPON_MENU:
-			_update_destroyed_smoke(delta)
-			queue_redraw()
-		WeaponFramePolicy.Stage.TURN_SHELLS:
-			_update_turn_weapon_projectiles(delta)
-			if explosion_timer > 0.0:
-				explosion_timer -= delta
-				if explosion_timer <= 0.0:
-					explosion_pos = Vector2.INF
-			_update_camera(delta)
-			_update_ui()
-			_update_destroyed_smoke(delta)
-			queue_redraw()
-		_:
-			super._process(delta)
-			_update_destroyed_smoke(delta)
 
 func _process_game_over_visuals(delta: float) -> void:
 	if explosion_timer > 0.0:
