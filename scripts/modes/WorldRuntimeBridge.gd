@@ -864,13 +864,9 @@ func _ready() -> void:
 func _setup_realtime_single_player() -> void:
 	_mode_runtime_setup_realtime_single_player()
 	rt_player_shell_active = false
-	rt_fire_button_held = false
-	rt_keyboard_fire_held = false
-	rt_fire_charge_time = 0.0
-	rt_fire_charge_percent = 0.0
+	_reset_realtime_charge_state()
 	_resize_mobile_action_buttons()
 	_show_realtime_power_ui(false)
-	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 	_clear_realtime_ai_visual_plan()
 	_choose_realtime_ai_visual_plan()
 
@@ -878,11 +874,7 @@ func reset_match() -> void:
 	_clear_realtime_ai_visual_plan()
 	_mode_runtime_reset_match()
 	rt_player_shell_active = false
-	rt_fire_button_held = false
-	rt_keyboard_fire_held = false
-	rt_fire_charge_time = 0.0
-	rt_fire_charge_percent = 0.0
-	MobileControls.style_charge_button(mobile_fire_button, 0.0)
+	_reset_realtime_charge_state()
 
 func _show_game_ui() -> void:
 	_mode_runtime_show_game_ui()

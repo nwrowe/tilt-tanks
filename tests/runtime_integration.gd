@@ -87,6 +87,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session_live()
 	_test_destroyed_smoke_game_ownership_live()
 	_test_turn_ai_visual_aim_session_live()
+	_test_canonical_match_charge_and_ai_reset()
 	_test_turn_ai_world_ownership_live()
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
@@ -1003,6 +1004,82 @@ func _test_turn_ai_visual_aim_session_live() -> void:
 	_check(session.plan.is_empty() and not turn_session.pending and
 		is_zero_approx(turn_session.think_timer),
 		"one inherited reset clears the world AI timer and bridge visual plan")
+
+func _test_canonical_match_charge_and_ai_reset() -> void:
+	# Seed stale states and invoke the complete inherited reset dispatch.
+	# Charge lifecycles should use their existing reset hooks; the world AI
+	# session should reset both timer and visual plan only once.
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	var world_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
+	)
+	var main_reset_start: int = main_source.find("\nfunc reset_match() -> void:")
+	var main_reset_end: int = main_source.find("\nfunc ", main_reset_start + 2)
+	var main_reset: String = main_source.substr(
+		main_reset_start, main_reset_end - main_reset_start
+	)
+	_check(main_reset.contains("_reset_hotseat_charge()") and
+		not main_reset.contains("turn_ai_visual.clear_plan()"),
+		"MainGame reset delegates hotseat charging and leaves turn-AI visual to session reset")
+	var world_reset_start: int = world_source.find("\nfunc reset_match() -> void:")
+	var world_reset_end: int = world_source.find("\nfunc ", world_reset_start + 2)
+	var world_reset: String = world_source.substr(
+		world_reset_start, world_reset_end - world_reset_start
+	)
+	_check(world_reset.contains("_reset_realtime_charge_state()") and
+		world_source.contains("turn_ai_session.reset()"),
+		"world reset delegates realtime charge and owns single turn-AI session reset")
+	game.call("_on_hotseat_pressed")
+	var turn: TurnAITurnSession = game.get("turn_ai_session") as TurnAITurnSession
+	var visual: TurnAIVisualAimSession = game.get("turn_ai_visual") as TurnAIVisualAimSession
+	_check(turn != null and visual == turn.visual,
+		"match reset exercises the same composed turn-AI session")
+	if turn == null or visual == null:
+		return
+	turn.begin(1.8)
+	visual.plan = {"angle": 63.0, "power_percent": 73.0}
+	game.set("hotseat_fire_button_held", true)
+	game.set("hotseat_keyboard_fire_held", true)
+	game.set("hotseat_charge_time", 0.8)
+	game.set("hotseat_charge_percent", 76.0)
+	game.set("rt_fire_button_held", true)
+	game.set("rt_keyboard_fire_held", true)
+	game.set("rt_fire_charge_time", 0.75)
+	game.set("rt_fire_charge_percent", 72.0)
+	game.set("rt_player_shell_active", true)
+	game.call("reset_match")
+	_check(not turn.pending and is_zero_approx(turn.think_timer) and
+		visual.plan.is_empty(), "one inherited reset clears both timer and visual AI plan")
+	_check(not bool(game.get("hotseat_fire_button_held")) and
+		not bool(game.get("hotseat_keyboard_fire_held")) and
+		is_zero_approx(float(game.get("hotseat_charge_time"))) and
+		is_zero_approx(float(game.get("hotseat_charge_percent"))),
+		"hotseat charging resets through the original release-state owner")
+	_check(not bool(game.get("rt_fire_button_held")) and
+		not bool(game.get("rt_keyboard_fire_held")) and
+		not bool(game.get("rt_player_shell_active")) and
+		is_zero_approx(float(game.get("rt_fire_charge_time"))) and
+		is_zero_approx(float(game.get("rt_fire_charge_percent"))),
+		"realtime charging and active shell state reset together")
+	var mobile_fire: Button = game.get("mobile_fire_button") as Button
+	_check(mobile_fire != null and
+		(mobile_fire.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.is_equal_approx(
+			MobileControls.fire_charge_color(0.0)),
+		"match reset restores original uncharged mobile FIRE appearance")
+	game.call("_on_quick_game_pressed")
+	game.set("rt_fire_button_held", true)
+	game.set("rt_keyboard_fire_held", true)
+	game.set("rt_fire_charge_time", 0.6)
+	game.set("rt_fire_charge_percent", 82.0)
+	game.call("_setup_realtime_single_player")
+	_check(not bool(game.get("rt_fire_button_held")) and
+		not bool(game.get("rt_keyboard_fire_held")) and
+		is_zero_approx(float(game.get("rt_fire_charge_time"))) and
+		is_zero_approx(float(game.get("rt_fire_charge_percent"))),
+		"realtime mode setup and match reset use the same canonical charge reset")
+	game.call("reset_match")
 
 func _test_identical_method_override_cleanup() -> void:
 	# MainGame now owns compatibility hooks previously inherited via the

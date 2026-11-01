@@ -153,10 +153,7 @@ func reset_match() -> void:
 	suppress_next_outside_close = false
 	cluster_camera_hold_timer = 0.0
 	cluster_camera_hold_pos = Vector2.INF
-	hotseat_fire_button_held = false
-	hotseat_keyboard_fire_held = false
-	hotseat_charge_time = 0.0
-	hotseat_charge_percent = 0.0
+	_reset_hotseat_charge()
 	manual_camera_active = false
 	manual_camera_timer = 0.0
 	turn_cluster_camera_pos = Vector2.INF
@@ -170,7 +167,7 @@ func reset_match() -> void:
 	turn_projectile_session.reset_for_match(selected_weapon)
 	last_explosion_visual_radius = EXPLOSION_RADIUS
 	destroyed_smoke_session.reset()
-	turn_ai_visual.clear_plan()
+	# The world-owned TurnAITurnSession resets its visual plan with its timer.
 	super.reset_match()
 	# Former weapon bridge post-parent reset stage, before MainGame sync.
 	_resize_mobile_action_buttons()
