@@ -165,9 +165,33 @@ func _on_fire_pressed() -> void:
 		if not online_is_host:
 			_online_submit_fire_request()
 			return
+	# Snapshot only a legitimate released host shot, never an input-down,
+	# pending burst, turn handoff or blocked fire attempt.
+	var accepted_host_shot: bool = (
+		_is_online_duel_active() and online_is_host
+		and hotseat_release_in_progress
+		and not projectile_active and turn_projectiles.is_empty()
+		and not machine_gun_active and not machine_gun_turn_waiting_for_shells
+		and not pending_advance_after_explosion_hold
+		and not game_over and not overlay_open
+		and not _is_hotseat_turn_start_prompt_active()
+	)
+	var firing_owner: int = current_player
+	var firing_angle: float = angle_deg
+	var firing_power_percent: float = power_percent
+	var firing_weapon: String = selected_weapon
 	super._on_fire_pressed()
-	if _is_online_duel_active() and online_is_host:
-		_online_send_snapshot(true)
+	if accepted_host_shot:
+		_online_publish_authoritative_shot(
+			firing_owner, firing_angle, firing_power_percent, firing_weapon
+		)
+
+func _online_publish_authoritative_shot(
+	_owner: int, _shot_angle: float, _shot_power_percent: float, _weapon: String
+) -> void:
+	# The online transport may prepend a projectile event. This is the
+	# single full state snapshot shared by both authoritative fire routes.
+	_online_send_snapshot(true)
 
 func _update_ui() -> void:
 	super._update_ui()
@@ -380,6 +404,8 @@ func _online_request_fire(payload: Dictionary) -> void:
 		return
 	var shot_blocked: bool = (
 		projectile_active or not turn_projectiles.is_empty()
+		or machine_gun_active or machine_gun_turn_waiting_for_shells
+		or pending_advance_after_explosion_hold
 		or game_over or overlay_open or _is_hotseat_turn_start_prompt_active()
 	)
 	if not OnlineDuelCommandValidator.can_fire(
@@ -410,11 +436,14 @@ func _online_request_fire(payload: Dictionary) -> void:
 	player_angles[current_player] = angle_deg
 	player_power_percents[current_player] = power_percent
 	player_powers[current_player] = power
+	var firing_owner: int = current_player
 	hotseat_release_in_progress = true
 	super._on_fire_pressed()
 	hotseat_release_in_progress = false
 	_reset_hotseat_charge()
-	_online_send_snapshot(true)
+	_online_publish_authoritative_shot(
+		firing_owner, angle_deg, power_percent, selected_weapon
+	)
 
 @rpc("authority", "reliable")
 func _online_receive_snapshot(snapshot: Dictionary) -> void:
