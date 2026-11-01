@@ -562,7 +562,10 @@ func _apply_laser_damage(owner: int, start_pos: Vector2, end_pos: Vector2) -> vo
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
 	var dist: float = TerrainMath.point_to_segment_distance(tank_positions[target], start_pos, end_pos)
 	if dist <= float(_weapon_value(SPECIAL_LASER, "direct_radius", 14.0)) + TANK_RADIUS:
-		tank_health[target] = maxi(0, tank_health[target] - int(_weapon_value(SPECIAL_LASER, "direct_damage", 18)))
+		tank_health = match_runtime_sync.apply_direct_damage(
+			tank_health, target, int(_weapon_value(SPECIAL_LASER, "direct_damage", 18))
+		)
+		_sync_game_over_state_from_match_controller()
 
 func _apply_ground_bomb(pos: Vector2, weapon: String) -> void:
 	TerrainManager.apply_ground_mound(

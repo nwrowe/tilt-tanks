@@ -97,6 +97,7 @@ func _run() -> void:
 	_test_composed_weapon_burst_session_live()
 	_test_shared_turn_advance_clearance_live()
 	_test_special_weapon_terrain_delegation_live()
+	_test_laser_controller_authority_live()
 
 	game.queue_free()
 	await process_frame
@@ -1529,6 +1530,55 @@ func _test_special_weapon_terrain_delegation_live() -> void:
 	game.set("terrain_points", saved_points)
 	game.set("ponds", saved_ponds)
 	game.call("_refresh_terrain_line")
+	game.call("reset_match")
+
+func _test_laser_controller_authority_live() -> void:
+	# Laser damage is point-to-ray direct damage, not radial splash. The
+	# MatchController and outgoing network snapshot must agree immediately,
+	# even before the next game _process() synchronizes its frame.
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(source.contains("match_runtime_sync.apply_direct_damage(") and
+		not source.contains("tank_health[target] ="),
+		"Laser direct damage no longer writes a separate scene-only health value")
+	game.call("_on_hotseat_pressed")
+	var state: MatchState = game.get("match_state") as MatchState
+	var controller: MatchController = game.get("match_controller") as MatchController
+	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var laser: WeaponDefinition = session.definition(WeaponRegistry.WEAPON_LASER)
+	var prior_damage: int = laser.direct_damage
+	laser.direct_damage = 35
+	var positions: Array[Vector2] = [
+		Vector2(200.0, 320.0), Vector2(450.0, 320.0)
+	]
+	var full_health: Array[int] = [100, 100]
+	game.set("tank_positions", positions)
+	game.set("tank_health", full_health)
+	game.call("_apply_laser_damage", 0, Vector2(200.0, 320.0), Vector2(500.0, 320.0))
+	_check((game.get("tank_health") as Array) == [100, 65] and
+		state.tank_health == [100, 65] and not controller.is_game_over(),
+		"live Laser damages only opponent and publishes health immediately")
+	var packet: Dictionary = game.call("_online_make_snapshot")
+	_check((packet["tank_health"] as Array) == [100, 65],
+		"same-frame authoritative online snapshot contains Laser damage")
+
+	game.call("reset_match")
+	game.set("tank_positions", positions)
+	game.set("tank_health", full_health.duplicate())
+	game.call("_sync_match_state_from_runtime")
+	game.call("_apply_laser_damage", 0, Vector2(200.0, 100.0), Vector2(500.0, 100.0))
+	_check((game.get("tank_health") as Array) == [100, 100] and
+		state.tank_health == [100, 100],
+		"Laser near-miss leaves both runtime and controller health untouched")
+	var wounded: Array[int] = [100, 20]
+	game.set("tank_health", wounded)
+	game.call("_apply_laser_damage", 0, Vector2(200.0, 320.0), Vector2(500.0, 320.0))
+	_check((game.get("tank_health") as Array) == [100, 0] and
+		state.tank_health == [100, 0] and state.game_over and
+		controller.winner_index() == 0 and bool(game.get("game_over")),
+		"lethal Laser clamps health and publishes winner before subsequent frame")
+	laser.direct_damage = prior_damage
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
