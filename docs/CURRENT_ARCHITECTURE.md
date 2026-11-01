@@ -414,3 +414,17 @@ network-authoritative state; offline gameplay still follows its normal
 simulation. Source-level protocol tests protect ownership/order, while
 the real two-process ENet smoke test covers guest gameplay rendering.
 No additional class or scene ancestor.
+
+## Shared full/motion snapshot state application (PR #118)
+
+Full and motion online receivers still deliberately differ in terrain
+replacement and interpolation. Their duplicated turn-projectile
+clear/deep-copy loop and the final guest aim/charge/UI/MatchState sync
+have one scene owner in `MainGameProgressionFacade`:
+`_online_apply_turn_shell_snapshot` and
+`_online_finish_received_snapshot`. Both receiver paths invoke them
+in their original relative order, retaining typed shell-array identity,
+filtered/deep-copied packet shells and local-current-player settings.
+Tests cover both call sites, deep-copy isolation and MatchState sync.
+The full/motion wire formats, sequencing, UI, interpolation and host
+authority are unchanged.
