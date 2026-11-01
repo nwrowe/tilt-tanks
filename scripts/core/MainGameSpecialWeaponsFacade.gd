@@ -123,8 +123,8 @@ func _on_fire_pressed() -> void:
 
 	hotseat_camera_already_valid = false
 
-	if selected_weapon == SPECIAL_LASER:
-		_fire_laser(current_player, angle_deg, power_percent, false)
+	if _weapon_behavior(selected_weapon) == "laser_cut":
+		_fire_laser(current_player, angle_deg, power_percent, false, selected_weapon)
 		if not game_over:
 			pending_advance_after_explosion_hold = true
 		return
@@ -137,13 +137,13 @@ func _on_fire_pressed() -> void:
 		turn_bouncer_bounce_count = 0
 
 func _release_realtime_charged_shot() -> void:
-	if selected_weapon == SPECIAL_LASER:
+	if _weapon_behavior(selected_weapon) == "laser_cut":
 		if not _player_can_fire() or game_over or overlay_open:
 			_reset_realtime_charge_state()
 			return
 		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
 		power = _power_from_percent(power_percent)
-		_fire_laser(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true)
+		_fire_laser(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true, selected_weapon)
 		rt_player_shell_active = false
 		quickgame_player_shot_hide_trajectory = true
 		_reset_realtime_charge_state()
@@ -271,10 +271,10 @@ func _fire_realtime_projectile(owner: int) -> void:
 	if game_over:
 		return
 	var weapon: String = selected_weapon if owner == HUMAN_PLAYER_INDEX else WEAPON_STANDARD
-	if weapon == SPECIAL_LASER:
+	if _weapon_behavior(weapon) == "laser_cut":
 		var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
 		var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-		_fire_laser(owner, shot_angle, shot_power_percent, true)
+		_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
 		return
 	if weapon == SPECIAL_MACHINE_GUN:
 		var mg_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
@@ -528,14 +528,17 @@ func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_po
 		turn_projectiles.append(shell)
 	_trigger_fire_fx(owner, shot_angle)
 
-func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
+func _fire_laser(
+	owner: int, shot_angle: float, shot_power_percent: float,
+	realtime: bool, weapon: String = SPECIAL_LASER
+) -> void:
 	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
 	var rad: float = deg_to_rad(shot_angle)
 	var start_pos: Vector2 = tank_positions[owner] + Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
 	var dir: Vector2 = Vector2(facing * cos(rad), -sin(rad)).normalized()
 	var end_pos: Vector2 = start_pos + dir * active_world_width * 1.2
-	_cut_laser_path(start_pos, end_pos)
-	_apply_laser_damage(owner, start_pos, end_pos)
+	_cut_laser_path(start_pos, end_pos, weapon)
+	_apply_laser_damage(owner, start_pos, end_pos, weapon)
 	realtime_explosion_camera_owner = owner if realtime else NO_CAMERA_OWNER
 	explosion_pos = end_pos
 	explosion_timer = 0.18
@@ -548,22 +551,27 @@ func _fire_laser(owner: int, shot_angle: float, shot_power_percent: float, realt
 		game_over = true
 		_show_end_popup()
 
-func _cut_laser_path(start_pos: Vector2, end_pos: Vector2) -> void:
+func _cut_laser_path(
+	start_pos: Vector2, end_pos: Vector2, weapon: String = SPECIAL_LASER
+) -> void:
 	TerrainManager.apply_laser_cut(
 		terrain_points, start_pos, end_pos,
-		float(_weapon_value(SPECIAL_LASER, "laser_cut_width", 18.0)),
-		float(_weapon_value(SPECIAL_LASER, "laser_cut_depth", 180.0)),
+		float(_weapon_value(weapon, "laser_cut_width", 18.0)),
+		float(_weapon_value(weapon, "laser_cut_depth", 180.0)),
 		VAR_TERRAIN_MIN_Y, _bottom_floor_y()
 	)
 	_refresh_terrain_line()
 	_reflow_water_after_terrain_change(start_pos.x)
 
-func _apply_laser_damage(owner: int, start_pos: Vector2, end_pos: Vector2) -> void:
+func _apply_laser_damage(
+	owner: int, start_pos: Vector2, end_pos: Vector2,
+	weapon: String = SPECIAL_LASER
+) -> void:
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
 	var dist: float = TerrainMath.point_to_segment_distance(tank_positions[target], start_pos, end_pos)
-	if dist <= float(_weapon_value(SPECIAL_LASER, "direct_radius", 14.0)) + TANK_RADIUS:
+	if dist <= float(_weapon_value(weapon, "direct_radius", 14.0)) + TANK_RADIUS:
 		tank_health = match_runtime_sync.apply_direct_damage(
-			tank_health, target, int(_weapon_value(SPECIAL_LASER, "direct_damage", 18))
+			tank_health, target, int(_weapon_value(weapon, "direct_damage", 18))
 		)
 		_sync_game_over_state_from_match_controller()
 
