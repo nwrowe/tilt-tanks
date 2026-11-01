@@ -109,8 +109,46 @@ func _resize_mobile_action_buttons() -> void:
 		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
 	)
 
+func _build_weapon_ui() -> void:
+	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
+	weapon_button.pressed.connect(_toggle_weapon_menu)
+
+	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
+	WeaponSelectMenu.add_title(weapon_panel)
+
+	var standard_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_STANDARD), Vector2(42, 66))
+	standard_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_STANDARD
+		_close_weapon_menu()
+	)
+
+	var heavy_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_HEAVY), Vector2(42, 120))
+	heavy_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_HEAVY
+		_close_weapon_menu()
+	)
+
+	var cluster_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_CLUSTER), Vector2(42, 174))
+	cluster_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_CLUSTER
+		_close_weapon_menu()
+	)
+
+	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
+	close_button.pressed.connect(_close_weapon_menu)
+
 func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
 	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
+
+func _toggle_weapon_menu() -> void:
+	if game_over:
+		return
+	if weapon_button != null:
+		weapon_button.release_focus()
+	if weapon_menu_open:
+		_close_weapon_menu()
+	else:
+		_open_weapon_menu()
 
 func _open_weapon_menu() -> void:
 	weapon_menu_open = true
@@ -301,6 +339,27 @@ func _update_projectile(delta: float) -> void:
 	if ProjectileManager.is_out_of_world(projectile_pos, active_world_width, _bottom_floor_y()):
 		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
 
+func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
+	projectile_active = false
+	turn_projectile_split_done = true
+	turn_projectiles.clear()
+	turn_projectiles = ProjectileFactory.make_cluster_children(current_player, pos, vel, CLUSTER_SPLIT_SPREAD_X, CLUSTER_SPLIT_SPEED_Y, WEAPON_CLUSTER_CHILD)
+
+func _update_turn_weapon_projectiles(delta: float) -> void:
+	var remaining: Array[Dictionary] = []
+	for shell: Dictionary in turn_projectiles:
+		var stepped: Dictionary = ProjectileManager.step_shell(shell, gravity, wind, delta)
+		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
+		var owner: int = int(stepped.get("owner", current_player))
+		var weapon: String = str(stepped.get("weapon", WEAPON_CLUSTER_CHILD))
+		if _turn_shell_should_explode(owner, pos):
+			_explode_turn_weapon(pos, weapon, false)
+		else:
+			remaining.append(stepped)
+	turn_projectiles = remaining
+	if turn_projectiles.is_empty() and not game_over:
+		_advance_turn()
+
 func _turn_shell_should_explode(owner: int, pos: Vector2) -> bool:
 	var target: int = 1 - owner
 	if ProjectileManager.projectile_hits_tank(pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS):
@@ -353,6 +412,21 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		_show_end_popup()
 	elif advance_after:
 		_advance_turn()
+
+func _apply_weapon_damage(pos: Vector2, weapon: String) -> void:
+	var direct_radius: float = _weapon_direct_radius(weapon)
+	var explosion_radius: float = _weapon_explosion_radius(weapon)
+	var direct_damage: int = _weapon_direct_damage(weapon)
+	var splash_damage: int = _weapon_splash_damage(weapon)
+	for player: int in range(2):
+		var dist: float = pos.distance_to(tank_positions[player])
+		if dist <= direct_radius:
+			tank_health[player] = maxi(0, tank_health[player] - direct_damage)
+		elif dist <= explosion_radius:
+			var normalized: float = (dist - direct_radius) / maxf(explosion_radius - direct_radius, 1.0)
+			var damage_float: float = float(splash_damage) * pow(1.0 - normalized, 1.35)
+			var damage: int = maxi(4, int(round(damage_float)))
+			tank_health[player] = maxi(0, tank_health[player] - damage)
 
 func _apply_weapon_crater(pos: Vector2, weapon: String) -> void:
 	TerrainManager.apply_crater(
