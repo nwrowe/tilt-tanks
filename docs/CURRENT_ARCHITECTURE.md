@@ -132,7 +132,8 @@ using the existing `UIManager` button-layout policy. `MainGame` only
 owns the callbacks, panel visibility and engine lifecycle; there is no
 second pause-panel geometry implementation in the game coordinator.
 The obsolete three-choice weapon selector body in `MainGame` was
-removed: the active, loadout-driven selector remains
+reduced to a virtual compile-time hook needed by inherited `_ready`:
+the active, loadout-driven selector remains
 `MainGameModeFacade._build_weapon_ui` backed by `WeaponSelectMenu`
 and `WeaponDefinitionSession`. These changes do not create another
 class, alter the seven-layer chain or change weapon availability.
