@@ -278,6 +278,37 @@ func _resize_mobile_action_buttons() -> void:
 		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
 	)
 
+func _build_weapon_ui() -> void:
+	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
+	weapon_button.pressed.connect(_toggle_weapon_menu)
+
+	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
+	WeaponSelectMenu.add_title(weapon_panel)
+
+	var standard_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_STANDARD), Vector2(42, 66))
+	standard_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_STANDARD
+		_close_weapon_menu()
+	)
+
+	var heavy_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_HEAVY), Vector2(42, 120))
+	heavy_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_HEAVY
+		_close_weapon_menu()
+	)
+
+	var cluster_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_CLUSTER), Vector2(42, 174))
+	cluster_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_CLUSTER
+		_close_weapon_menu()
+	)
+
+	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
+	close_button.pressed.connect(_close_weapon_menu)
+
+func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
+	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
+
 func _open_weapon_menu() -> void:
 	weapon_menu_open = true
 	overlay_open = true
