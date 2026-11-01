@@ -1364,8 +1364,8 @@ func _test_turn_projectile_session_reset_live() -> void:
 		"post-parent mobile layout still runs after projectile reset")
 
 func _test_shadowed_bridge_removal_live() -> void:
-	# The active scene already exercises all these dispatch paths elsewhere
-	# in this suite. Check the lower legacy branch cannot grow duplicate logic.
+	# Realtime fallbacks are fully shadowed and do not have bridge callers.
+	# Other legacy signatures must remain for Godot ancestor compilation.
 	var bridge_source: String = FileAccess.get_file_as_string(
 		"res://scripts/weapons/WeaponRuntimeBridge.gd"
 	)
@@ -1375,34 +1375,29 @@ func _test_shadowed_bridge_removal_live() -> void:
 	var special_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 	)
-	var main_source: String = FileAccess.get_file_as_string(
-		"res://scripts/core/MainGame.gd"
+	var world_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
 	)
+	for name: String in [
+		"_fire_realtime_projectile", "_update_all_realtime_projectiles",
+		"_spawn_realtime_cluster_children"
+	]:
+		_check(not bridge_source.contains("\nfunc " + name + "("),
+			"weapon bridge no longer declares unreachable realtime fallback " + name)
 	for name: String in [
 		"_build_weapon_ui", "_toggle_weapon_menu",
 		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
-		"_fire_realtime_projectile", "_update_all_realtime_projectiles",
-		"_spawn_realtime_cluster_children", "_apply_weapon_damage"
+		"_apply_weapon_damage"
 	]:
-		_check(not bridge_source.contains("\nfunc " + name + "("),
-			"weapon bridge no longer defines shadowed compatibility hook " + name)
-	for name: String in [
-		"_build_weapon_ui", "_split_turn_cluster_projectile",
-		"_update_all_realtime_projectiles", "_spawn_realtime_cluster_children"
-	]:
-		_check(mode_source.contains("\nfunc " + name + "("),
-			"mode facade retains active weapon implementation " + name)
-	for name: String in [
-		"_update_turn_weapon_projectiles", "_fire_realtime_projectile"
-	]:
-		_check(special_source.contains("\nfunc " + name + "("),
-			"special facade retains active weapon implementation " + name)
-	for name: String in ["_toggle_weapon_menu", "_apply_weapon_damage"]:
-		_check(main_source.contains("\nfunc " + name + "("),
-			"MainGame retains active override " + name)
-	_check(special_source.contains("super._update_all_realtime_projectiles(delta)") and
+		_check(bridge_source.contains("\nfunc " + name + "("),
+			"weapon bridge preserves ancestor compiler method contract " + name)
+	_check(mode_source.contains("\nfunc _update_all_realtime_projectiles(") and
+		special_source.contains("super._update_all_realtime_projectiles(delta)") and
 		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
-		"realtime special super dispatch terminates in mode facade before weapon bridge")
+		"special realtime super dispatch stops at the active mode facade")
+	_check(world_source.contains("\nfunc _fire_realtime_projectile(") and
+		world_source.contains("\nfunc _update_all_realtime_projectiles("),
+		"world prototype still provides lower realtime compatibility signatures")
 	game.call("_on_hotseat_pressed")
 	var weapon_button: Button = game.get("weapon_button") as Button
 	var weapon_panel: Panel = game.get("weapon_panel") as Panel
