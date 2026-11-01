@@ -1390,7 +1390,7 @@ func _test_shadowed_bridge_removal_live() -> void:
 	)
 	for name: String in [
 		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
-		"_apply_weapon_damage", "_build_weapon_ui", "_toggle_weapon_menu"
+		"_apply_weapon_damage", "_toggle_weapon_menu"
 	]:
 		_check(main_source.contains("\nfunc " + name + "("),
 			"seven-layer game retains compiler-visible method " + name)
@@ -1646,16 +1646,21 @@ func _test_weapon_menu_owner_migration_live() -> void:
 		"res://scripts/core/MainGame.gd"
 	)
 	for name: String in [
-		"_build_weapon_ui", "_make_weapon_menu_button", "_toggle_weapon_menu",
+		"_make_weapon_menu_button", "_toggle_weapon_menu",
 		"_resize_mobile_action_buttons", "_open_weapon_menu",
 		"_close_weapon_menu", "_hide_overlays", "_quit_game",
 		"_return_to_main_menu"
 	]:
 		_check(main_source.contains("\nfunc " + name + "("),
 			"active MainGame exclusively owns weapon menu lifecycle " + name)
-	_check(main_source.contains("\nfunc _build_weapon_ui(") and
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	_check(not main_source.contains("\nfunc _build_weapon_ui(") and
+		mode_source.contains("\nfunc _build_weapon_ui(") and
+		mode_source.contains("for weapon_id: String in active_weapon_loadout.weapon_ids") and
 		main_source.contains("\nfunc _toggle_weapon_menu("),
-		"MainGame now provides fallback builder and toggle while mode facade still overrides")
+		"only the active mode facade builds the loadout-driven weapon selector")
 	game.call("_on_hotseat_pressed")
 	var panel: Panel = game.get("weapon_panel") as Panel
 	var left: Button = game.get("mobile_left_button") as Button
