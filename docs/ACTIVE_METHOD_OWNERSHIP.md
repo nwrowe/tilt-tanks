@@ -11,7 +11,7 @@ The source of truth remains the scene script and Godot's runtime dispatch.
 |---|---|---|
 | `_update_projectile` | `MainGameSpecialWeaponsFacade` handles Bouncer; ordinary turn shells go through `super` to `WeaponRuntimeBridge`, which calls `ProjectileManager`. | `Main.gd` has its earlier prototype update, shadowed in this scene. |
 | `_update_all_realtime_projectiles` | `MainGameSpecialWeaponsFacade` handles special shells; for ordinary shells it calls `super` into `MainGameModeFacade`, which owns human/AI-aware cluster tracking, hit handling and camera focus. | The unreachable older simulation fallback in `WeaponRuntimeBridge` was removed in PR #84; `WorldRuntimeBridge` retains a no-op compatibility hook. |
-| `_realtime_projectile_should_explode` | The most-derived `MainGame` implementation in the active chain handles terrain and pond checks; `WeaponRuntimeBridge` and `WorldRuntimeBridge` retain fallback methods. | Do not remove fallback signatures without checking callers and `super` references. |
+| `_realtime_projectile_should_explode` | `WeaponRuntimeBridge` selects the realtime target and delegates ordered tank/pond/ground/world contact checks to `ProjectileManager.should_shell_explode`; the turn shell hook calls the same policy with its turn owner rule. | `WorldRuntimeBridge` retains the lower legacy fallback; the bridge hooks stay declared for inherited callers. |
 
 The old `MainGame._update_all_realtime_projectiles` loop was shadowed
 by `MainGameModeFacade` and was removed in PR #70. The same exact active
@@ -335,3 +335,23 @@ gameplay service or changing mode, progression, online or weapon
 selection callbacks. Standalone tests cover visibility and optional
 controls; live-scene tests cover opening, closing, global overlay hide,
 and returning to the main menu.
+
+## Shared turn/realtime projectile impact policy (PR #86)
+
+Both `WeaponRuntimeBridge._turn_shell_should_explode` and
+`_realtime_projectile_should_explode` now select the appropriate enemy
+tank and call `ProjectileManager.should_shell_explode`.
+`ProjectileManager` owns the common impact policy: opposing tank,
+pond, ground contact, then world bounds. The three environment
+lookups are passed as lazy `Callable` objects so a collision early in
+the sequence never evaluates later pond/terrain/floor queries. This
+preserves the old performance and observation order while eliminating
+duplicate collision logic from the active bridge.
+
+The two bridge methods retain their original names and distinct
+target-index selection for hotseat and realtime modes; the lower
+world fallback remains for compatibility. Standalone tests assert
+contact outcomes **and the exact short-circuit lookup order**.
+Active-scene tests check both owners, airborne and ground contact,
+world boundaries and delegation to the canonical policy. No
+additional physics state, random draws or network changes.
