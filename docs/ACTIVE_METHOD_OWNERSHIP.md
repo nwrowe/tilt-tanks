@@ -269,3 +269,25 @@ The policy is free of scene nodes and random draws. Standalone stage
 tests cover all priorities, menu state, turn shells and realtime mode;
 active-scene checks verify hotseat and realtime mode interpretation.
 The eight-level inheritance budget is not changed.
+
+## Turn-projectile ownership and reset sequencing (PR #83)
+
+`TurnProjectileSession` is the canonical owner of the typed turn-shell
+array, the active turn-projectile weapon ID, and the split-completed flag.
+`WeaponRuntimeBridge` retains compatible typed getters/setters for
+`turn_projectiles`, `turn_projectile_weapon`, and
+`turn_projectile_split_done`, so hotseat, special weapons, mode
+controllers and online snapshot code continue to use their original
+names. The session's `reset_for_match` clears the existing array **in
+place**, preserving array handles held by other gameplay subsystems.
+It then stores the weapon selected by the upper mode reset and clears
+the split flag.
+
+`WeaponRuntimeBridge.reset_match` preserves its critical call ordering:
+first reset turn projectile state, explosion visual radius, smoke session,
+and visual AI plan; next call `super.reset_match` to reset the world;
+finally restore mobile action geometry and close the weapon menu.
+The surrounding mode/level/progression/online reset stages remain
+unchanged. Deterministic and live-scene regression tests verify legacy
+property forwarding, retained array references, selected weapon and split
+state, successive resets, and the post-parent UI layout.
