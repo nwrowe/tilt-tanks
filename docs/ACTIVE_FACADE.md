@@ -1,83 +1,55 @@
-# Active Game Facade
+# Active Game Facade — November 1, 2026
 
-`scenes/Main.tscn` currently points to:
+`scenes/Main.tscn` attaches
+`res://scripts/core/MainGameOnlineHostWaitingFacade.gd`.
 
-```text
-res://scripts/core/MainGameSpecialWeaponsFacade.gd
-```
-
-`MainGameSpecialWeaponsFacade.gd` is the current top entry point for gameplay work. It extends the stabilized facade chain:
+The active inheritance chain is **seven scripts**:
 
 ```text
-MainGameSpecialWeaponsFacade.gd
- -> MainGameLevelFacade.gd
- -> MainGameModeFacade.gd
- -> MainGameDefinitionFacade.gd
- -> MainGameCameraHold.gd
- -> MainGame.gd
+scripts/core/MainGameOnlineHostWaitingFacade.gd
+ -> scripts/core/MainGameProgressionFacade.gd
+ -> scripts/core/MainGameSpecialWeaponsFacade.gd
+ -> scripts/core/MainGameModeFacade.gd
+ -> scripts/core/MainGame.gd
+ -> scripts/modes/WorldRuntimeBridge.gd
+ -> scripts/Main.gd (Node2D)
 ```
 
-Below that, the chain still extends the frozen compatibility/runtime bridge stack that preserves working gameplay while the remaining legacy chain is retired in a later hardening pass.
+`WeaponRuntimeBridge.gd`, the old `ModeRuntimeBridge.gd` and
+`MainHybridModesXX.gd` are no longer part of the active chain.
+The depth guard in CI is now **seven**. Refer to
+[`CURRENT_ARCHITECTURE.md`](CURRENT_ARCHITECTURE.md) for the full
+ownership map and test requirements.
 
-## What belongs in the active facade
+## Domain boundaries: avoid a new wide architecture
 
-Use the active facade only for glue that truly needs direct runtime access:
+The facades are scene/mode/online coordinators, not independent algorithm
+classes. Do **not** add another `MainHybridModesXX` or generic
+`*Bridge` ancestor, or create one-method forwarding services to make
+source files look shorter.
 
-- special weapon behavior that cannot be represented as weapon data alone
-- camera/turn coordination around special weapon events
-- small compatibility overrides that preserve stable gameplay
-- bridge methods that call managers/helpers
+| Domain | Existing owner(s) | Scene responsibility |
+|---|---|---|
+| Weapon definitions, loadout, splitting | `scripts/weapons/WeaponDefinitionSession`, `WeaponRegistry`, `WeaponSplitLogic` | expose compatibility metadata/hooks |
+| Projectile motion and impact | `scripts/weapons/ProjectileManager`, `ProjectileFactory`, `TurnProjectileSession` | apply impacts, turn progression and node state |
+| Turn/realtime AI | `scripts/ai/` planning and visual-aim sessions | input, camera and firing dispatch |
+| Terrain and water | `scripts/terrain/` managers and policies | world state, rendering callbacks |
+| Smoke and explosions | `scripts/effects/DestroyedTankSmokeSession`, `EffectsManager` | CanvasItem draw and life-cycle coordination |
+| UI | `scripts/ui/` widgets and menu/presentation policies | signals, overlays and focus |
+| Online multiplayer | `scripts/network/` codec, coordinator, snapshots | host/guest orchestration in the upper facade |
 
-Do not add new `MainHybridModesXX.gd` files.
+The former weapon bridge's legacy compatibility methods now sit with
+`MainGame`'s other scene-facing callbacks. That reduces inheritance
+without introducing an unrelated class collection, but `MainGame`
+is still sizeable and should not absorb future algorithms. Prefer
+extending a coherent **existing** domain owner when adding logic.
 
-Do not let `MainGameSpecialWeaponsFacade.gd` become a general feature dumping ground. If a feature can live in a manager, registry, definition, controller, or UI helper, put it there first.
+## Safe follow-up work
 
-## Extracted systems
-
-New logic should go into the organized modules first:
-
-```text
-scripts/terrain/TerrainManager.gd
-scripts/terrain/TerrainMath.gd
-scripts/terrain/WaterManager.gd
-scripts/terrain/SnowManager.gd
-scripts/weapons/WeaponDefinition.gd
-scripts/weapons/WeaponRegistry.gd
-scripts/weapons/WeaponLoadout.gd
-scripts/weapons/WeaponCatalog.gd
-scripts/weapons/ProjectileFactory.gd
-scripts/weapons/ProjectileManager.gd
-scripts/levels/LevelDefinition.gd
-scripts/levels/LevelRegistry.gd
-scripts/modes/ModeController.gd
-scripts/modes/HotseatModeController.gd
-scripts/modes/RealtimeSinglePlayerModeController.gd
-scripts/modes/RealtimeAIController.gd
-scripts/modes/CampaignModeController.gd
-scripts/modes/NetworkMultiplayerModeController.gd
-scripts/network/NetworkCommand.gd
-scripts/network/CommandBuffer.gd
-scripts/effects/EffectsManager.gd
-scripts/ui/MobileControls.gd
-scripts/ui/WeaponSelectMenu.gd
-scripts/ui/PauseMenu.gd
-scripts/ui/EndPopup.gd
-scripts/ui/UIManager.gd
-```
-
-## Frozen compatibility layer
-
-The old `MainHybridModesXX.gd` files are compatibility scaffolding. They should stay stable until the full legacy-chain removal pass.
-
-Rules:
-
-- Do not create `MainHybridModes20.gd`.
-- Do not add new gameplay features to the legacy chain.
-- If a behavior fix needs to override legacy behavior, prefer the active facade or an extracted manager/helper.
-- Only delete or move legacy files after the active facade no longer depends on them and parity has been tested.
-
-## Current refactor phase status
-
-This phase is now considered complete enough for gameplay work to continue.
-
-The separate future hardening pass is to reduce or remove the legacy/facade inheritance chain entirely, but that should happen on a dedicated branch after the stable demonstrator baseline is preserved.
+Maintain the full Godot 4.6.3 test matrix: import, static depth/duplicate
+checks, smoke, active hotseat/campaign, realtime/camera, packet and
+snapshot contracts, actual two-process ENet, and startup. Keep method
+dispatch, random draw ordering, packet shapes and effect/camera sequencing
+unchanged during architecture work. For the earlier historical baseline
+see `STABLE_BASELINE.md`; older refactor documents may describe retired
+ancestors and are not current dispatch references.

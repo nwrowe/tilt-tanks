@@ -1,7 +1,10 @@
-# Active gameplay method ownership — October 30, 2026
+# Active gameplay method ownership — updated November 1, 2026
 
 This document identifies which implementations actually own selected
-high-risk game methods in the **eight-layer** `Main.tscn` inheritance chain.
+high-risk game methods across architecture refactor PRs.
+**Current chain depth: seven layers.** Sections below from earlier PRs
+describe historical dispatch before the bridge retirement; the newest
+architecture section at the end overrides those historical descriptions.
 It should be updated when a method is moved or an ancestor retired.
 The source of truth remains the scene script and Godot's runtime dispatch.
 
@@ -495,3 +498,34 @@ Regression checks cover both source ownership and actual destroyed-tank
 puff spawn/reset in the active scene; the smoke RNG parity test remains
 unchanged. This consolidates **effects as a domain** without
 proliferating helper wrappers.
+
+## Weapon bridge retired — current seven-layer ownership (PR #94)
+
+The active scene now inherits `MainGameOnlineHostWaitingFacade` →
+`MainGameProgressionFacade` → `MainGameSpecialWeaponsFacade` →
+`MainGameModeFacade` → `MainGame` → `WorldRuntimeBridge` →
+`Main.gd`. The deleted `WeaponRuntimeBridge` is no longer a parent
+or a source file. The CI guard enforces a maximum depth of **seven**.
+
+No replacement class was created. Required weapon/turn projectile hooks,
+properties, stat-getter compatibility, snow presentation constants and
+realtime explosion adapters now live together in the existing
+`MainGame` script, beside its other scene-facing scene callbacks.
+The redundant lower fallback `_on_fire_pressed`,
+`_explode_turn_weapon`, `_apply_weapon_damage` and no-op
+`_unhandled_input` were **not** copied: the already-active
+`MainGame` implementations remain, and realtime `super._on_fire_pressed`
+still dispatches to `WorldRuntimeBridge`.
+`MainGameSpecialWeaponsFacade._update_projectile` continues to call
+`super` for ordinary shots, now entering the same moved method in
+`MainGame`; mode and special projectile overrides are unchanged.
+
+Domain owners remain grouped in existing folders, **not** flattened into
+new horizontal service classes: weapon metadata/allowed loadouts through
+`WeaponDefinitionSession`; projectile stepping, impact and split logic
+through `ProjectileManager`, `ProjectileFactory`, and
+`TurnProjectileSession`; smoke through `DestroyedTankSmokeSession`
+and `EffectsManager`; AI through `scripts/ai/`.
+The remaining `MainGame` wrappers are engine/lifecycle boundaries.
+Regressions must exercise RNG, online packet shape, hotseat and realtime
+shell behavior and actual ENet, not merely source ownership.
