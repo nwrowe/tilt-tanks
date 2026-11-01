@@ -1379,12 +1379,36 @@ func _test_composed_weapon_burst_session_live() -> void:
 	_check(bool(game.get("machine_gun_turn_waiting_for_shells")) and
 		not live.can_finish_turn(false, true, 0.0, 0.0),
 		"turn waits for actual burst shells after schedule completes")
+	game.call("reset_match")
+	_check(not live.active and not live.turn_waiting_for_shells and
+		live.remaining == 0 and (game.get("turn_projectiles") as Array).is_empty(),
+		"match reset clears both the burst session and all fired turn projectiles")
+
+	game.call("_on_quick_game_pressed")
+	game.call("_begin_machine_gun_burst", 0, 48.0, 72.0, true)
+	_check(live.active and live.realtime and
+		not live.turn_waiting_for_shells and
+		(game.get("rt_projectiles") as Array).size() == 1,
+		"realtime burst launches its first shell without turn handoff state")
+	game.call("_update_machine_gun_burst", 0.25)
+	_check(not live.active and live.remaining == 0 and
+		(game.get("rt_projectiles") as Array).size() == 3 and
+		bool(game.get("rt_player_shell_active")),
+		"realtime burst completion leaves the fired human shells active")
+	game.set("machine_gun_active", true)
+	_check(live.active,
+		"online facade compatibility property writes through to canonical burst session")
+	game.set("machine_gun_active", false)
+	game.set("machine_gun_turn_waiting_for_shells", true)
+	_check(live.turn_waiting_for_shells,
+		"online turn-wait compatibility property also has one canonical owner")
 	definition.extra_fields["burst_count"] = count_before
 	definition.extra_fields["burst_interval"] = interval_before
 	game.call("reset_match")
 	_check(not live.active and not live.turn_waiting_for_shells and
-		live.remaining == 0 and (game.get("turn_projectiles") as Array).is_empty(),
-		"match reset clears both the burst session and all fired projectiles")
+		(game.get("rt_projectiles") as Array).is_empty() and
+		not bool(game.get("rt_player_shell_active")),
+		"realtime reset clears burst and projectile lifecycle without stale aliases")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
