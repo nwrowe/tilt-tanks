@@ -167,15 +167,6 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 		if advance_after and not game_over and current_player == owner_before_explosion:
 			online_host_coordinator.arm_fallback(owner_before_explosion, ONLINE_DUEL_TURN_ADVANCE_FALLBACK_DELAY)
 
-func _maybe_advance_after_explosion_hold() -> void:
-	var player_before: int = current_player
-	var pending_before: bool = pending_advance_after_explosion_hold
-	super._maybe_advance_after_explosion_hold()
-	if _is_online_duel_active() and online_is_host:
-		if player_before != current_player or (pending_before and not pending_advance_after_explosion_hold):
-			online_host_coordinator.clear_fallback()
-			_online_send_snapshot(true)
-
 func _online_process_host_sync(delta: float) -> void:
 	if online_host_coordinator.due_for_sync(
 		delta,
@@ -380,7 +371,6 @@ func _online_process_turn_advance_fallback(delta: float) -> void:
 	machine_gun_camera_active = false
 	machine_gun_camera_pos = Vector2.INF
 	_advance_turn()
-	_online_send_snapshot(true)
 
 func _online_maybe_force_pending_turn_advance() -> void:
 	if not _is_online_duel_active() or not online_is_host:
@@ -391,4 +381,3 @@ func _online_maybe_force_pending_turn_advance() -> void:
 	machine_gun_camera_active = false
 	machine_gun_camera_pos = Vector2.INF
 	_advance_turn()
-	_online_send_snapshot(true)
