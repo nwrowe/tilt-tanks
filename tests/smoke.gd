@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
 	_test_shared_projectile_launch_geometry()
+	_test_turn_projectile_session_reset()
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
 	_test_mobile_weapon_runtime_layout()
@@ -473,6 +474,30 @@ func _test_weapon_runtime_frame_priority() -> void:
 		"realtime gameplay never enters the turn-shell early-return branch")
 	_check(WeaponFramePolicy.select_stage(true, false, false, false, false) == regular,
 		"empty shell collection keeps normal gameplay processing")
+
+func _test_turn_projectile_session_reset() -> void:
+	var session: TurnProjectileSession = TurnProjectileSession.new()
+	_check(session.shells.is_empty() and session.weapon == WeaponCatalog.STANDARD and
+		not session.split_done, "turn projectile session starts with original default state")
+	var shell: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponCatalog.CLUSTER_CHILD, Vector2(180.0, 220.0), Vector2(75.0, -40.0)
+	)
+	session.shells.append(shell)
+	session.weapon = WeaponCatalog.CLUSTER
+	session.split_done = true
+	# Keep this Array handle: reset must clear in place, not replace the array.
+	var retained_shells: Array[Dictionary] = session.shells
+	session.reset_for_match(WeaponCatalog.HEAVY)
+	_check(session.shells.is_empty() and retained_shells.is_empty(),
+		"turn session clears the existing shell array in place")
+	_check(session.weapon == WeaponCatalog.HEAVY and not session.split_done,
+		"turn session uses the selected weapon and resets cluster split flag")
+	retained_shells.append(shell)
+	_check(session.shells.size() == 1 and session.shells[0] == shell,
+		"existing shell-array references remain valid after match reset")
+	session.reset_for_match(WeaponCatalog.STANDARD)
+	_check(retained_shells.is_empty() and session.weapon == WeaponCatalog.STANDARD,
+		"subsequent match resets reuse the array and refresh selected weapon")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
