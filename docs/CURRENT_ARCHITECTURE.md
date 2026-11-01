@@ -155,8 +155,10 @@ launcher now use the existing `ProjectileFactory.make_fired_shell`.
 Both launch paths still own their input gating, weapon/owner selection,
 projectile flags and effects; only the previously repeated muzzle and
 velocity trigonometry was consolidated. No random draws or packet
-formats were changed. The lower realtime collision fallback now calls
-the same `ProjectileManager.should_shell_explode` policy already used
-by the active scene, preserving tank/pond/terrain/out-of-world ordering.
-Live scene tests verify canonical turn launch placement, existing realtime
-and special weapon parity, and the world fallback's single collision owner.
+formats were changed. The shadowed lower realtime collision fallback was retired instead of
+reintroducing an identical implementation of the active
+`MainGame._realtime_projectile_should_explode` hook. That active hook
+uses `ProjectileManager.should_shell_explode`, preserving
+tank/pond/terrain/out-of-world ordering. Live tests verify both turn
+and realtime contact policy, as well as canonical turn, realtime and
+special weapon launch geometry.
