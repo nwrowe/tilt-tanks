@@ -10,7 +10,7 @@ The source of truth remains the scene script and Godot's runtime dispatch.
 | Hook | Active owner/dispatch | Lower compatibility implementation |
 |---|---|---|
 | `_update_projectile` | `MainGameSpecialWeaponsFacade` handles Bouncer; ordinary turn shells go through `super` to `WeaponRuntimeBridge`, which calls `ProjectileManager`. | `Main.gd` has its earlier prototype update, shadowed in this scene. |
-| `_update_all_realtime_projectiles` | `MainGameSpecialWeaponsFacade` handles special shells; for ordinary shells it calls `super` into `MainGameModeFacade`, which owns human/AI-aware cluster tracking, hit handling and camera focus. | `WeaponRuntimeBridge` has the older simple simulation fallback; `WorldRuntimeBridge` retains a no-op compatibility hook. Neither is reached by the current normal/special scene path. |
+| `_update_all_realtime_projectiles` | `MainGameSpecialWeaponsFacade` handles special shells; for ordinary shells it calls `super` into `MainGameModeFacade`, which owns human/AI-aware cluster tracking, hit handling and camera focus. | The unreachable older simulation fallback in `WeaponRuntimeBridge` was removed in PR #84; `WorldRuntimeBridge` retains a no-op compatibility hook. |
 | `_realtime_projectile_should_explode` | The most-derived `MainGame` implementation in the active chain handles terrain and pond checks; `WeaponRuntimeBridge` and `WorldRuntimeBridge` retain fallback methods. | Do not remove fallback signatures without checking callers and `super` references. |
 
 The old `MainGame._update_all_realtime_projectiles` loop was shadowed
@@ -291,3 +291,24 @@ The surrounding mode/level/progression/online reset stages remain
 unchanged. Deterministic and live-scene regression tests verify legacy
 property forwarding, retained array references, selected weapon and split
 state, successive resets, and the post-parent UI layout.
+
+## Shadowed weapon-bridge fallbacks retired (PR #84)
+
+After tracing active method overrides and `super` calls, eight lower
+implementations have been removed from `WeaponRuntimeBridge`:
+`_build_weapon_ui`, `_toggle_weapon_menu`,
+`_split_turn_cluster_projectile`,
+`_update_turn_weapon_projectiles`, `_fire_realtime_projectile`,
+`_update_all_realtime_projectiles`,
+`_spawn_realtime_cluster_children`, and `_apply_weapon_damage`.
+The active implementations already existed in `MainGame`,
+`MainGameModeFacade` or `MainGameSpecialWeaponsFacade` and do not
+chain to these lower methods. In particular, the special realtime shell
+loop's `super` call enters the mode facade's working implementation,
+which does not continue into the bridge.
+
+The active weapon metadata accessors, inherited turn-shell collision
+checks, ordinary turn-projectile update, camera drawing, reset, and
+other reached `super` hooks remain intact. Existing gameplay and
+real-ENet regression tests run alongside explicit source ownership and
+live weapon-menu checks. Active inherited layer count remains eight.
