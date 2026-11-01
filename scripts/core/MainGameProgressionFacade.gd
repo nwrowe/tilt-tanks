@@ -17,7 +17,6 @@ const ONLINE_DUEL_DEFAULT_PORT: int = 23458
 const ONLINE_DUEL_MAX_CLIENTS: int = 1
 const ONLINE_DUEL_HOST_PLAYER: int = 0
 const ONLINE_DUEL_CLIENT_PLAYER: int = 1
-const ONLINE_DUEL_SNAPSHOT_INTERVAL: float = 0.10
 
 var tank_classes: Dictionary = {}
 var tank_upgrades: Dictionary = {}
@@ -124,8 +123,6 @@ func _process(delta: float) -> void:
 
 	super._process(delta)
 	_update_hotseat_start_turn_button()
-	if _is_online_duel_active() and online_is_host:
-		_online_process_host_sync(delta)
 
 func _process_online_client(delta: float) -> void:
 	if menu_state != MENU_STATE_GAME:
@@ -335,16 +332,6 @@ func _online_can_use_turn_button() -> bool:
 	if not _is_online_duel_active():
 		return true
 	return _online_is_local_turn() and not online_client_waiting_for_authority
-
-func _online_process_host_sync(delta: float) -> void:
-	if online_host_coordinator.due_for_sync(
-		delta,
-		online_remote_peer_id != 0,
-		false,
-		ONLINE_DUEL_SNAPSHOT_INTERVAL,
-		ONLINE_DUEL_SNAPSHOT_INTERVAL
-	):
-		_online_send_snapshot(false)
 
 func _online_submit_fire_request() -> void:
 	if not _is_online_duel_active() or online_is_host:

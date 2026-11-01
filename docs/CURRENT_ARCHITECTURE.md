@@ -162,3 +162,16 @@ uses `ProjectileManager.should_shell_explode`, preserving
 tank/pond/terrain/out-of-world ordering. Live tests verify both turn
 and realtime contact policy, as well as canonical turn, realtime and
 special weapon launch geometry.
+
+## Host frame scheduling ownership (PR #100)
+
+`MainGameOnlineHostWaitingFacade._process` is the **sole** host sync
+scheduler call site. The older `MainGameProgressionFacade._process`
+previously also invoked the overridden scheduler after `super._process`,
+causing two coordinator time advances in the same host frame. Removed
+the duplicate call, shadowed lower implementation and obsolete lower
+interval constant. The existing `OnlineDuelHostCoordinator` retains
+the timer and safe-advance policy; the online facade retains distinct
+active/idle cadence (0.033 s / 0.10 s). Gameplay, hotseat handoff and
+client interpolation paths retain their original dispatch. Source
+regression checks and real two-process ENet tests protect this boundary.

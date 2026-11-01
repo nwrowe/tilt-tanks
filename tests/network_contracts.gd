@@ -32,6 +32,7 @@ func _run() -> void:
 	_test_typed_wire_arrays()
 	_test_interpolation_math()
 	_test_host_coordinator()
+	_test_single_host_sync_owner()
 	_test_guest_command_validation()
 	_test_sequencer_reset()
 	game.queue_free()
@@ -178,6 +179,32 @@ func _test_host_coordinator() -> void:
 	_check(not OnlineDuelHostCoordinator.can_advance(true, false, false, false, false, 0.0, 0.0), "game over blocks advance")
 	host.reset()
 	_check(host.fallback_owner == -1 and host.sync_remaining == 0.0, "disconnect resets host coordination")
+
+func _test_single_host_sync_owner() -> void:
+	# _process() in the online facade calls super._process(), so calling
+	# _online_process_host_sync() in a lower ancestor double-ticks its
+	# shared coordinator through virtual dispatch. A host frame must tick
+	# the timer exactly once, after the rest of its gameplay processing.
+	var lower: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var owner: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	_check(not lower.contains("_online_process_host_sync("),
+		"progression frame does not double-tick the host sync coordinator")
+	_check(not lower.contains("ONLINE_DUEL_SNAPSHOT_INTERVAL"),
+		"retired progression-level sync interval has no second source of truth")
+	_check(owner.contains("super._process(delta)") and
+		owner.contains("_online_process_turn_advance_fallback(delta)") and
+		owner.contains("_online_maybe_force_pending_turn_advance()"),
+		"online facade retains post-gameplay authority/turn-advance ordering")
+	_check(owner.split("_online_process_host_sync(delta)").size() == 2 and
+		owner.split("func _online_process_host_sync(delta: float)").size() == 2,
+		"online facade alone owns one host sync call and implementation")
+	_check(owner.contains("ONLINE_DUEL_ACTIVE_SYNC_INTERVAL") and
+		owner.contains("ONLINE_DUEL_IDLE_SYNC_INTERVAL"),
+		"online facade retains distinct active and idle snapshot periods")
 
 func _test_guest_command_validation() -> void:
 	_check(OnlineDuelCommandValidator.can_start_turn(42, 42, 1, 1, true), "connected guest can start its own turn")
