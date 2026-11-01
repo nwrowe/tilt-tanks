@@ -52,12 +52,8 @@ static func can_advance(
 	explosion_timer: float,
 	cluster_hold_timer: float
 ) -> bool:
-	return (
-		not game_over
-		and not projectile_active
-		and not has_turn_projectiles
-		and not machine_gun_active
-		and not machine_gun_waiting
-		and explosion_timer <= 0.0
-		and cluster_hold_timer <= 0.0
+	return WeaponFramePolicy.can_advance_turn(
+		game_over, projectile_active, has_turn_projectiles,
+		machine_gun_active, machine_gun_waiting, explosion_timer,
+		cluster_hold_timer
 	)
