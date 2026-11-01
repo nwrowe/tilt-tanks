@@ -1668,7 +1668,7 @@ func _test_metadata_bouncer_profile_dispatch() -> void:
 		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 	)
 	_check(special_source.contains('_weapon_behavior(turn_projectile_weapon) == "bounce"') and
-		special_source.contains('_weapon_behavior(weapon) == "bounce"') and
+		special_source.split('_weapon_behavior(weapon) == "bounce"').size() == 3 and
 		not special_source.contains("MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED"),
 		"turn and realtime Bouncer dispatch use canonical behavior and bounce naming")
 	game.call("_on_hotseat_pressed")
