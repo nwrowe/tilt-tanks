@@ -400,3 +400,17 @@ explosions still use the existing mode-owned camera aggregate.
 Live camera tests exercise mixed Bouncer/human/AI shells and protect
 the single-loop source ownership; full ENet regression remains required.
 No new class or inheritance layer.
+
+## Shared online guest frame stages (PR #117)
+
+`MainGameProgressionFacade` owns the single online-client local input
+gate and the camera/UI/muzzle/redraw completion stage. Its non-network
+override composes those two existing frame responsibilities;
+`MainGameOnlineHostWaitingFacade` adds only the authoritative motion
+interpolation and guest explosion visual aging between them. The
+original order **interpolation → input/charge → explosion expiry →
+camera/UI/effects** is retained. Only the online guest processes
+network-authoritative state; offline gameplay still follows its normal
+simulation. Source-level protocol tests protect ownership/order, while
+the real two-process ENet smoke test covers guest gameplay rendering.
+No additional class or scene ancestor.
