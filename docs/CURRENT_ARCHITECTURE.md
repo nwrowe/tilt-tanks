@@ -281,3 +281,18 @@ only (no new water algorithm). No additional behavior class, scene
 ancestor or weapon-specific service was created. Pure geometry and live
 metadata override tests cover the cuts, mounds, endpoint and floor
 bounds, and forward delegation.
+
+## Laser direct-hit health authority (PR #109)
+
+The Laser's nearest-segment direct-hit test still uses
+`TerrainMath.point_to_segment_distance` and the live
+`WeaponDefinition` damage/radius fields. On a hit it now calls
+`MatchRuntimeSynchronizer.apply_direct_damage`, which uses the
+existing `MatchController.apply_damage` and copies the resulting
+health into the legacy scene. This is the same controller-owned
+health/winner path as radial shell explosions, so a full online
+snapshot produced in the same firing call contains authoritative
+damage. Misses still do nothing; Laser still deals no splash
+damage. Unit and live tests cover targeting, configurable damage,
+copy isolation, overkill, winner assignment, and immediate network
+packet consistency. No new state owner, class or inheritance layer.
