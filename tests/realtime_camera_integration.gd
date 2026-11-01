@@ -125,6 +125,53 @@ func _run() -> void:
 		"ordinary human shell retains owner-aware realtime active-shell state")
 	game.call("reset_match")
 
+	# Mixed projectile frames previously switched the entire simulation to
+	# the special loop. The consolidated owner must step every shell only
+	# once, retain Bouncer physics, and keep AI impacts off the human camera.
+	game.call("_on_quick_game_pressed")
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var contact_x: float = 720.0
+	var ground_y: float = float(game.call("_ground_y_at_x", contact_x))
+	var bouncer: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponRegistry.WEAPON_BOUNCER,
+		Vector2(contact_x, ground_y + 2.0), Vector2(100.0, 140.0)
+	)
+	var ordinary: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponCatalog.STANDARD, Vector2(350.0, 20.0), Vector2(50.0, -15.0)
+	)
+	var ai_impact: Dictionary = ProjectileFactory.make_shell(
+		1, WeaponCatalog.STANDARD,
+		(game.get("tank_positions") as Array)[0], Vector2.ZERO
+	)
+	var mixed: Array[Dictionary] = [bouncer, ordinary, ai_impact]
+	game.set("rt_projectiles", mixed)
+	game.set("cluster_camera_hold_timer", 0.0)
+	game.set("cluster_camera_hold_pos", Vector2.INF)
+	game.call("_update_all_realtime_projectiles", 0.0)
+	var mixed_after: Array = game.get("rt_projectiles")
+	_check(mixed_after.size() == 2 and
+		int((mixed_after[0] as Dictionary).get("bounces", 0)) == 1 and
+		str((mixed_after[1] as Dictionary).get("weapon", "")) == WeaponCatalog.STANDARD,
+		"shared realtime loop handles Bouncer, standard human and colliding AI shell together")
+	_check((mixed_after[1] as Dictionary).get("pos", Vector2.INF) == Vector2(350.0, 20.0) and
+		bool(game.get("rt_player_shell_active")),
+		"mixed special frame retains ordinary shell geometry and human fire availability")
+	_check(int(game.get("realtime_explosion_camera_owner")) == 1 and
+		is_zero_approx(float(game.get("cluster_camera_hold_timer"))),
+		"mixed AI explosion cannot steal the human camera in special frame")
+	var mode_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameModeFacade.gd")
+	var special_sim_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameSpecialWeaponsFacade.gd")
+	var special_frame_start: int = special_sim_source.find("func _update_all_realtime_projectiles(")
+	var special_frame_end: int = special_sim_source.find("\nfunc ", special_frame_start + 4)
+	var special_frame_source: String = special_sim_source.substr(
+		special_frame_start, special_frame_end - special_frame_start
+	)
+	_check(mode_source.contains("ProjectileManager.step_shell(shell, gravity, wind, delta)") and
+		not special_frame_source.contains("for shell: Dictionary in rt_projectiles"),
+		"realtime simulation owns exactly one projectile traversal in ModeFacade")
+	game.call("reset_match")
+
 	game.queue_free()
 	await process_frame
 	_finish()

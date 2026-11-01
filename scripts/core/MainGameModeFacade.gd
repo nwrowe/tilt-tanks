@@ -246,14 +246,19 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	super._explode_turn_weapon(pos, weapon, advance_after)
 	_start_global_explosion_camera_hold(pos)
 
-func _explode_realtime_weapon(pos: Vector2, weapon: String) -> void:
-	# Keep the base explosion/damage behavior, but do not start camera hold here.
-	# Realtime camera hold is owner-aware in _update_all_realtime_projectiles().
+func _explode_realtime_weapon(pos: Vector2, weapon: String, _owner: int = -1) -> void:
+	# Ordinary realtime camera holds are applied after the shared loop;
+	# special-shell impacts forward the actual owner to the higher facade.
 	super._explode_realtime_weapon(pos, weapon)
 
 func _update_all_realtime_projectiles(delta: float) -> void:
 	if rt_projectiles.is_empty():
 		return
+	# ModeFacade is the one owner of realtime shell stepping and collection
+	# mutation. Higher facades supply special contact behavior without a
+	# second projectile loop. Preserve the historical special-frame camera
+	# behavior separately from the normal cluster focus path.
+	var special_frame: bool = _realtime_special_projectiles_active()
 	var remaining: Array[Dictionary] = []
 	var cluster_focus_sum: Vector2 = Vector2.ZERO
 	var cluster_focus_n: int = 0
@@ -270,23 +275,34 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		var pos: Vector2 = stepped.get("pos", Vector2.ZERO)
 		var vel: Vector2 = stepped.get("vel", Vector2.ZERO)
 
-		if weapon == WEAPON_CLUSTER and not split_done and vel.y >= 0.0:
+		var special_result: Dictionary = _realtime_special_shell_step(stepped, owner) if special_frame else {}
+		if bool(special_result.get("handled", false)):
+			if bool(special_result.get("explode", false)):
+				_explode_realtime_weapon(pos, weapon, owner)
+			else:
+				remaining.append(special_result.get("shell", stepped))
+		elif ((
+			_weapon_has_split_behavior(weapon) if special_frame else weapon == WEAPON_CLUSTER
+		) and not split_done and vel.y >= 0.0):
 			_spawn_realtime_cluster_children(owner, pos, vel)
 			if owner == HUMAN_PLAYER_INDEX:
 				realtime_cluster_focus_pos = pos
 				realtime_cluster_focus_count = _weapon_child_count(weapon)
 		elif _realtime_projectile_should_explode(owner, pos):
-			if owner == HUMAN_PLAYER_INDEX:
-				had_human_explosion = true
-				last_human_explosion = pos
-				if weapon == WEAPON_CLUSTER_CHILD:
-					had_human_cluster_children = true
-					last_human_cluster_explosion = pos
-					realtime_cluster_focus_count = maxi(0, realtime_cluster_focus_count - 1)
-			_explode_realtime_weapon(pos, weapon)
+			if special_frame:
+				_explode_realtime_weapon(pos, weapon, owner)
+			else:
+				if owner == HUMAN_PLAYER_INDEX:
+					had_human_explosion = true
+					last_human_explosion = pos
+					if weapon == WEAPON_CLUSTER_CHILD:
+						had_human_cluster_children = true
+						last_human_cluster_explosion = pos
+						realtime_cluster_focus_count = maxi(0, realtime_cluster_focus_count - 1)
+				_explode_realtime_weapon(pos, weapon)
 		else:
 			remaining.append(stepped)
-			if owner == HUMAN_PLAYER_INDEX and weapon == WEAPON_CLUSTER_CHILD:
+			if not special_frame and owner == HUMAN_PLAYER_INDEX and weapon == WEAPON_CLUSTER_CHILD:
 				had_human_cluster_children = true
 				cluster_focus_sum += pos
 				cluster_focus_n += 1
@@ -294,6 +310,10 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 	rt_projectiles = remaining
 	rt_player_shell_active = ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX)
 
+	if special_frame:
+		# In special frames the derived weapon adapter owns the burst focus
+		# and human shell-active flag. Do not also run cluster camera holds.
+		return
 	if cluster_focus_n > 0:
 		realtime_cluster_focus_pos = cluster_focus_sum / float(cluster_focus_n)
 		_start_global_explosion_camera_hold(realtime_cluster_focus_pos)
@@ -308,6 +328,14 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		_start_global_explosion_camera_hold(last_human_explosion)
 	elif not ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX):
 		realtime_cluster_focus_pos = Vector2.INF
+
+## Virtual extension point for special weapons with terrain-contact physics.
+## ModeFacade owns stepping; the special-weapons facade owns bounce policy.
+func _realtime_special_shell_step(_shell: Dictionary, _owner: int) -> Dictionary:
+	return {"handled": false}
+
+func _realtime_special_projectiles_active() -> bool:
+	return false
 
 func _start_global_explosion_camera_hold(pos: Vector2) -> void:
 	if pos == Vector2.INF:
