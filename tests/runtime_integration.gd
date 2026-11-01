@@ -1148,9 +1148,8 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 	var world_source: String = FileAccess.get_file_as_string(
 		"res://scripts/modes/WorldRuntimeBridge.gd"
 	)
-	_check(world_source.contains("func _realtime_projectile_should_explode(") and
-		world_source.contains("ProjectileManager.should_shell_explode("),
-		"world fallback uses the same canonical collision policy as the active scene")
+	_check(not world_source.contains("func _realtime_projectile_should_explode("),
+		"shadowed world collision fallback is retired; MainGame owns the canonical hook")
 	_check(world_source.contains("func _on_fire_pressed(") and
 		world_source.contains("ProjectileFactory.make_fired_shell("),
 		"world compatibility launch delegates to canonical shell factory")
