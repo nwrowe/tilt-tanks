@@ -1126,6 +1126,35 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 			special["vel"] == expected_special["vel"],
 			"special realtime shot uses same exact owner and launch geometry")
 	game.call("reset_match")
+	game.call("_on_hotseat_pressed")
+	game.call("_on_hotseat_start_turn_pressed")
+	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.HEAVY)
+	var hotseat_positions: Array = game.get("tank_positions")
+	var turn_angle: float = float(game.get("angle_deg"))
+	var turn_force: float = float(game.get("power"))
+	var expected_turn: Dictionary = ProjectileFactory.make_fired_shell(
+		0, WeaponCatalog.HEAVY, hotseat_positions[0], 1.0, turn_angle, turn_force,
+		cannon_length
+	)
+	game.set("hotseat_release_in_progress", true)
+	game.call("_on_fire_pressed")
+	game.set("hotseat_release_in_progress", false)
+	_check(bool(game.get("projectile_active")) and
+		str(game.get("turn_projectile_weapon")) == WeaponCatalog.HEAVY,
+		"hotseat firing retains chosen weapon and live shell")
+	_check(game.get("projectile_pos") == expected_turn["pos"] and
+		game.get("projectile_vel") == expected_turn["vel"],
+		"hotseat turn launch matches canonical muzzle and velocity geometry")
+	var world_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
+	)
+	_check(world_source.contains("func _realtime_projectile_should_explode(") and
+		world_source.contains("ProjectileManager.should_shell_explode("),
+		"world fallback uses the same canonical collision policy as the active scene")
+	_check(world_source.contains("func _on_fire_pressed(") and
+		world_source.contains("ProjectileFactory.make_fired_shell("),
+		"world compatibility launch delegates to canonical shell factory")
+	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
