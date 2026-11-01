@@ -95,6 +95,7 @@ func _run() -> void:
 	_test_bouncer_weapon_policy_live()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
+	_test_shared_turn_advance_clearance_live()
 
 	game.queue_free()
 	await process_frame
@@ -1409,6 +1410,75 @@ func _test_composed_weapon_burst_session_live() -> void:
 		(game.get("rt_projectiles") as Array).is_empty() and
 		not bool(game.get("rt_player_shell_active")),
 		"realtime reset clears burst and projectile lifecycle without stale aliases")
+
+func _test_shared_turn_advance_clearance_live() -> void:
+	# Both the frame/camera and online host are obliged to use the same
+	# turn-clearance predicate; only their external triggers differ.
+	_check(WeaponFramePolicy.can_advance_turn(
+		false, false, false, false, false, 0.0, 0.0),
+		"clear turn may advance with no shell, burst or visual hold")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		true, false, false, false, false, 0.0, 0.0),
+		"game over blocks pending turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, true, false, false, false, 0.0, 0.0),
+		"live projectile blocks pending turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, false, true, false, false, 0.0, 0.0),
+		"multi-round shells block pending turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, false, false, true, false, 0.0, 0.0),
+		"active burst blocks pending turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, false, false, false, true, 0.0, 0.0),
+		"waiting for final burst shells blocks turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, false, false, false, false, 0.1, 0.0),
+		"explosion hold blocks pending turn advance")
+	_check(not WeaponFramePolicy.can_advance_turn(
+		false, false, false, false, false, 0.0, 0.1),
+		"camera hold blocks pending turn advance")
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	var network_source: String = FileAccess.get_file_as_string(
+		"res://scripts/network/OnlineDuelHostCoordinator.gd"
+	)
+	_check(special_source.split("WeaponFramePolicy.can_advance_turn(").size() == 3 and
+		network_source.contains("WeaponFramePolicy.can_advance_turn("),
+		"hotseat camera, delayed turn completion, and online host share one safety rule")
+
+	game.call("_on_hotseat_pressed")
+	game.call("_on_hotseat_start_turn_pressed")
+	game.set("pending_advance_after_explosion_hold", true)
+	game.set("explosion_timer", 0.15)
+	game.set("cluster_camera_hold_timer", 0.0)
+	_check(not bool(game.call("_should_freeze_camera_until_pending_hotseat_advance_runs")),
+		"camera does not freeze prematurely during explosion")
+	game.call("_maybe_advance_after_explosion_hold")
+	_check(int(game.get("current_player")) == 0 and
+		bool(game.get("pending_advance_after_explosion_hold")),
+		"live turn remains with firing player until explosion finishes")
+	game.set("explosion_timer", 0.0)
+	game.set("machine_gun_active", true)
+	_check(not bool(game.call("_should_freeze_camera_until_pending_hotseat_advance_runs")),
+		"camera freeze is gated by active machine-gun burst")
+	game.call("_maybe_advance_after_explosion_hold")
+	_check(int(game.get("current_player")) == 0,
+		"active machine-gun burst cannot advance turn")
+	game.set("machine_gun_active", false)
+	game.set("machine_gun_turn_waiting_for_shells", true)
+	game.call("_maybe_advance_after_explosion_hold")
+	_check(int(game.get("current_player")) == 0,
+		"waiting-for-shells state prevents premature turn switch")
+	game.set("machine_gun_turn_waiting_for_shells", false)
+	_check(bool(game.call("_should_freeze_camera_until_pending_hotseat_advance_runs")),
+		"camera retains firing-player view on the frame a turn becomes safe")
+	game.call("_maybe_advance_after_explosion_hold")
+	_check(int(game.get("current_player")) == 1 and
+		not bool(game.get("pending_advance_after_explosion_hold")),
+		"live turn advances once, after all burst and explosion gates clear")
+	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
 	game.call("_on_hotseat_pressed")
