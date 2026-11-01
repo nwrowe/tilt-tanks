@@ -34,6 +34,7 @@ func _run() -> void:
 	_test_host_coordinator()
 	_test_online_reset_and_disconnect_ownership()
 	_test_single_host_sync_owner()
+	_test_single_online_turn_snapshot_owner()
 	_test_shared_online_client_frame_ownership()
 	_test_shared_online_snapshot_application()
 	_test_guest_command_validation()
@@ -131,6 +132,49 @@ func _test_shared_online_snapshot_application() -> void:
 	shell_handle.clear()
 	shell_handle.append_array(saved_shells)
 	game.call("reset_match")
+
+func _test_single_online_turn_snapshot_owner() -> void:
+	# A normal turn advance already traverses the progression and online
+	# host inheritance overrides. The online host must send one *final*
+	# full packet, not another from the lower progression layer or from
+	# each fallback/hold wrapper after invoking the virtual _advance_turn.
+	var progression: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	var online: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameOnlineHostWaitingFacade.gd"
+	)
+	var lower_start: int = progression.find("func _advance_turn() -> void:")
+	var lower_end: int = progression.find("\nfunc ", lower_start + 4)
+	var lower: String = progression.substr(lower_start, lower_end - lower_start)
+	var upper_start: int = online.find("func _advance_turn() -> void:")
+	var upper_end: int = online.find("\nfunc ", upper_start + 4)
+	var upper: String = online.substr(upper_start, upper_end - upper_start)
+	_check(not lower.contains("_online_send_snapshot(true)") and
+		upper.split("_online_send_snapshot(true)").size() == 2 and
+		upper.find("online_host_coordinator.clear_fallback()") <
+		upper.find("_online_send_snapshot(true)") and
+		upper.find("online_host_coordinator.force_next_sync()") <
+		upper.find("_online_send_snapshot(true)"),
+		"one online host turn snapshot is sent after clearing fallback and scheduling sync")
+	_check(not online.contains("func _maybe_advance_after_explosion_hold()") and
+		online.contains("func _online_process_turn_advance_fallback(") and
+		online.contains("func _online_maybe_force_pending_turn_advance("),
+		"redundant explosion-hold network override is retired without removing host recovery")
+	for method_name: String in [
+		"_online_process_turn_advance_fallback", "_online_maybe_force_pending_turn_advance"
+	]:
+		var start: int = online.find("func " + method_name + "(")
+		var end: int = online.find("\nfunc ", start + 4)
+		var implementation: String = online.substr(start, end - start)
+		_check(implementation.contains("_advance_turn()") and
+			not implementation.contains("_online_send_snapshot(true)"),
+			method_name + " relies on the sole online turn snapshot owner")
+	# Fire and impact are separate network events: preserve their reliable
+	# packets rather than suppressing them as turn-advance duplicates.
+	_check(online.contains("func _explode_turn_weapon(") and
+		online.contains("_online_send_fire_event("),
+		"host still announces projectile launch and authoritative impact separately")
 
 func _test_vector_round_trip() -> void:
 	var original: Vector2 = Vector2(123.25, -456.5)
