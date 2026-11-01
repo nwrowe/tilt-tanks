@@ -84,8 +84,8 @@ func _run_host() -> void:
 	var state: MatchState = game.get("match_state") as MatchState
 	_check(int(state.tank_health[1]) == remaining_health, "host MatchState agrees with combat damage")
 	if not await _until(func() -> bool:
-		return int(game.get("current_player")) == 1 and
-			bool(game.get("hotseat_turn_start_pending"))
+		return (int(game.get("current_player")) == 1 and
+			bool(game.get("hotseat_turn_start_pending")))
 	):
 		_fail("host never completed explosion hold and passed the turn to guest")
 		return
@@ -101,8 +101,8 @@ func _run_host() -> void:
 		not bool(game.get("hotseat_turn_start_pending")),
 		"host authorizes guest to begin the next turn")
 	if not await _until(func() -> bool:
-		return bool(game.get("projectile_active")) and
-			str(game.get("selected_weapon")) == WeaponCatalog.STANDARD
+		return (bool(game.get("projectile_active")) and
+			str(game.get("selected_weapon")) == WeaponCatalog.STANDARD)
 	):
 		_fail("host did not accept and simulate guest-originated standard shot")
 		return
@@ -150,8 +150,8 @@ func _run_guest() -> void:
 	_check(int(state.tank_health[1]) == expected_health, "guest MatchState agrees with networked combat damage")
 
 	if not await _until(func() -> bool:
-		return int(game.get("current_player")) == 1 and
-			bool(game.get("hotseat_turn_start_pending"))
+		return (int(game.get("current_player")) == 1 and
+			bool(game.get("hotseat_turn_start_pending")))
 	):
 		_fail("guest never received the completed turn transition from host")
 		return
@@ -162,8 +162,8 @@ func _run_guest() -> void:
 	_check(bool(game.get("online_client_waiting_for_authority")),
 		"guest start-turn request waits for host authority")
 	if not await _until(func() -> bool:
-		return not bool(game.get("hotseat_turn_start_pending")) and
-			not bool(game.get("online_client_waiting_for_authority"))
+		return (not bool(game.get("hotseat_turn_start_pending")) and
+			not bool(game.get("online_client_waiting_for_authority")))
 	):
 		_fail("guest never received authoritative start-turn acknowledgement")
 		return
@@ -176,8 +176,8 @@ func _run_guest() -> void:
 	_check(bool(game.get("online_client_waiting_for_authority")),
 		"guest shot is submitted as an RPC rather than simulated locally")
 	if not await _until(func() -> bool:
-		return bool(game.get("projectile_active")) and
-			not bool(game.get("online_client_waiting_for_authority"))
+		return (bool(game.get("projectile_active")) and
+			not bool(game.get("online_client_waiting_for_authority")))
 	):
 		_fail("guest never received authoritative response to its own shot")
 		return
