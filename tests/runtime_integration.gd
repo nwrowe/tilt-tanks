@@ -903,7 +903,9 @@ func _test_mode_runtime_ancestor_retirement() -> void:
 	while active_script != null:
 		chain.append(active_script.resource_path)
 		active_script = active_script.get_base_script()
-	_check(chain.size() == 8, "active Godot scene inherits exactly eight script layers")
+	_check(chain.size() == 7, "active Godot scene inherits exactly seven script layers")
+	_check(not chain.has("res://scripts/weapons/WeaponRuntimeBridge.gd"),
+		"retired weapon bridge no longer appears in the active chain")
 	_check(not chain.has("res://scripts/modes/ModeRuntimeBridge.gd"),
 		"retired ModeRuntimeBridge is not an active parent")
 	_check(chain.has("res://scripts/modes/WorldRuntimeBridge.gd") and
