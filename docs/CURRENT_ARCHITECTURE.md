@@ -200,3 +200,16 @@ setup. Realtime shell activation remains separately reset by the world.
 No new services or repeated state mirrors were introduced. Live
 integration seeds stale AI, hotseat charge, realtime charge and button
 appearance state before testing the real reset hierarchy.
+
+## Online disconnect and match-reset cleanup (PR #103)
+
+The online facade now calls `online_interpolation.reset()` and
+`online_host_coordinator.clear_fallback()` directly where appropriate,
+removing two redundant one-line reset wrappers. On disconnect,
+`MainGameProgressionFacade._online_disconnect` already resets the
+host coordinator (sync timer **and** fallback), so the online facade
+no longer repeats these mutations; it only resets its own snapshot
+sequencer, interpolation and waiting-room presentation. Match reset
+retains its pre-parent interpolation/fallback clearing and does **not**
+reset the host sync cadence. Live network contract tests seed stale
+timers, interpolation and sequence state and verify both transitions.
