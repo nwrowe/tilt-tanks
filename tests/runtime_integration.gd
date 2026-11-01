@@ -68,6 +68,7 @@ func _run() -> void:
 	_test_composed_weapon_menu_view_live()
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
+	_test_rendering_owner_migration_live()
 	_test_water_manager_world_delegation()
 	_test_turn_ai_ballistic_scorer_live()
 	_test_turn_ai_planner_live()
@@ -1605,6 +1606,50 @@ func _test_turn_ai_world_ownership_live() -> void:
 	game.call("reset_match")
 	_check(not session.pending and session.visual.plan.is_empty(),
 		"parent reset still clears both turn AI timer and shot plan")
+
+func _test_rendering_owner_migration_live() -> void:
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in [
+		"_draw", "_draw_tank", "_draw_destroyed_smoke_puffs",
+		"_draw_realtime_projectiles", "_draw_explosion", "_camera_target_x"
+	]:
+		_check(not bridge_source.contains("\nfunc " + name + "("),
+			"weapon bridge no longer declares rendering/camera owner " + name)
+		_check(main_source.contains("\nfunc " + name + "("),
+			"MainGame owns active rendering/camera method " + name)
+	var drawing: String = main_source.get_slice("\nfunc _draw() -> void:", 1)
+	var draw_end: int = drawing.find("\nfunc ")
+	if draw_end >= 0:
+		drawing = drawing.substr(0, draw_end)
+	_check(drawing.find("super._draw()") < drawing.find("_draw_destroyed_smoke_puffs()") and
+		drawing.find("_draw_destroyed_smoke_puffs()") <
+		drawing.find("_draw_recoil_barrels()") and
+		drawing.find("_draw_recoil_barrels()") <
+		drawing.find("_draw_muzzle_smoke_puffs()"),
+		"world, destroyed-smoke, recoil and muzzle draw order remains unchanged")
+	game.call("_on_hotseat_pressed")
+	game.call("reset_match")
+	var tank_positions: Array[Vector2] = game.get("tank_positions")
+	var target_x: float = tank_positions[0].x
+	game.set("game_over", true)
+	game.set("destroyed_tank_index", 0)
+	game.set("manual_camera_active", false)
+	game.set("realtime_cluster_focus_pos", Vector2.INF)
+	game.set("turn_cluster_camera_pos", Vector2.INF)
+	game.set("cluster_camera_hold_pos", Vector2.INF)
+	var view_width: float = 900.0 / float(game.get("CAMERA_SCALE"))
+	var max_camera_x: float = maxf(0.0, float(game.get("active_world_width")) - view_width)
+	var expected_focus: float = clampf(target_x - 0.5 * view_width, 0.0, max_camera_x)
+	_check(is_equal_approx(float(game.call("_camera_target_x")), expected_focus),
+		"merged camera fallback still centers on destroyed tank after game over")
+	game.set("game_over", false)
+	game.set("destroyed_tank_index", -1)
+	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
 	var controls: Array = game.get("menu_buttons")
