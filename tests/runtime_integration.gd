@@ -1210,7 +1210,7 @@ func _test_pruned_weapon_collision_dispatch_live() -> void:
 	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
 	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
 	for method_name: String in [
-		"_build_weapon_ui", "_split_turn_cluster_projectile",
+		"_split_turn_cluster_projectile",
 		"_update_turn_weapon_projectiles", "_fire_realtime_projectile",
 		"_spawn_realtime_cluster_children",
 		"_turn_shell_should_explode", "_realtime_projectile_should_explode"
@@ -1396,12 +1396,17 @@ func _test_shadowed_bridge_removal_live() -> void:
 		_check(not bridge_source.contains("\nfunc " + name + "("),
 			"weapon bridge no longer declares unreachable realtime fallback " + name)
 	for name: String in [
-		"_build_weapon_ui", "_toggle_weapon_menu",
 		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
 		"_apply_weapon_damage"
 	]:
 		_check(bridge_source.contains("\nfunc " + name + "("),
 			"weapon bridge preserves ancestor compiler method contract " + name)
+	for name: String in ["_build_weapon_ui", "_toggle_weapon_menu"]:
+		_check(not bridge_source.contains("\nfunc " + name + "(") and
+			FileAccess.get_file_as_string(
+				"res://scripts/core/MainGame.gd"
+			).contains("\nfunc " + name + "("),
+			"game-level menu method now satisfies compile-time contract " + name)
 	_check(mode_source.contains("\nfunc _update_all_realtime_projectiles(") and
 		special_source.contains("super._update_all_realtime_projectiles(delta)") and
 		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
@@ -1661,6 +1666,7 @@ func _test_weapon_menu_owner_migration_live() -> void:
 		"res://scripts/core/MainGame.gd"
 	)
 	for name: String in [
+		"_build_weapon_ui", "_make_weapon_menu_button", "_toggle_weapon_menu",
 		"_resize_mobile_action_buttons", "_open_weapon_menu",
 		"_close_weapon_menu", "_hide_overlays", "_quit_game",
 		"_return_to_main_menu"
@@ -1668,9 +1674,10 @@ func _test_weapon_menu_owner_migration_live() -> void:
 		_check(not bridge_source.contains("\nfunc " + name + "(") and
 			main_source.contains("\nfunc " + name + "("),
 			"active MainGame exclusively owns weapon menu lifecycle " + name)
-	_check(bridge_source.contains("\nfunc _build_weapon_ui(") and
+	_check(not bridge_source.contains("\nfunc _build_weapon_ui(") and
+		main_source.contains("\nfunc _build_weapon_ui(") and
 		main_source.contains("\nfunc _toggle_weapon_menu("),
-		"compiler-required fallback and active game toggle keep their original roles")
+		"MainGame now provides fallback builder and toggle while mode facade still overrides")
 	game.call("_on_hotseat_pressed")
 	var panel: Panel = game.get("weapon_panel") as Panel
 	var left: Button = game.get("mobile_left_button") as Button
