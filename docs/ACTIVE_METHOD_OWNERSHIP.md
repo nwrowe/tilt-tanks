@@ -461,9 +461,19 @@ already calls them.
 `MainGame._hide_overlays` still chains to the same lower base
 `Main._hide_overlays` logic and then hides the selector. The mode and
 progression facades continue to own the active loadout menu build and
-higher-level network/progression behavior. The bridge retains its
-compiler-required `_build_weapon_ui` fallback and the shadowed
-`_toggle_weapon_menu` compatibility method; neither is moved by
-this focused change. Tests verify source ownership and the active
-menu open/close, movement release, global overlay hide, quit navigation
-and mobile-control geometry.
+higher-level network/progression behavior. The original
+`_build_weapon_ui` fallback and unused `_make_weapon_menu_button`
+are also owned by `MainGame`; the shadowed `_toggle_weapon_menu`
+implementation in the bridge was deleted. This co-locates all UI
+compiler contracts with the scene UI lifecycle, while the mode facade
+still overrides weapon-menu construction for the active game.
+Tests verify source ownership and the active menu open/close,
+movement release, global overlay hide, quit navigation and
+mobile-control geometry.
+
+The first import attempt demonstrated Godot's ancestor compilation
+requirement: removing `_open_weapon_menu` and `_close_weapon_menu`
+from the bridge while leaving its fallback builder there could not
+compile. The corrected implementation moved the fallback builder to
+`MainGame` as well and removed the bridge's now-unused shadowed
+toggle. The active-mode builder remains unchanged.
