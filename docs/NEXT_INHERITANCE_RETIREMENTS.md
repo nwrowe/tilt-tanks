@@ -93,8 +93,9 @@ services or merely shuffle long functions between ancestors.
 `MainGameSpecialWeaponsFacade` currently coordinates Laser, Nuke,
 Bouncer, Ground Bomb and Machine Gun behavior. Make new weapon additions
 primarily data-driven through `WeaponDefinition` / `WeaponRegistry`.
-Extend `WeaponBounceLogic`, `WeaponSplitLogic`, `ProjectileFactory`
-and effect components when a known capability is reused. Only introduce
+Extend `WeaponBurstSession`, `WeaponBounceLogic`,
+`WeaponSplitLogic`, `ProjectileFactory` and effect components when a
+known capability is reused. Only introduce
 a distinct behavior object/interface for independently meaningful
 semantics; avoid one class per stat variant or a second weapon registry.
 

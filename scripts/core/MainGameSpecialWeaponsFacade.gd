@@ -16,15 +16,19 @@ const HOTSEAT_CAMERA_ALREADY_TARGET_EPS: float = 2.0
 const MACHINE_GUN_CAMERA_LEAD_BIAS: float = 0.72
 const MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED: float = 95.0
 
-var machine_gun_active: bool = false
-var machine_gun_owner: int = 0
-var machine_gun_remaining: int = 0
-var machine_gun_timer: float = 0.0
-var machine_gun_interval: float = 0.1
-var machine_gun_angle: float = 45.0
-var machine_gun_power_percent: float = 50.0
-var machine_gun_realtime: bool = false
-var machine_gun_turn_waiting_for_shells: bool = false
+var weapon_burst: WeaponBurstSession = WeaponBurstSession.new()
+# Preserve the two cross-facade fields needed by online host authority.
+# All additional burst details live exclusively in the composed session.
+var machine_gun_active: bool:
+	get:
+		return weapon_burst.active
+	set(value):
+		weapon_burst.active = value
+var machine_gun_turn_waiting_for_shells: bool:
+	get:
+		return weapon_burst.turn_waiting_for_shells
+	set(value):
+		weapon_burst.turn_waiting_for_shells = value
 var machine_gun_camera_active: bool = false
 var machine_gun_camera_pos: Vector2 = Vector2.INF
 var pending_advance_after_explosion_hold: bool = false
@@ -79,10 +83,10 @@ func _camera_x_for_focus(focus_x: float) -> float:
 	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
 
 func _should_freeze_camera_until_pending_hotseat_advance_runs() -> bool:
-	return pending_advance_after_explosion_hold and game_mode == GAME_MODE_HOTSEAT and not game_over and not projectile_active and turn_projectiles.is_empty() and not machine_gun_active and not machine_gun_turn_waiting_for_shells and explosion_timer <= 0.0 and cluster_camera_hold_timer <= 0.0
+	return pending_advance_after_explosion_hold and game_mode == GAME_MODE_HOTSEAT and not game_over and not projectile_active and turn_projectiles.is_empty() and not weapon_burst.active and not weapon_burst.turn_waiting_for_shells and explosion_timer <= 0.0 and cluster_camera_hold_timer <= 0.0
 
 func _should_hold_hotseat_camera_at_current_position() -> bool:
-	return hotseat_camera_already_valid and game_mode == GAME_MODE_HOTSEAT and not projectile_active and turn_projectiles.is_empty() and not machine_gun_active and not machine_gun_turn_waiting_for_shells and not pending_advance_after_explosion_hold
+	return hotseat_camera_already_valid and game_mode == GAME_MODE_HOTSEAT and not projectile_active and turn_projectiles.is_empty() and not weapon_burst.active and not weapon_burst.turn_waiting_for_shells and not pending_advance_after_explosion_hold
 
 func _draw_trajectory_preview() -> void:
 	# Hide immediately after a human shot in both hotseat and quick game. In quick
@@ -92,7 +96,7 @@ func _draw_trajectory_preview() -> void:
 	super._draw_trajectory_preview()
 
 func _hotseat_can_begin_charge() -> bool:
-	if pending_advance_after_explosion_hold or machine_gun_active or machine_gun_turn_waiting_for_shells:
+	if pending_advance_after_explosion_hold or weapon_burst.active or weapon_burst.turn_waiting_for_shells:
 		return false
 	return super._hotseat_can_begin_charge()
 
@@ -106,7 +110,7 @@ func _on_fire_pressed() -> void:
 		if ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active:
 			quickgame_player_shot_hide_trajectory = true
 		return
-	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or machine_gun_active or machine_gun_turn_waiting_for_shells or pending_advance_after_explosion_hold:
+	if projectile_active or not turn_projectiles.is_empty() or game_over or overlay_open or weapon_burst.active or weapon_burst.turn_waiting_for_shells or pending_advance_after_explosion_hold:
 		return
 
 	hotseat_camera_already_valid = false
@@ -137,7 +141,7 @@ func _release_realtime_charged_shot() -> void:
 		_reset_realtime_charge_state()
 		return
 	if selected_weapon == SPECIAL_MACHINE_GUN:
-		if not _player_can_fire() or game_over or overlay_open or machine_gun_active:
+		if not _player_can_fire() or game_over or overlay_open or weapon_burst.active:
 			_reset_realtime_charge_state()
 			return
 		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
@@ -189,8 +193,8 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 
 	turn_projectiles = remaining
 
-	if machine_gun_turn_waiting_for_shells or _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND):
-		_update_machine_gun_camera_from_shells(turn_projectiles, machine_gun_owner)
+	if weapon_burst.turn_waiting_for_shells or _turn_projectiles_include_weapon(SPECIAL_MACHINE_GUN_ROUND):
+		_update_machine_gun_camera_from_shells(turn_projectiles, weapon_burst.owner)
 	elif any_center_shell_alive:
 		cluster_camera_hold_pos = last_center_pos
 	elif not turn_projectiles.is_empty() and cluster_camera_hold_pos == Vector2.INF:
@@ -200,7 +204,7 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 
 	if turn_projectiles.is_empty():
 		turn_cluster_camera_pos = Vector2.INF
-		if machine_gun_turn_waiting_for_shells:
+		if weapon_burst.turn_waiting_for_shells:
 			_maybe_finish_machine_gun_turn()
 			return
 		if last_explosion_pos != Vector2.INF:
@@ -251,7 +255,7 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 			if owner == HUMAN_PLAYER_INDEX:
 				human_shell_alive = true
 	rt_projectiles = remaining
-	rt_player_shell_active = human_shell_alive or machine_gun_active
+	rt_player_shell_active = human_shell_alive or weapon_burst.active
 	if machine_gun_camera_active:
 		_update_machine_gun_camera_from_shells(rt_projectiles, HUMAN_PLAYER_INDEX)
 
@@ -371,15 +375,11 @@ func _reflect_bouncer_velocity(x: float, incoming_vel: Vector2) -> Vector2:
 	)
 
 func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
-	machine_gun_active = true
-	machine_gun_turn_waiting_for_shells = not realtime
-	machine_gun_owner = owner
-	machine_gun_remaining = int(_weapon_value(SPECIAL_MACHINE_GUN, "burst_count", 10))
-	machine_gun_interval = float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_interval", 0.1))
-	machine_gun_timer = 0.0
-	machine_gun_angle = shot_angle
-	machine_gun_power_percent = shot_power_percent
-	machine_gun_realtime = realtime
+	weapon_burst.begin(
+		owner, shot_angle, shot_power_percent, realtime,
+		int(_weapon_value(SPECIAL_MACHINE_GUN, "burst_count", 10)),
+		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_interval", 0.1))
+	)
 	machine_gun_camera_active = true
 	machine_gun_camera_pos = tank_positions[owner]
 	if owner == HUMAN_PLAYER_INDEX:
@@ -387,48 +387,47 @@ func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent:
 	_fire_next_machine_gun_round()
 
 func _update_machine_gun_burst(delta: float) -> void:
-	if not machine_gun_active:
+	if not weapon_burst.active:
 		return
-	machine_gun_timer -= delta
-	while machine_gun_active and machine_gun_timer <= 0.0:
+	weapon_burst.advance(delta)
+	while weapon_burst.round_due():
 		_fire_next_machine_gun_round()
 
 func _fire_next_machine_gun_round() -> void:
-	if machine_gun_remaining <= 0 or game_over:
+	if weapon_burst.remaining <= 0 or game_over:
 		_finish_machine_gun_burst()
 		return
-	var angle_jitter: float = float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_angle_jitter", 3.0))
-	var power_jitter: float = float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_power_jitter", 7.0))
-	var shot_angle: float = clampf(machine_gun_angle + rng.randf_range(-angle_jitter, angle_jitter), MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE)
-	var shot_percent: float = clampf(machine_gun_power_percent + rng.randf_range(-power_jitter, power_jitter), 0.0, 100.0)
-	_spawn_special_shell(machine_gun_owner, _weapon_machine_child(), shot_angle, shot_percent, machine_gun_realtime)
-	machine_gun_remaining -= 1
-	machine_gun_timer += machine_gun_interval
-	if machine_gun_remaining <= 0:
+	var shot: Dictionary = weapon_burst.shot_settings(
+		rng,
+		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_angle_jitter", 3.0)),
+		float(_weapon_value(SPECIAL_MACHINE_GUN, "burst_power_jitter", 7.0)),
+		MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
+	)
+	_spawn_special_shell(
+		weapon_burst.owner, _weapon_machine_child(), float(shot["angle"]),
+		float(shot["power_percent"]), weapon_burst.realtime
+	)
+	weapon_burst.round_fired()
+	if weapon_burst.remaining <= 0:
 		_finish_machine_gun_burst()
 
 func _finish_machine_gun_burst() -> void:
-	var was_realtime: bool = machine_gun_realtime
-	machine_gun_active = false
-	if was_realtime:
+	if weapon_burst.finish():
 		rt_player_shell_active = ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX)
 
 func _maybe_finish_machine_gun_turn() -> void:
-	if not machine_gun_turn_waiting_for_shells:
+	if not weapon_burst.can_finish_turn(
+		game_over, not turn_projectiles.is_empty(), explosion_timer,
+		cluster_camera_hold_timer
+	):
 		return
-	if machine_gun_active or game_over:
-		return
-	if not turn_projectiles.is_empty():
-		return
-	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
-		return
-	machine_gun_turn_waiting_for_shells = false
+	weapon_burst.turn_waiting_for_shells = false
 	pending_advance_after_explosion_hold = true
 
 func _maybe_advance_after_explosion_hold() -> void:
 	if not pending_advance_after_explosion_hold:
 		return
-	if game_over or projectile_active or not turn_projectiles.is_empty() or machine_gun_active or machine_gun_turn_waiting_for_shells:
+	if game_over or projectile_active or not turn_projectiles.is_empty() or weapon_burst.active or weapon_burst.turn_waiting_for_shells:
 		return
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
@@ -466,7 +465,7 @@ func _maybe_show_quickgame_trajectory_after_shot() -> void:
 	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME:
 		quickgame_player_shot_hide_trajectory = false
 		return
-	if ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active or machine_gun_active:
+	if ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active or weapon_burst.active:
 		return
 	if explosion_timer > 0.0 or cluster_camera_hold_timer > 0.0:
 		return
@@ -484,10 +483,7 @@ func _update_machine_gun_camera_from_shells(shells: Array[Dictionary], owner: in
 		machine_gun_camera_pos = focus
 
 func _clear_machine_gun_burst() -> void:
-	machine_gun_active = false
-	machine_gun_remaining = 0
-	machine_gun_timer = 0.0
-	machine_gun_turn_waiting_for_shells = false
+	weapon_burst.clear_active()
 	machine_gun_camera_active = false
 	machine_gun_camera_pos = Vector2.INF
 
@@ -498,7 +494,7 @@ func _turn_projectiles_include_weapon(weapon: String) -> bool:
 	return false
 
 func _realtime_special_projectiles_active() -> bool:
-	if machine_gun_active or machine_gun_camera_active:
+	if weapon_burst.active or machine_gun_camera_active:
 		return true
 	for shell: Dictionary in rt_projectiles:
 		var weapon: String = str(shell.get("weapon", ""))
