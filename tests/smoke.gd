@@ -885,6 +885,14 @@ func _test_composed_match_runtime_synchronizer() -> void:
 		Vector2(350, 310), 12.0, 90.0, 75, 50, 4
 	)
 	_check(updated == [25, 65] and state.tank_health == updated, "adapter applies controller radial damage")
+	var direct: Array[int] = adapter.apply_direct_damage([80, 65], 1, 32)
+	_check(direct == [80, 33] and state.tank_health == direct and
+		not controller.is_game_over(), "adapter applies direct damage through controller")
+	direct[1] = 99
+	_check(state.tank_health[1] == 33, "direct-damage result does not alias controller health")
+	var lethal: Array[int] = adapter.apply_direct_damage([80, 18], 1, 50)
+	_check(lethal == [80, 0] and controller.is_game_over() and
+		controller.winner_index() == 0, "direct damage clamps to zero and identifies winner")
 	_check(adapter.sync_health([100, 0]), "adapter reports terminal health state")
 	_check(controller.winner_index() == 0, "adapter retains controller winner result")
 
