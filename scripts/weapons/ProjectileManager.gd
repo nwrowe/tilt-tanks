@@ -71,3 +71,28 @@ static func has_shell_for_owner(shells: Array[Dictionary], owner: int) -> bool:
 		if int(shell.get("owner", -1)) == owner:
 			return true
 	return false
+
+## Average a selected weapon's shells and bias toward its forward-most round.
+## Input shells, owner and projectile state are never mutated. An empty
+## selection returns INF so callers can retain their previous camera focus.
+static func leading_shell_focus_for_weapon(
+	shells: Array[Dictionary], weapon: String, facing_left: bool, lead_bias: float
+) -> Vector2:
+	var count: int = 0
+	var avg_pos: Vector2 = Vector2.ZERO
+	var lead_pos: Vector2 = Vector2.INF
+	var lead_initialized: bool = false
+	var forward_sign: float = -1.0 if facing_left else 1.0
+	for shell: Dictionary in shells:
+		if str(shell.get("weapon", "")) != weapon:
+			continue
+		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
+		avg_pos += pos
+		count += 1
+		if not lead_initialized or pos.x * forward_sign > lead_pos.x * forward_sign:
+			lead_pos = pos
+			lead_initialized = true
+	if count <= 0:
+		return Vector2.INF
+	avg_pos /= float(count)
+	return avg_pos.lerp(lead_pos, lead_bias)
