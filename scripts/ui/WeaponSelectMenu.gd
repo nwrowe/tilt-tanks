@@ -1,11 +1,8 @@
 extends RefCounted
 class_name WeaponSelectMenu
 
-# Construction-only helper for the weapon selector UI.
-#
-# This intentionally does not own gameplay state or signal behavior yet. The
-# active game script still decides which weapon is selected and how the menu
-# closes. Keeping this helper construction-only makes the migration low risk.
+# Builds the weapon selector and manages its presentation/focus lifecycle.
+# Gameplay still owns weapon selection, overlay state and signal callbacks.
 
 const BUTTON_POS: Vector2 = Vector2(786, 12)
 const BUTTON_SIZE: Vector2 = Vector2(44, 38)
@@ -75,3 +72,22 @@ static func make_list_option_button(list: VBoxContainer, text: String) -> Button
 
 static func make_back_button(panel: Panel, pos: Vector2) -> Button:
 	return MobileControls.make_button("Back", pos, BACK_SIZE, panel)
+
+## Only visual state changes: gameplay flags and weapon selection are owned
+## by the scene. Keep visible=true ahead of focus releases as before.
+static func show_panel(
+	panel: Panel, left_button: Button,
+	right_button: Button, fire_button: Button
+) -> void:
+	if panel != null:
+		panel.visible = true
+	if left_button != null:
+		left_button.release_focus()
+	if right_button != null:
+		right_button.release_focus()
+	if fire_button != null:
+		fire_button.release_focus()
+
+static func hide_panel(panel: Panel) -> void:
+	if panel != null:
+		panel.visible = false
