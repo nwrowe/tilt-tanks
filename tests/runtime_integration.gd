@@ -1637,7 +1637,13 @@ func _test_metadata_laser_profile_fire_dispatch() -> void:
 	_check(str(game.get("selected_weapon")) == id and
 		bool(game.call("_player_can_fire")) and not bool(game.get("overlay_open")),
 		"realtime profile selected and charge can begin before firing")
-	game.set("tank_positions", positions)
+	# The prior hotseat Laser settles its tank positions in place, so the
+	# realtime case must use a fresh horizontal sightline rather than the
+	# array that the previous match's terrain has already changed.
+	var realtime_positions: Array[Vector2] = [
+		Vector2(200.0, 320.0), Vector2(450.0, 320.0)
+	]
+	game.set("tank_positions", realtime_positions)
 	game.set("tank_health", full_health.duplicate())
 	game.set("angle_deg", 0.0)
 	game.set("rt_fire_charge_percent", 72.0)
