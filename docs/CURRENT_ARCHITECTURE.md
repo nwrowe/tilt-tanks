@@ -111,3 +111,16 @@ runtime still uses `GAME_MODE_*` integer compatibility values in
 `ModeControllerRegistry.gd`. `MainGameModeFacade.gd` owns their
 conversion. This is a necessary transitional adapter, not a reason to add
 a new third set of mode identifiers.
+
+## Scene compatibility adapter organization (PR #95)
+
+After bridge retirement, remaining `MainGame` hooks are grouped by the
+scene interaction they coordinate: projectile contact directly after
+firing, realtime and turn explosions together, crater updates beside
+radial damage, and the legacy stat getters beside the definition/loadout
+compatibility functions. These are **not** new independent services:
+the existing `scripts/weapons/` managers retain calculations and
+`scripts/effects/` retains puff/effect state. Grouping avoids recreating
+the deleted inheritance layer as scattered one-method helper classes.
+A source-level check protects this grouping in addition to the usual
+behavioral integration tests.
