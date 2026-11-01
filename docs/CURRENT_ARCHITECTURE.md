@@ -470,3 +470,15 @@ event. A blocked or unreleased local charge sends no shot snapshot;
 remote command validation also respects pending turn and burst state.
 The live two-process ENet test asserts the exact event+snapshot
 sequence increment for a host fire and exercises guest-originated fire.
+
+## Removed shadowed mode explosion hooks (PR #122)
+
+Both `MainGameModeFacade._explode_turn_weapon` and
+`MainGameModeFacade._explode_realtime_weapon` were fully shadowed
+by the existing special-weapons facade and were never reached through
+`super`. Their extra camera/forwarding behaviors were inactive.
+These stale implementations are deleted rather than moved into
+another class. The live scene still calls the existing special
+explosion hooks, common impact lifecycle, and the separate mode
+`_explode` camera adapter. Live tests and actual ENet preserve
+the active launch/impact/turn behavior.
