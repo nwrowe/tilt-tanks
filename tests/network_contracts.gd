@@ -87,7 +87,7 @@ func _test_shared_online_snapshot_application() -> void:
 		online.contains("_online_apply_turn_shell_snapshot(snapshot)") and
 		not online.contains("turn_projectiles.append((shell as Dictionary).duplicate(true))"),
 		"full and motion snapshot receivers use one turn-shell restoration implementation")
-	_check(progression.split("_online_finish_received_snapshot()").size() == 2 and
+	_check(progression.split("_online_finish_received_snapshot()").size() == 3 and
 		online.contains("_online_finish_received_snapshot()") and
 		not online.contains("power_slider.value = power_percent"),
 		"full and motion receivers publish local aim/UI and MatchState once")
