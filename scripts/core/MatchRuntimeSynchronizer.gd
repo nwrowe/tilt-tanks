@@ -51,6 +51,13 @@ func sync_health(health: Array[int]) -> bool:
 	controller.sync_health_values(health)
 	return state.game_over
 
+## Single-target damage (e.g. Laser) follows the same controller-owned
+## health transaction as radial explosions. Never alias the scene array.
+func apply_direct_damage(health: Array[int], target: int, amount: int) -> Array[int]:
+	controller.sync_health_values(health)
+	controller.apply_damage(target, amount)
+	return state.tank_health.duplicate()
+
 func apply_radial_damage(
 	health: Array[int], positions: Array[Vector2],
 	impact: Vector2, direct_radius: float, blast_radius: float,
