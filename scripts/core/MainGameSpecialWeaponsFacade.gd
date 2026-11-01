@@ -14,7 +14,7 @@ const NO_CAMERA_OWNER: int = -1
 const HOTSEAT_CAMERA_READY_MARGIN: float = 90.0
 const HOTSEAT_CAMERA_ALREADY_TARGET_EPS: float = 2.0
 const MACHINE_GUN_CAMERA_LEAD_BIAS: float = 0.72
-const MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED: float = 95.0
+const BOUNCER_MIN_UPWARD_SPEED: float = 95.0
 
 var weapon_burst: WeaponBurstSession = WeaponBurstSession.new()
 # Preserve the two cross-facade fields needed by online host authority.
@@ -133,7 +133,7 @@ func _on_fire_pressed() -> void:
 		return
 
 	super._on_fire_pressed()
-	if selected_weapon == SPECIAL_BOUNCER:
+	if _weapon_behavior(selected_weapon) == "bounce":
 		turn_bouncer_bounce_count = 0
 
 func _release_realtime_charged_shot() -> void:
@@ -164,7 +164,7 @@ func _release_realtime_charged_shot() -> void:
 		quickgame_player_shot_hide_trajectory = true
 
 func _update_projectile(delta: float) -> void:
-	if turn_projectile_weapon == SPECIAL_BOUNCER:
+	if _weapon_behavior(turn_projectile_weapon) == "bounce":
 		_update_bouncing_turn_projectile(delta)
 		return
 	super._update_projectile(delta)
@@ -243,7 +243,7 @@ func _update_all_realtime_projectiles(delta: float) -> void:
 		var vel: Vector2 = stepped.get("vel", Vector2.ZERO)
 		var split_done: bool = bool(stepped.get("split", false))
 
-		if weapon == SPECIAL_BOUNCER:
+		if _weapon_behavior(weapon) == "bounce":
 			var bounce_result: Dictionary = _step_bouncer_shell(stepped, owner)
 			if bool(bounce_result.get("explode", false)):
 				_explode_realtime_weapon(pos, weapon, owner)
@@ -351,35 +351,38 @@ func _update_bouncing_turn_projectile(delta: float) -> void:
 		return
 	var ground_y: float = _ground_y_at_x(projectile_pos.x)
 	if projectile_pos.y >= ground_y:
-		if WeaponBounceLogic.reached_limit(turn_bouncer_bounce_count, int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3))):
+		if WeaponBounceLogic.reached_limit(turn_bouncer_bounce_count, int(_weapon_value(turn_projectile_weapon, "max_bounces", 3))):
 			_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
 			return
 		projectile_pos.y = ground_y - PROJECTILE_RADIUS
-		projectile_vel = _reflect_bouncer_velocity(projectile_pos.x, projectile_vel)
+		projectile_vel = _reflect_bouncer_velocity(projectile_pos.x, projectile_vel, turn_projectile_weapon)
 		turn_bouncer_bounce_count += 1
 
 func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 	var pos: Vector2 = shell.get("pos", Vector2.ZERO)
 	var vel: Vector2 = shell.get("vel", Vector2.ZERO)
+	var weapon: String = str(shell.get("weapon", SPECIAL_BOUNCER))
 	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
 	if ProjectileManager.projectile_hits_tank(pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS) or _is_in_pond(pos) or ProjectileManager.is_out_of_world(pos, active_world_width, _bottom_floor_y()):
 		return {"explode": true, "shell": shell}
 	var ground_y: float = _ground_y_at_x(pos.x)
 	if pos.y >= ground_y:
 		var count: int = int(shell.get("bounces", 0))
-		if WeaponBounceLogic.reached_limit(count, int(_weapon_value(SPECIAL_BOUNCER, "max_bounces", 3))):
+		if WeaponBounceLogic.reached_limit(count, int(_weapon_value(weapon, "max_bounces", 3))):
 			return {"explode": true, "shell": shell}
 		WeaponBounceLogic.apply_ground_bounce(
-			shell, ground_y, PROJECTILE_RADIUS, _reflect_bouncer_velocity(pos.x, vel)
+			shell, ground_y, PROJECTILE_RADIUS, _reflect_bouncer_velocity(pos.x, vel, weapon)
 		)
 	return {"explode": false, "shell": shell}
 
-func _reflect_bouncer_velocity(x: float, incoming_vel: Vector2) -> Vector2:
+func _reflect_bouncer_velocity(
+	x: float, incoming_vel: Vector2, weapon: String = SPECIAL_BOUNCER
+) -> Vector2:
 	return WeaponBounceLogic.reflect_velocity(
 		incoming_vel, _terrain_slope_at_x(x),
-		float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_x", 0.78)),
-		float(_weapon_value(SPECIAL_BOUNCER, "bounce_damping_y", 0.66)),
-		MACHINE_GUN_CAMERA_MIN_UPWARD_SPEED
+		float(_weapon_value(weapon, "bounce_damping_x", 0.78)),
+		float(_weapon_value(weapon, "bounce_damping_y", 0.66)),
+		BOUNCER_MIN_UPWARD_SPEED
 	)
 
 func _begin_machine_gun_burst(owner: int, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
