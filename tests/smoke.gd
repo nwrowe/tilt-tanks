@@ -36,6 +36,7 @@ func _run() -> void:
 	_test_shared_tank_visual_geometry()
 	_test_shared_effect_render_geometry()
 	_test_mobile_weapon_runtime_layout()
+	_test_pause_menu_composition()
 	_test_weapon_menu_view_lifecycle()
 	_test_weapon_runtime_frame_priority()
 	_test_bouncer_weapon_policy()
@@ -462,6 +463,43 @@ func _test_mobile_weapon_runtime_layout() -> void:
 	right.free()
 	fire.free()
 	weapon.free()
+
+func _test_pause_menu_composition() -> void:
+	var layer: CanvasLayer = CanvasLayer.new()
+	root.add_child(layer)
+	var events: Array[String] = []
+	var panel: Panel = PauseMenu.make_active_panel(
+		layer,
+		func() -> void: events.append("rematch"),
+		func() -> void: events.append("main_menu")
+	)
+	_check(not panel.visible and panel.position == Vector2(640, 58) and
+		panel.size == Vector2(230, 145),
+		"active pause menu preserves hidden initial position and dimensions")
+	var buttons: Array[Button] = UIManager.find_buttons_by_text(
+		panel, ["Rematch", "Main Menu", "Quit"]
+	)
+	_check(buttons.size() == 2, "pause panel builds exactly the original two action buttons")
+	if buttons.size() == 2:
+		buttons[0].pressed.emit()
+		buttons[1].pressed.emit()
+		_check(events == ["rematch", "main_menu"],
+			"pause menu invokes the game-provided callbacks in order")
+	var quit_button: Button = PauseMenu.make_quit_button(panel)
+	PauseMenu.layout_active_panel(panel)
+	buttons = UIManager.find_buttons_by_text(panel, ["Rematch", "Main Menu", "Quit"])
+	_check(buttons.size() == 3, "quit action appends to existing pause panel without duplicates")
+	if buttons.size() == 3:
+		for index: int in range(3):
+			_check(buttons[index].position == Vector2(16, 46 + index * 46) and
+				buttons[index].size == Vector2(198, 36),
+				"pause menu keeps the existing three-line action geometry")
+	_check(panel.size == Vector2(230.0, 196.0),
+		"pause menu final panel bounds still include all three actions")
+	PauseMenu.layout_active_panel(null)
+	_check(quit_button.get_parent() == panel,
+		"pause menu layout does not recreate the quit action")
+	layer.free()
 
 func _test_weapon_runtime_frame_priority() -> void:
 	var regular: int = WeaponFramePolicy.Stage.NORMAL

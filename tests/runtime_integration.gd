@@ -1653,9 +1653,14 @@ func _test_weapon_menu_owner_migration_live() -> void:
 	]:
 		_check(main_source.contains("\nfunc " + name + "("),
 			"active MainGame exclusively owns weapon menu lifecycle " + name)
-	_check(main_source.contains("\nfunc _build_weapon_ui(") and
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	_check(main_source.contains("\nfunc _build_weapon_ui() -> void:\n\tpass") and
+		mode_source.contains("\nfunc _build_weapon_ui(") and
+		mode_source.contains("for weapon_id: String in active_weapon_loadout.weapon_ids") and
 		main_source.contains("\nfunc _toggle_weapon_menu("),
-		"MainGame now provides fallback builder and toggle while mode facade still overrides")
+		"MainGame retains the virtual hook while only the mode facade builds the loadout-driven selector")
 	game.call("_on_hotseat_pressed")
 	var panel: Panel = game.get("weapon_panel") as Panel
 	var left: Button = game.get("mobile_left_button") as Button
