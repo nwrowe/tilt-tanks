@@ -272,6 +272,81 @@ func _toggle_menu() -> void:
 	overlay_open = (menu_panel != null and menu_panel.visible) or (weapon_panel != null and weapon_panel.visible) or (end_panel != null and end_panel.visible)
 	_relayout_three_line_menu()
 
+func _resize_mobile_action_buttons() -> void:
+	MobileControls.layout_weapon_runtime_actions(
+		mobile_left_button, mobile_right_button, mobile_fire_button,
+		weapon_button, WeaponSelectMenu.BUTTON_POS, WeaponSelectMenu.BUTTON_SIZE
+	)
+
+func _build_weapon_ui() -> void:
+	weapon_button = WeaponSelectMenu.make_weapon_button(ui_layer)
+	weapon_button.pressed.connect(_toggle_weapon_menu)
+
+	weapon_panel = WeaponSelectMenu.make_panel(ui_layer)
+	WeaponSelectMenu.add_title(weapon_panel)
+
+	var standard_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_STANDARD), Vector2(42, 66))
+	standard_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_STANDARD
+		_close_weapon_menu()
+	)
+
+	var heavy_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_HEAVY), Vector2(42, 120))
+	heavy_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_HEAVY
+		_close_weapon_menu()
+	)
+
+	var cluster_button: Button = WeaponSelectMenu.make_option_button(weapon_panel, WeaponCatalog.display_name(WEAPON_CLUSTER), Vector2(42, 174))
+	cluster_button.pressed.connect(func() -> void:
+		selected_weapon = WEAPON_CLUSTER
+		_close_weapon_menu()
+	)
+
+	var close_button: Button = WeaponSelectMenu.make_back_button(weapon_panel, Vector2(86, 232))
+	close_button.pressed.connect(_close_weapon_menu)
+
+func _make_weapon_menu_button(text: String, pos: Vector2) -> Button:
+	return WeaponSelectMenu.make_option_button(weapon_panel, text, pos)
+
+func _open_weapon_menu() -> void:
+	weapon_menu_open = true
+	overlay_open = true
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	WeaponSelectMenu.show_panel(
+		weapon_panel, mobile_left_button, mobile_right_button, mobile_fire_button
+	)
+
+func _close_weapon_menu() -> void:
+	weapon_menu_open = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
+	overlay_open = (menu_panel != null and menu_panel.visible) or (end_panel != null and end_panel.visible)
+
+func _hide_overlays() -> void:
+	super._hide_overlays()
+	weapon_menu_open = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
+
+func _quit_game() -> void:
+	_return_to_main_menu()
+
+func _return_to_main_menu() -> void:
+	turn_projectiles.clear()
+	rt_projectiles.clear()
+	projectile_active = false
+	game_over = false
+	overlay_open = false
+	weapon_menu_open = false
+	destroyed_smoke_session.reset()
+	ai_visual_shot_plan.clear()
+	if menu_panel != null:
+		menu_panel.visible = false
+	if end_panel != null:
+		end_panel.visible = false
+	WeaponSelectMenu.hide_panel(weapon_panel)
+	_show_main_menu()
+
 func _toggle_weapon_menu() -> void:
 	if game_over:
 		return

@@ -66,6 +66,7 @@ func _run() -> void:
 	_test_menu_layer_retirement()
 	_test_weapon_startup_layout_live()
 	_test_composed_weapon_menu_view_live()
+	_test_weapon_menu_owner_migration_live()
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
 	_test_rendering_owner_migration_live()
@@ -1209,7 +1210,7 @@ func _test_pruned_weapon_collision_dispatch_live() -> void:
 	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
 	_check(not main_source.is_empty(), "MainGame source is available for local override guard")
 	for method_name: String in [
-		"_build_weapon_ui", "_split_turn_cluster_projectile",
+		"_split_turn_cluster_projectile",
 		"_update_turn_weapon_projectiles", "_fire_realtime_projectile",
 		"_spawn_realtime_cluster_children",
 		"_turn_shell_should_explode", "_realtime_projectile_should_explode"
@@ -1395,12 +1396,17 @@ func _test_shadowed_bridge_removal_live() -> void:
 		_check(not bridge_source.contains("\nfunc " + name + "("),
 			"weapon bridge no longer declares unreachable realtime fallback " + name)
 	for name: String in [
-		"_build_weapon_ui", "_toggle_weapon_menu",
 		"_split_turn_cluster_projectile", "_update_turn_weapon_projectiles",
 		"_apply_weapon_damage"
 	]:
 		_check(bridge_source.contains("\nfunc " + name + "("),
 			"weapon bridge preserves ancestor compiler method contract " + name)
+	for name: String in ["_build_weapon_ui", "_toggle_weapon_menu"]:
+		_check(not bridge_source.contains("\nfunc " + name + "(") and
+			FileAccess.get_file_as_string(
+				"res://scripts/core/MainGame.gd"
+			).contains("\nfunc " + name + "("),
+			"game-level menu method now satisfies compile-time contract " + name)
 	_check(mode_source.contains("\nfunc _update_all_realtime_projectiles(") and
 		special_source.contains("super._update_all_realtime_projectiles(delta)") and
 		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
@@ -1650,6 +1656,56 @@ func _test_rendering_owner_migration_live() -> void:
 		"merged camera fallback still centers on destroyed tank after game over")
 	game.set("game_over", false)
 	game.set("destroyed_tank_index", -1)
+	game.call("reset_match")
+
+func _test_weapon_menu_owner_migration_live() -> void:
+	var bridge_source: String = FileAccess.get_file_as_string(
+		"res://scripts/weapons/WeaponRuntimeBridge.gd"
+	)
+	var main_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	for name: String in [
+		"_build_weapon_ui", "_make_weapon_menu_button", "_toggle_weapon_menu",
+		"_resize_mobile_action_buttons", "_open_weapon_menu",
+		"_close_weapon_menu", "_hide_overlays", "_quit_game",
+		"_return_to_main_menu"
+	]:
+		_check(not bridge_source.contains("\nfunc " + name + "(") and
+			main_source.contains("\nfunc " + name + "("),
+			"active MainGame exclusively owns weapon menu lifecycle " + name)
+	_check(not bridge_source.contains("\nfunc _build_weapon_ui(") and
+		main_source.contains("\nfunc _build_weapon_ui(") and
+		main_source.contains("\nfunc _toggle_weapon_menu("),
+		"MainGame now provides fallback builder and toggle while mode facade still overrides")
+	game.call("_on_hotseat_pressed")
+	var panel: Panel = game.get("weapon_panel") as Panel
+	var left: Button = game.get("mobile_left_button") as Button
+	var right: Button = game.get("mobile_right_button") as Button
+	var fire: Button = game.get("mobile_fire_button") as Button
+	game.set("mobile_left_pressed", true)
+	game.set("mobile_right_pressed", true)
+	game.call("_open_weapon_menu")
+	_check(panel != null and panel.visible and
+		not bool(game.get("mobile_left_pressed")) and
+		not bool(game.get("mobile_right_pressed")),
+		"migrated menu open still stops both mobile movement inputs")
+	game.call("_close_weapon_menu")
+	_check(panel != null and not panel.visible and
+		not bool(game.get("weapon_menu_open")),
+		"migrated menu close still hides overlay and clears open flag")
+	game.call("_open_weapon_menu")
+	game.call("_hide_overlays")
+	_check(not panel.visible and not bool(game.get("weapon_menu_open")),
+		"migrated global overlay hook still clears selector view")
+	game.call("_resize_mobile_action_buttons")
+	_check(left.position == Vector2(16, 430) and
+		right.position == Vector2(122, 430) and
+		fire.position == Vector2(696, 448),
+		"migrated active mobile layout retains enlarged controls")
+	game.call("_quit_game")
+	_check(int(game.get("menu_state")) == 0 and
+		 not panel.visible, "migrated quit hook still returns to main menu")
 	game.call("reset_match")
 
 func _find_menu_button(text_to_find: String) -> Button:
