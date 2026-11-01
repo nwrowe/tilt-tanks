@@ -96,6 +96,7 @@ func _run() -> void:
 	_test_metadata_bouncer_profile_dispatch()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
+	_test_metadata_burst_profile_dispatch()
 	_test_shared_turn_advance_clearance_live()
 	_test_special_weapon_terrain_delegation_live()
 	_test_laser_controller_authority_live()
@@ -1734,6 +1735,87 @@ func _test_metadata_bouncer_profile_dispatch() -> void:
 		"realtime custom Bouncer uses same profile metadata through active shell dispatch")
 	game.call("_set_active_weapon_loadout", original_loadout)
 	session.definitions.erase(profile)
+	game.call("reset_match")
+
+func _test_metadata_burst_profile_dispatch() -> void:
+	# An additional profile must reuse WeaponBurstSession, firing a distinct
+	# child-round ID with independent count/jitter/camera/turn semantics.
+	var facade_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(facade_source.split('_weapon_behavior(selected_weapon) == "machine_gun"').size() == 3 and
+		facade_source.contains('_weapon_behavior(weapon) == "machine_gun"') and
+		facade_source.contains("_burst_round_weapon()"),
+		"burst dispatch uses behavior metadata and the session-owned child round")
+	game.call("_on_hotseat_pressed")
+	var definitions: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	var original_loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
+	var parent_id: String = "test_burst_profile"
+	var child_id: String = "test_burst_round"
+	definitions.definitions[child_id] = WeaponDefinition.new({
+		"id": child_id, "display_name": "Test Burst Round",
+		"player_selectable": false, "behavior": "standard",
+		"direct_damage": 3, "explosion_radius": 9.0
+	})
+	definitions.definitions[parent_id] = WeaponDefinition.new({
+		"id": parent_id, "display_name": "Test Burst Profile",
+		"player_selectable": true, "menu_order": 120,
+		"behavior": "machine_gun", "burst_count": 2,
+		"burst_interval": 0.07, "burst_angle_jitter": 0.0,
+		"burst_power_jitter": 0.0, "child_weapon_id": child_id
+	})
+	var ids: Array[String] = original_loadout.weapon_ids.duplicate()
+	ids.append(parent_id)
+	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, original_loadout.default_weapon_id))
+	game.call("_set_selected_weapon_for_current_player", parent_id)
+	_check(str(game.get("selected_weapon")) == parent_id,
+		"second burst profile is selected by the regular loadout")
+	game.set("hotseat_release_in_progress", true)
+	game.call("_on_fire_pressed")
+	game.set("hotseat_release_in_progress", false)
+	var burst: WeaponBurstSession = game.get("weapon_burst") as WeaponBurstSession
+	var shells: Array = game.get("turn_projectiles")
+	_check(burst.active and burst.weapon_id == parent_id and
+		burst.child_weapon_id == child_id and burst.remaining == 1 and
+		shells.size() == 1 and str((shells[0] as Dictionary).get("weapon", "")) == child_id,
+		"hotseat custom burst starts with correct profile, child and one instant round")
+	game.call("_update_machine_gun_burst", 0.08)
+	shells = game.get("turn_projectiles")
+	_check(not burst.active and burst.remaining == 0 and shells.size() == 2 and
+		str((shells[1] as Dictionary).get("weapon", "")) == child_id and
+		bool(game.get("machine_gun_turn_waiting_for_shells")),
+		"custom burst completes metadata-driven cadence but waits for live shells")
+	var focus: Vector2 = ProjectileManager.leading_shell_focus_for_weapon(
+		game.get("turn_projectiles"), child_id, false, 0.72
+	)
+	game.call("_update_machine_gun_camera_from_shells", game.get("turn_projectiles"), 0)
+	_check((game.get("machine_gun_camera_pos") as Vector2).is_equal_approx(focus) and
+		not bool(game.call("_is_burst_round", WeaponCatalog.HEAVY)),
+		"camera follows custom child rounds and excludes non-burst weapons")
+	_check(bool(game.call("_is_burst_round", child_id)) and
+		not bool(game.call("_is_burst_round", parent_id)),
+		"burst child identification is independent of the parent weapon ID")
+	game.call("reset_match")
+	_check(burst.weapon_id.is_empty() and burst.child_weapon_id.is_empty() and
+		(game.get("turn_projectiles") as Array).is_empty(),
+		"match reset removes prior burst profile identity and shells")
+	game.call("_on_quick_game_pressed")
+	game.call("_set_active_weapon_loadout", WeaponLoadout.new(ids, original_loadout.default_weapon_id))
+	game.call("_set_selected_weapon_for_current_player", parent_id)
+	game.set("rt_fire_charge_percent", 68.0)
+	game.call("_release_realtime_charged_shot")
+	_check(burst.active and burst.realtime and burst.child_weapon_id == child_id and
+		(game.get("rt_projectiles") as Array).size() == 1 and
+		str(((game.get("rt_projectiles") as Array)[0] as Dictionary).get("weapon", "")) == child_id,
+		"charged realtime fire launches custom burst child without a parent-ID branch")
+	game.call("_update_machine_gun_burst", 0.08)
+	_check(not burst.active and
+		(game.get("rt_projectiles") as Array).size() == 2 and
+		bool(game.call("_realtime_special_projectiles_active")),
+		"realtime custom burst remains in special processing after last round emits")
+	game.call("_set_active_weapon_loadout", original_loadout)
+	definitions.definitions.erase(parent_id)
+	definitions.definitions.erase(child_id)
 	game.call("reset_match")
 
 func _test_bouncer_weapon_policy_live() -> void:
