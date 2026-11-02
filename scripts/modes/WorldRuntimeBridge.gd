@@ -530,11 +530,23 @@ func _process_ai_turn(delta: float) -> void:
 		turn_ai_session.cancel()
 		_take_ai_shot()
 
-func _process_ai_turn_waiting_for_explosion(delta: float) -> void:
-	explosion_timer -= delta
+# Common visual-expiration policy. Each mode retains ownership of frame order.
+# Turn physics keeps its historical negative expiry value; visual-only modes
+# (AI wait, game over, online guest) clamp at zero.
+func _age_explosion_visual(delta: float, clamp_on_expiry: bool = false) -> bool:
 	if explosion_timer <= 0.0:
-		explosion_timer = 0.0
+		return false
+	if clamp_on_expiry:
+		explosion_timer = maxf(0.0, explosion_timer - delta)
+	else:
+		explosion_timer -= delta
+	if explosion_timer <= 0.0:
 		explosion_pos = Vector2.INF
+		return true
+	return false
+
+func _process_ai_turn_waiting_for_explosion(delta: float) -> void:
+	if _age_explosion_visual(delta, true):
 		turn_ai_session.cancel()
 	_update_camera(delta)
 	_update_ui()
@@ -654,10 +666,7 @@ func _process_realtime_single_player(delta: float) -> void:
 
 	_update_all_realtime_projectiles(delta)
 
-	if explosion_timer > 0.0:
-		explosion_timer -= delta
-		if explosion_timer <= 0.0:
-			explosion_pos = Vector2.INF
+	_age_explosion_visual(delta)
 
 	_update_camera(delta)
 	_update_ui()
@@ -794,10 +803,7 @@ func _process_legacy_gameplay_frame(delta: float) -> void:
 		if projectile_active:
 			_update_projectile(delta)
 	
-		if explosion_timer > 0.0:
-			explosion_timer -= delta
-			if explosion_timer <= 0.0:
-				explosion_pos = Vector2.INF
+		_age_explosion_visual(delta)
 	
 		_update_camera(delta)
 		_update_ui()
