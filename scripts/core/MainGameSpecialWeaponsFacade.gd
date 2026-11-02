@@ -317,21 +317,27 @@ func _is_burst_round(weapon: String) -> bool:
 	return weapon == SPECIAL_MACHINE_GUN_ROUND or weapon == weapon_burst.child_weapon_id
 
 func _update_bouncing_turn_projectile(delta: float) -> void:
-	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(projectile_pos, projectile_vel, gravity, wind, delta)
+	var stepped: Dictionary = ProjectileManager.step_legacy_projectile(
+		projectile_pos, projectile_vel, gravity, wind, delta
+	)
 	projectile_pos = stepped.get("pos", projectile_pos)
 	projectile_vel = stepped.get("vel", projectile_vel)
-	var enemy: int = 1 - current_player
-	if ProjectileManager.projectile_hits_tank(projectile_pos, tank_positions[enemy], TANK_RADIUS, PROJECTILE_RADIUS) or _is_in_pond(projectile_pos) or ProjectileManager.is_out_of_world(projectile_pos, active_world_width, _bottom_floor_y()):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
+	# The legacy turn projectile stores scalar position, velocity and
+	# bounce count. Adapt those into a transient shell to reuse the exact
+	# same contact policy as realtime (never duplicate persistent state).
+	var shell: Dictionary = {
+		"pos": projectile_pos, "vel": projectile_vel,
+		"weapon": turn_projectile_weapon, "bounces": turn_bouncer_bounce_count
+	}
+	var result: Dictionary = _step_bouncer_shell(shell, current_player)
+	if bool(result.get("explode", false)):
+		_explode_turn_weapon(
+			result.get("impact_pos", projectile_pos), turn_projectile_weapon, true
+		)
 		return
-	var ground_y: float = _ground_y_at_x(projectile_pos.x)
-	if projectile_pos.y >= ground_y:
-		if WeaponBounceLogic.reached_limit(turn_bouncer_bounce_count, int(_weapon_value(turn_projectile_weapon, "max_bounces", 3))):
-			_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
-			return
-		projectile_pos.y = ground_y - PROJECTILE_RADIUS
-		projectile_vel = _reflect_bouncer_velocity(projectile_pos.x, projectile_vel, turn_projectile_weapon)
-		turn_bouncer_bounce_count += 1
+	projectile_pos = shell.get("pos", projectile_pos)
+	projectile_vel = shell.get("vel", projectile_vel)
+	turn_bouncer_bounce_count = int(shell.get("bounces", turn_bouncer_bounce_count))
 
 func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 	var pos: Vector2 = shell.get("pos", Vector2.ZERO)
@@ -344,7 +350,13 @@ func _step_bouncer_shell(shell: Dictionary, owner: int) -> Dictionary:
 	if pos.y >= ground_y:
 		var count: int = int(shell.get("bounces", 0))
 		if WeaponBounceLogic.reached_limit(count, int(_weapon_value(weapon, "max_bounces", 3))):
-			return {"explode": true, "shell": shell}
+			# Legacy turn explosions snap a terminal ground contact to the
+			# ground surface. Realtime camera/explosion callers still use the
+			# unmodified stepped position, as before.
+			return {
+				"explode": true, "shell": shell,
+				"impact_pos": Vector2(pos.x, ground_y)
+			}
 		WeaponBounceLogic.apply_ground_bounce(
 			shell, ground_y, PROJECTILE_RADIUS, _reflect_bouncer_velocity(pos.x, vel, weapon)
 		)
