@@ -702,6 +702,16 @@ func _test_menu_layer_retirement() -> void:
 	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "gameplay setup retains charge defaults")
 
 func _test_water_manager_world_delegation() -> void:
+	# The active scene resolves these through the existing WorldRuntimeBridge,
+	# not duplicate MainGame adapters.
+	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
+	for name: String in [
+		"_pond_at_x", "_is_in_pond", "_tank_y_for_surface",
+		"_movement_speed_mult_at_x", "_water_volume_for_range",
+		"_solve_water_level_for_volume"
+	]:
+		_check(not main_source.contains("\nfunc " + name + "("),
+			"water callback is singly owned by WorldRuntimeBridge: " + name)
 	var saved_points: Array[Vector2] = game.get("terrain_points")
 	var saved_ponds: Array[Dictionary] = game.get("ponds")
 	var points: Array[Vector2] = [
@@ -2830,6 +2840,10 @@ func _test_scene_adapter_domain_grouping_live() -> void:
 	var source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
+	_check(not source.contains("\nfunc _update_realtime_fire_charge(")
+		and not source.contains("\nfunc _draw_turn_widget("),
+		"shadowed charging and turn-widget bodies live in the mode facade")
+
 	var firing: int = source.find("\nfunc _on_fire_pressed(")
 	var projectile: int = source.find("\nfunc _update_projectile(")
 	var realtime_charge: int = source.find("\nfunc _update_realtime_fire_charge(")
