@@ -59,6 +59,7 @@ func _run() -> void:
 	_test_level_session_configs()
 	_test_runtime_radial_damage()
 	_test_runtime_turn_completion()
+	_test_hotseat_turn_start_uses_match_controller()
 	_test_power_percent_layer_retirement()
 	_test_active_world_movement_policy()
 	_test_retired_tweaks_runtime_hooks()
@@ -484,6 +485,24 @@ func _test_runtime_radial_damage() -> void:
 		"game-over popup reports simultaneous defeat as a draw")
 	game.call("reset_match")
 	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "reset clears damage and draw")
+
+func _test_hotseat_turn_start_uses_match_controller() -> void:
+	game.call("_on_hotseat_pressed")
+	var controller: MatchController = game.get("match_controller") as MatchController
+	var state: MatchState = game.get("match_state") as MatchState
+	game.set("turn_timer", 3.25)
+	controller.set_turn_timer(3.25)
+	game.call("_start_pending_turn_locally")
+	_check(is_equal_approx(float(game.get("turn_timer")), 15.0) and
+		is_equal_approx(state.turn_timer, 15.0),
+		"hotseat START publishes turn timer through match controller")
+	var progression_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameProgressionFacade.gd"
+	)
+	_check(not progression_source.contains("match_state.turn_timer =") and
+		progression_source.contains("match_controller.set_turn_timer(turn_timer)"),
+		"progression no longer writes MatchState turn timer directly")
+	game.call("reset_match")
 
 func _test_runtime_turn_completion() -> void:
 	game.call("_on_hotseat_pressed")

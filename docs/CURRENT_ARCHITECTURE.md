@@ -111,6 +111,15 @@ network guest visual-only paths clamp to zero. Only the AI-wait frame cancels
 the waiting AI session. Never advance the same visual timer from both the
 guest/client path and the authoritative host simulation path.
 
+## Match turn-start authority (PR #142)
+
+The final direct scene write to `MatchState` was the hotseat START
+handoff setting its turn timer. The progression facade now calls
+`match_controller.set_turn_timer` and leaves the controller as sole
+writer of match state. `MainGame._sync_match_state_from_runtime` forwards
+the inherited typed runtime values directly rather than creating redundant
+local scalar aliases; the full frame contract is unchanged.
+
 ## Match player-frame copy elision (PR #141)
 
 `MatchRuntimeSynchronizer.sync_frame` still accepts full typed runtime

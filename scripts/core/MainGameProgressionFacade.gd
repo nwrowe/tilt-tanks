@@ -837,8 +837,7 @@ func _on_hotseat_start_turn_pressed() -> void:
 func _start_pending_turn_locally() -> void:
 	hotseat_turn_start_pending = false
 	turn_timer = TURN_TIME_LIMIT
-	if match_state != null:
-		match_state.turn_timer = turn_timer
+	match_controller.set_turn_timer(turn_timer)
 	_reset_hotseat_charge()
 	_clear_hotseat_handoff_input_state()
 	_update_hotseat_start_turn_button()

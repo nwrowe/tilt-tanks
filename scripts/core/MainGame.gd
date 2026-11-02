@@ -1159,12 +1159,9 @@ func _sync_game_over_state_from_match_controller() -> void:
 	# game_over and tank_health directly.
 
 func _sync_match_state_from_runtime() -> void:
-	var frame_percents: Array[float] = player_power_percents
-	var mode: int = game_mode
-	var world_width: float = active_world_width
 	game_over = match_runtime_sync.sync_frame(
 		current_player, tank_positions, player_angles, player_powers,
-		frame_percents, wind, turn_timer, mode, world_width,
+		player_power_percents, wind, turn_timer, game_mode, active_world_width,
 		projectile_active, projectile_pos, projectile_vel,
 		explosion_pos, explosion_timer, tank_health
 	)

@@ -65,6 +65,9 @@ func sync_runtime_player_frame(
 func set_wind(value: float) -> void:
 	state.wind = value
 
+func set_turn_timer(value: float) -> void:
+	state.turn_timer = value
+
 func sync_tank_builds(builds: Array[TankBuildState]) -> void:
 	for player: int in range(builds.size()):
 		state.set_tank_build_for_player(player, builds[player])
