@@ -111,6 +111,21 @@ network guest visual-only paths clamp to zero. Only the AI-wait frame cancels
 the waiting AI session. Never advance the same visual timer from both the
 guest/client path and the authoritative host simulation path.
 
+## Match player-frame copy elision (PR #141)
+
+`MatchRuntimeSynchronizer.sync_frame` still accepts full typed runtime
+state, so no new dirty flags or divergent guest/host publication schedules
+are introduced. `MatchController.sync_runtime_player_frame` compares each
+player array by value and duplicates only arrays whose elements changed.
+Unchanged player arrays preserve their existing snapshot storage, and all
+snapshots remain detached from the mutable scene arrays.
+
+Health and winner evaluation still occurs on every full frame: terminal
+transitions and externally applied health changes must remain authoritative.
+The projectile/explosion lifecycle and match frame publication points are
+unchanged. This is *change-aware copy elision*, not a full conversion to
+event-only match updates.
+
 ## Active online multiplayer
 
 Online Duel is implemented and guarded with packet/snapshot contract tests
