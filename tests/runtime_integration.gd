@@ -1241,7 +1241,7 @@ func _test_single_realtime_shell_launch_owner_live() -> void:
 		not fire_body.contains("ProjectileFactory.make_fired_shell(") and
 		not fire_body.contains("rt_projectiles.pop_front()") and
 		not fire_body.contains("_trigger_fire_fx(") and
-		not source.contains("func _spawn_weapon_shell("),
+		source.contains("func _spawn_weapon_shell("),
 		"one launch owner handles normal, custom and burst shells without redundant factory paths")
 
 	game.call("_on_quick_game_pressed")
