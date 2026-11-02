@@ -252,11 +252,13 @@ func _test_hotseat_weapons_turns_and_fire() -> void:
 	_check(str(game.get("selected_weapon")) == WeaponCatalog.STANDARD, "reset restores default weapon")
 
 func _test_cluster_split_runtime() -> void:
-	# Exercise the legacy runtime entry points after removing their inheritance layer.
-	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, -20.0))), "cluster waits for descent")
-	_check(bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, 20.0))), "cluster splits during descent")
-	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, true, Vector2(0.0, 20.0))), "cluster cannot split twice")
-	_check(not bool(game.call("_weapon_should_split_on_descent", WeaponCatalog.STANDARD, false, Vector2(0.0, 20.0))), "standard shell does not split")
+	# Split policy comes from the canonical session; only live spawning needs
+	# to remain a scene-facing compatibility callback.
+	var weapon_session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
+	_check(not weapon_session.should_split_on_descent(WeaponCatalog.CLUSTER, false, Vector2(0.0, -20.0)), "cluster waits for descent")
+	_check(weapon_session.should_split_on_descent(WeaponCatalog.CLUSTER, false, Vector2(0.0, 20.0)), "cluster splits during descent")
+	_check(not weapon_session.should_split_on_descent(WeaponCatalog.CLUSTER, true, Vector2(0.0, 20.0)), "cluster cannot split twice")
+	_check(not weapon_session.should_split_on_descent(WeaponCatalog.STANDARD, false, Vector2(0.0, 20.0)), "standard shell does not split")
 	var children: Array = game.call("_make_split_children", 0, WeaponCatalog.CLUSTER, Vector2(300.0, 200.0), Vector2(20.0, 10.0))
 	_check(children.size() == 3, "cluster definition spawns three child shells")
 	var no_children: Array = game.call("_make_split_children", 0, WeaponCatalog.STANDARD, Vector2(300.0, 200.0), Vector2(20.0, 10.0))
