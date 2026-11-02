@@ -28,9 +28,11 @@ func start_match(
 	state.reset_players(default_angle, default_power, default_power_percent, left_start, right_start)
 	state.reset_projectile_state()
 
-## Adopt the legacy runtime's player-facing frame in one place. Copies
-## mutable arrays so MatchState snapshots cannot alias the active game arrays.
-## Until physics/input have migrated, the game runtime remains the producer.
+## Adopt the runtime's player-facing frame in one place. Copy mutable
+## arrays only when their contents change; the stored snapshot never aliases
+## the source array. This keeps stable snapshots through unchanged frames
+## without asking every local/online mode to maintain a parallel dirty flag.
+## Runtime physics/input remain the producer until their ownership migrates.
 func sync_runtime_player_frame(
 	player: int,
 	positions: Array[Vector2],
@@ -43,10 +45,16 @@ func sync_runtime_player_frame(
 	world_width: float
 ) -> void:
 	state.current_player = player
-	state.tank_positions = positions.duplicate()
-	state.player_angles = angles.duplicate()
-	state.player_powers = powers.duplicate()
-	state.player_power_percents = power_percents.duplicate()
+	# Equality compares the values, not the source-array identity. New
+	# snapshots are detached, and unchanged frames keep their prior storage.
+	if state.tank_positions != positions:
+		state.tank_positions = positions.duplicate()
+	if state.player_angles != angles:
+		state.player_angles = angles.duplicate()
+	if state.player_powers != powers:
+		state.player_powers = powers.duplicate()
+	if state.player_power_percents != power_percents:
+		state.player_power_percents = power_percents.duplicate()
 	state.wind = frame_wind
 	state.turn_timer = frame_turn_timer
 	state.game_mode = mode
