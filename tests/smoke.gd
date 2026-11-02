@@ -30,6 +30,7 @@ func _run() -> void:
 	_test_menu_navigation_session()
 	_test_destroyed_smoke_session()
 	_test_turn_ai_visual_aim_session()
+	_test_shared_projectile_motion_step()
 	_test_shared_projectile_launch_geometry()
 	_test_shared_projectile_impact_policy()
 	_test_turn_projectile_session_reset()
@@ -366,6 +367,47 @@ func _test_turn_ai_visual_aim_session() -> void:
 	session.clear_plan()
 	_check(session.plan.is_empty() and is_equal_approx(session.target_angle, 70.0),
 		"firing clears the visual plan without resetting the last target")
+
+func _test_shared_projectile_motion_step() -> void:
+	# Every active shell representation must receive identical Euler
+	# updates; only the dictionary adapter may carry weapon metadata.
+	var initial_pos: Vector2 = Vector2(400.5, 120.25)
+	var initial_vel: Vector2 = Vector2(-84.0, 16.5)
+	var shell: Dictionary = ProjectileFactory.make_shell(
+		1, WeaponCatalog.HEAVY, initial_pos, initial_vel, true, true
+	)
+	shell["bounces"] = 2
+	shell["extra"] = {"tags": [1, 3]}
+	var original: Dictionary = shell.duplicate(true)
+	var stepped_shell: Dictionary = shell
+	var scalar_pos: Vector2 = initial_pos
+	var scalar_vel: Vector2 = initial_vel
+	for delta: float in [0.0, 0.016, 0.073, 0.2]:
+		var scalar_step: Dictionary = ProjectileManager.step_legacy_projectile(
+			scalar_pos, scalar_vel, 438.0, -19.0, delta
+		)
+		stepped_shell = ProjectileManager.step_shell(
+			stepped_shell, 438.0, -19.0, delta
+		)
+		scalar_pos = scalar_step["pos"]
+		scalar_vel = scalar_step["vel"]
+		_check(stepped_shell["pos"] == scalar_pos and
+			stepped_shell["vel"] == scalar_vel,
+			"legacy and shell motion remain identical over accumulated frame steps")
+	_check(shell == original and stepped_shell["owner"] == 1 and
+		stepped_shell["weapon"] == WeaponCatalog.HEAVY and
+		bool(stepped_shell["split"]) and bool(stepped_shell["center_child"]) and
+		int(stepped_shell["bounces"]) == 2,
+		"dictionary motion preserves immutable original shell and metadata")
+	(stepped_shell["extra"] as Dictionary)["tags"] = [99]
+	_check((shell["extra"] as Dictionary)["tags"] == [1, 3],
+		"shell step deep-copies nested metadata instead of sharing mutable fields")
+	var fallback_step: Dictionary = ProjectileManager.step_shell(
+		{}, 120.0, 0.0, 0.25
+	)
+	_check(fallback_step["pos"] == Vector2(0.0, 7.5) and
+		fallback_step["vel"] == Vector2(0.0, 30.0),
+		"empty shell retains zero-position and velocity defaults")
 
 func _test_shared_projectile_launch_geometry() -> void:
 	var tank_pos: Vector2 = Vector2(380.0, 290.0)

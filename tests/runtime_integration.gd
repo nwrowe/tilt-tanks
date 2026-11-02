@@ -92,6 +92,7 @@ func _run() -> void:
 	_test_turn_ai_world_ownership_live()
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
+	_test_shared_projectile_motion_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
 	_test_shared_turn_realtime_bouncer_contact_live()
@@ -1205,6 +1206,27 @@ func _test_canonical_pond_reflow_live() -> void:
 		"terrain reflow loop delegates through the one canonical pond implementation")
 	game.set("terrain_points", previous_points)
 	game.set("ponds", previous_ponds)
+	game.call("reset_match")
+
+func _test_shared_projectile_motion_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var safe_pos: Vector2 = Vector2(540.0, 100.0)
+	var initial_vel: Vector2 = Vector2(90.0, -60.0)
+	var gravity: float = float(game.get("gravity"))
+	var wind: float = float(game.get("wind"))
+	var delta: float = 0.025
+	var expected: Dictionary = ProjectileManager.step_legacy_projectile(
+		safe_pos, initial_vel, gravity, wind, delta
+	)
+	game.set("projectile_active", true)
+	game.set("projectile_pos", safe_pos)
+	game.set("projectile_vel", initial_vel)
+	game.set("turn_projectile_weapon", WeaponCatalog.STANDARD)
+	game.call("_update_projectile", delta)
+	_check(game.get("projectile_pos") == expected["pos"] and
+		game.get("projectile_vel") == expected["vel"] and
+		bool(game.get("projectile_active")),
+		"active turn scene uses the canonical numerical motion step")
 	game.call("reset_match")
 
 func _test_shared_projectile_launch_geometry_live() -> void:

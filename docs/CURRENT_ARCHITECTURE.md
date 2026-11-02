@@ -524,3 +524,16 @@ single scene adapter. Cluster splitting still runs before contact;
 Bouncer still uses its separate ground-rebound rule. Standalone
 and live-scene tests check collision order, lazy geometry, ground
 position, active turn explosion and parity across both modes.
+
+## One scalar/dictionary projectile motion integrator (PR #126)
+
+`ProjectileManager.step_legacy_projectile` now owns the sole
+Euler gravity/wind/position calculation. `step_shell` continues
+to deep-copy an input shell (including nested metadata), then
+applies that scalar calculation to its position and velocity.
+Hotseat, realtime and special Bouncer movement therefore share the
+same numerical integration, while retaining their existing
+dictionary/scalar state representations and collision/event
+ordering. Smoke tests check multi-frame equivalence, ownership,
+nested data isolation and default shell fields; live-scene tests
+protect turn-step execution.

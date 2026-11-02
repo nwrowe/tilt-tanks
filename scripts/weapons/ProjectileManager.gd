@@ -2,14 +2,16 @@ extends RefCounted
 class_name ProjectileManager
 
 static func step_shell(shell: Dictionary, gravity: float, wind: float, delta: float) -> Dictionary:
+	# Preserve shell metadata and the existing deep-copy/no-alias contract.
+	# The scalar integrator below owns the numerical motion calculation.
 	var updated: Dictionary = shell.duplicate(true)
-	var pos: Vector2 = updated.get("pos", Vector2.ZERO)
-	var vel: Vector2 = updated.get("vel", Vector2.ZERO)
-	vel.y += gravity * delta
-	vel.x += wind * delta
-	pos += vel * delta
-	updated["pos"] = pos
-	updated["vel"] = vel
+	var motion: Dictionary = step_legacy_projectile(
+		updated.get("pos", Vector2.ZERO),
+		updated.get("vel", Vector2.ZERO),
+		gravity, wind, delta
+	)
+	updated["pos"] = motion["pos"]
+	updated["vel"] = motion["vel"]
 	return updated
 
 static func step_legacy_projectile(pos: Vector2, vel: Vector2, gravity: float, wind: float, delta: float) -> Dictionary:
