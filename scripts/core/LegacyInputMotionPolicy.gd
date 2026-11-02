@@ -13,11 +13,14 @@ static func tilt_aim(gravity_x: float, player: int, full_scale: float, min_angle
 	var normalized_roll: float = (aiming_roll / full_scale + 1.0) * 0.5
 	return clampf(lerpf(min_angle, max_angle, normalized_roll), min_angle, max_angle)
 
-static func next_tank_x(current_x: float, direction: float, speed: float, delta: float, world_width: float) -> float:
-	return clampf(current_x + direction * speed * delta, 45.0, world_width - 45.0)
+static func next_tank_x(
+	current_x: float, direction: float, speed: float, delta: float,
+	world_width: float, edge_margin: float = 45.0
+) -> float:
+	return clampf(current_x + direction * speed * delta, edge_margin, world_width - edge_margin)
 
-static func can_move_without_overlap(new_x: float, other_x: float) -> bool:
-	return absf(new_x - other_x) >= 90.0
+static func can_move_without_overlap(new_x: float, other_x: float, minimum_distance: float = 90.0) -> bool:
+	return absf(new_x - other_x) >= minimum_distance
 
 static func camera_x(
 	tank_x: float, projectile_active: bool, projectile_x: float,
