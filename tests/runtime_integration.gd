@@ -2800,7 +2800,7 @@ func _test_six_layer_weapon_domain_ownership_live() -> void:
 	while scene_script != null:
 		layers += 1
 		scene_script = scene_script.get_base_script()
-	_check(layers == 7, "active scene has exactly seven GDScript inheritance layers")
+	_check(layers == 6, "active scene has exactly six GDScript inheritance layers")
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	var shells: TurnProjectileSession = game.get("turn_projectile_session") as TurnProjectileSession
 	var smoke: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
