@@ -2285,7 +2285,10 @@ func _test_shared_shell_impact_policy_live() -> void:
 		source.contains("func _realtime_projectile_should_explode("),
 		"both compile-time collision hooks remain in MainGame")
 	var count: int = source.split("ProjectileManager.should_shell_explode(").size() - 1
-	_check(count == 2, "both active projectile paths use canonical impact policy")
+	_check(count == 1 and
+		source.contains("func _shell_should_explode(") and
+		source.split("return _shell_should_explode(owner, pos)").size() == 3,
+		"turn and realtime collision hooks share one scene adapter and impact policy")
 	game.call("_on_hotseat_pressed")
 	var old_ponds: Array[Dictionary] = game.get("ponds")
 	var empty_ponds: Array[Dictionary] = []
