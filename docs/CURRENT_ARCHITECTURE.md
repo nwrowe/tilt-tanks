@@ -509,3 +509,18 @@ explosions; realtime shells retain their pre-existing raw-stepped
 explosion position and dictionary mutation semantics. Live tests
 compare the modes at first/terminal contacts, enemy ownership and
 metadata behavior.
+
+## Legacy turn projectile shares canonical impact resolution (PR #125)
+
+`ProjectileManager.impact_position` now owns the same lazy contact
+sequence for the legacy single turn projectile, spawned turn-shell
+collections and realtime shells: opponent tank, pond, terrain, then
+out-of-world bounds. It returns `Vector2.INF` for no impact. Only
+the legacy turn call requests a ground-snapped impact position;
+ordinary shell impact retains its raw stepped coordinate. The
+existing `should_shell_explode` boolean API delegates to the
+same numerical policy, and `MainGame` invokes it through its
+single scene adapter. Cluster splitting still runs before contact;
+Bouncer still uses its separate ground-rebound rule. Standalone
+and live-scene tests check collision order, lazy geometry, ground
+position, active turn explosion and parity across both modes.
