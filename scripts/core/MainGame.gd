@@ -801,19 +801,11 @@ func _update_projectile(delta: float) -> void:
 	if turn_projectile_weapon == WEAPON_CLUSTER and not turn_projectile_split_done and projectile_vel.y >= 0.0:
 		_split_turn_cluster_projectile(projectile_pos, projectile_vel)
 		return
-	var enemy: int = 1 - current_player
-	if ProjectileManager.projectile_hits_tank(projectile_pos, tank_positions[enemy], TANK_RADIUS, PROJECTILE_RADIUS):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
-		return
-	if _is_in_pond(projectile_pos):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
-		return
-	var ground_y: float = _ground_y_at_x(projectile_pos.x)
-	if projectile_pos.y >= ground_y:
-		_explode_turn_weapon(Vector2(projectile_pos.x, ground_y), turn_projectile_weapon, true)
-		return
-	if ProjectileManager.is_out_of_world(projectile_pos, active_world_width, _bottom_floor_y()):
-		_explode_turn_weapon(projectile_pos, turn_projectile_weapon, true)
+	# Split still takes priority. Only the legacy turn path snaps
+	# a ground impact to the terrain surface.
+	var impact: Vector2 = _shell_impact_position(current_player, projectile_pos, true)
+	if impact != Vector2.INF:
+		_explode_turn_weapon(impact, turn_projectile_weapon, true)
 
 func _split_turn_cluster_projectile(pos: Vector2, vel: Vector2) -> void:
 	projectile_active = false
@@ -848,11 +840,16 @@ func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
 ## Both game modes target the opposing tank and use identical shell
 ## contact order. Retain the legacy hook names for existing call sites.
 func _shell_should_explode(owner: int, pos: Vector2) -> bool:
+	return _shell_impact_position(owner, pos) != Vector2.INF
+
+func _shell_impact_position(
+	owner: int, pos: Vector2, snap_ground: bool = false
+) -> Vector2:
 	var target: int = 1 - owner
-	return ProjectileManager.should_shell_explode(
+	return ProjectileManager.impact_position(
 		pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS,
 		Callable(self, "_is_in_pond"), Callable(self, "_ground_y_at_x"),
-		active_world_width, Callable(self, "_bottom_floor_y")
+		active_world_width, Callable(self, "_bottom_floor_y"), snap_ground
 	)
 
 func _update_realtime_fire_charge(delta: float) -> void:
