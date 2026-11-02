@@ -93,6 +93,7 @@ func _run() -> void:
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
+	_test_shared_turn_realtime_bouncer_contact_live()
 	_test_metadata_bouncer_profile_dispatch()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
@@ -1992,6 +1993,74 @@ func _test_single_weapon_metadata_owner() -> void:
 		WeaponRegistry.WEAPON_BOUNCER, "bounce_damping_x", 0.78)), 0.31),
 		"canonical metadata session also owns special weapon extension values")
 	bouncer.extra_fields["bounce_damping_x"] = original_damping
+
+func _test_shared_turn_realtime_bouncer_contact_live() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	var start: int = source.find("func _update_bouncing_turn_projectile(")
+	var finish: int = source.find("\nfunc ", start + 4)
+	var turn_update: String = source.substr(start, finish - start)
+	_check(turn_update.contains("_step_bouncer_shell(shell, current_player)") and
+		not turn_update.contains("WeaponBounceLogic.reached_limit(") and
+		not turn_update.contains("_is_in_pond(projectile_pos)"),
+		"turn Bouncer delegates contact and bounce limit to shared shell routine")
+
+	game.call("_on_hotseat_pressed")
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var x: float = 720.0
+	var y: float = float(game.call("_ground_y_at_x", x))
+	var launch: Vector2 = Vector2(x, y + 2.0)
+	var velocity: Vector2 = Vector2(110.0, 140.0)
+	var weapon: String = WeaponRegistry.WEAPON_BOUNCER
+	var reference: Dictionary = ProjectileFactory.make_shell(0, weapon, launch, velocity)
+	var result: Dictionary = game.call("_step_bouncer_shell", reference, 0)
+	_check(not bool(result.get("explode", true)) and
+		int(reference.get("bounces", 0)) == 1,
+		"realtime Bouncer permits the first ground reflection")
+	game.set("projectile_active", true)
+	game.set("turn_projectile_weapon", weapon)
+	game.set("projectile_pos", launch)
+	game.set("projectile_vel", velocity)
+	game.set("turn_bouncer_bounce_count", 0)
+	game.call("_update_projectile", 0.0)
+	_check(bool(game.get("projectile_active")) and
+		(game.get("projectile_pos") as Vector2).is_equal_approx(
+			reference.get("pos", Vector2.INF)) and
+		(game.get("projectile_vel") as Vector2).is_equal_approx(
+			reference.get("vel", Vector2.INF)) and
+		int(game.get("turn_bouncer_bounce_count")) == int(reference["bounces"]),
+		"turn and realtime Bouncer share exact ground contact, damping and counter")
+
+	reference["pos"] = launch
+	reference["vel"] = velocity
+	reference["bounces"] = 3
+	var terminal: Dictionary = game.call("_step_bouncer_shell", reference, 0)
+	_check(bool(terminal.get("explode", false)) and
+		terminal.get("impact_pos", Vector2.INF) == Vector2(x, y) and
+		reference["pos"] == launch,
+		"shared terminal ground contact retains realtime shell and returns snapped turn impact")
+	game.set("projectile_pos", launch)
+	game.set("projectile_vel", velocity)
+	game.set("turn_bouncer_bounce_count", 3)
+	game.call("_update_projectile", 0.0)
+	_check(not bool(game.get("projectile_active")) and
+		(game.get("explosion_pos") as Vector2).is_equal_approx(Vector2(x, y)),
+		"turn terminal Bouncer uses ground-snapped impact without a second collision algorithm")
+
+	game.call("reset_match")
+	game.call("_on_hotseat_pressed")
+	game.set("ponds", dry_ponds)
+	var positions: Array[Vector2] = game.get("tank_positions")
+	for owner: int in [0, 1]:
+		var hit: Vector2 = positions[1 - owner]
+		var shell: Dictionary = ProjectileFactory.make_shell(owner, weapon, hit, velocity)
+		var collision: Dictionary = game.call("_step_bouncer_shell", shell, owner)
+		_check(bool(collision.get("explode", false)) and
+			collision.get("impact_pos", hit) == hit,
+			"both Bouncer owners detect opponent tank before terrain: " + str(owner))
+	game.call("reset_match")
 
 func _test_pruned_weapon_collision_dispatch_live() -> void:
 	# Both turn and realtime shell checks are now scene adapters on MainGame.
