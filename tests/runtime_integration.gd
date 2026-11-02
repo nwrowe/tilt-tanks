@@ -2846,10 +2846,13 @@ func _test_scene_adapter_domain_grouping_live() -> void:
 
 	var firing: int = source.find("\nfunc _on_fire_pressed(")
 	var projectile: int = source.find("\nfunc _update_projectile(")
-	var realtime_charge: int = source.find("\nfunc _update_realtime_fire_charge(")
+	var mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
 	_check(firing >= 0 and firing < projectile and
-		projectile < realtime_charge,
-		"projectile adapters remain adjacent to fire and charge handling")
+		mode_source.contains("\nfunc _update_realtime_fire_charge(") and
+		mode_source.contains("\nfunc _update_hotseat_charge("),
+		"fire and projectile adapters stay ordered while mode facade owns charging")
 	var realtime_explosion: int = source.find("\nfunc _explode_realtime(")
 	var turn_explosion: int = source.find("\nfunc _explode_turn_weapon(")
 	_check(realtime_explosion >= 0 and realtime_explosion < turn_explosion,
