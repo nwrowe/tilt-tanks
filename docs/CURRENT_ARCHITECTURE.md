@@ -59,6 +59,14 @@ compatibility methods. Pure calculations and independently testable session
 state should continue moving to composed services. Retiring an ancestor
 should not add a replacement inheritance layer.
 
+After the November 1 central-runtime audit, legacy WorldRuntimeBridge bodies
+fully overridden by MainGame (turn transition, trajectory preview, steam,
+realtime shell draw, snow cap drawing, human-control layout and snow motion)
+are retained only as compiler-visible hooks. Unused world snow helper functions
+were removed. Shared world water drawing and water physics remain implemented
+in WorldRuntimeBridge, and level snow-line variation is selected through one
+MainGameModeFacade policy hook. There is no parallel fallback physics path.
+
 ## Active online multiplayer
 
 Online Duel is implemented and guarded with packet/snapshot contract tests

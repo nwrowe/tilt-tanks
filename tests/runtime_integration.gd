@@ -71,6 +71,7 @@ func _run() -> void:
 	_test_weapon_menu_owner_migration_live()
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
+	_test_world_shadowed_hooks_are_contracts()
 	_test_six_layer_weapon_domain_ownership_live()
 	_test_scene_adapter_domain_grouping_live()
 	_test_rendering_owner_migration_live()
@@ -2813,6 +2814,22 @@ func _test_destroyed_smoke_game_ownership_live() -> void:
 	game.call("reset_match")
 	_check(smoke.tank_index == -1 and smoke.puffs.is_empty(),
 		"world and scene resets continue clearing effect state")
+
+func _test_world_shadowed_hooks_are_contracts() -> void:
+	var world_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
+	)
+	for name: String in [
+		"_draw_realtime_projectiles", "_draw_steam_puffs", "_draw_snow_caps",
+		"_draw_trajectory_preview", "_advance_turn", "_resize_mobile_action_buttons"
+	]:
+		var start: int = world_source.find("\nfunc " + name + "(")
+		var finish: int = world_source.find("\nfunc ", start + 2)
+		var method_body: String = world_source.substr(start, finish - start)
+		_check(start >= 0 and method_body.contains("\tpass"),
+			"shadowed world fallback is an explicit virtual contract: " + name)
+	_check(not world_source.contains("\nfunc _draw_snow_segment("),
+		"retired shadowed snow painter has no dormant world implementation")
 
 func _test_six_layer_weapon_domain_ownership_live() -> void:
 	var main_source: String = FileAccess.get_file_as_string(
