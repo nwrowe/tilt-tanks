@@ -493,13 +493,6 @@ func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 func _refresh_terrain_line() -> void:
 	TerrainManager.refresh_terrain_line(terrain, terrain_points)
 
-func _settle_tanks_on_terrain() -> void:
-	for player: int in range(tank_positions.size()):
-		tank_positions[player].y = _tank_y_for_surface(player, tank_positions[player].x)
-
-func _ground_y_at_x(x: float) -> float:
-	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
-
 func _bottom_floor_y() -> float:
 	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
 
@@ -957,7 +950,13 @@ func _process_game_over_visuals(delta: float) -> void:
 
 func _show_end_popup() -> void:
 	_start_destroyed_tank_smoke()
-	super._show_end_popup()
+	if end_popup_shown:
+		return
+	var winner: int = 1 if tank_health[0] <= 0 else 0
+	end_label.text = "Player %d wins!\nP1 HP: %d    P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
+	end_panel.visible = true
+	overlay_open = true
+	end_popup_shown = true
 
 func _start_destroyed_tank_smoke() -> void:
 	if not destroyed_smoke_session.start(tank_health):
@@ -1170,7 +1169,17 @@ func _end_turn_without_shot() -> void:
 	_apply_post_turn_match_state()
 
 func _explode(pos: Vector2) -> void:
-	super._explode(pos)
+	projectile_active = false
+	explosion_pos = pos
+	explosion_timer = EXPLOSION_DURATION
+	_apply_crater(pos)
+	_apply_explosion_damage(pos)
+	_settle_tanks_on_terrain()
+	if tank_health[0] <= 0 or tank_health[1] <= 0:
+		game_over = true
+		_show_end_popup()
+	else:
+		_advance_turn()
 	_sync_match_state_from_runtime()
 
 func _apply_explosion_damage(pos: Vector2) -> void:

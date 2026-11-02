@@ -3,7 +3,7 @@
 The active Godot 4.6.3 scene is `res://scenes/Main.tscn`. It attaches
 `res://scripts/core/MainGameOnlineHostWaitingFacade.gd`.
 
-## Active inheritance: seven scripts
+## Active inheritance: six scripts
 
 ```text
 MainGameOnlineHostWaitingFacade.gd
@@ -11,9 +11,15 @@ MainGameOnlineHostWaitingFacade.gd
   -> MainGameSpecialWeaponsFacade.gd
   -> MainGameModeFacade.gd
   -> MainGame.gd
-  -> WorldRuntimeBridge.gd
-  -> Main.gd (Node2D)
+  -> WorldRuntimeBridge.gd (Node2D)
 ```
+
+The former `scripts/Main.gd` prototype ancestor is no longer inherited.
+Its shared Node2D bindings, state and two live camera helpers now reside in
+`WorldRuntimeBridge`. Terrain lookup and settling are also singly owned there,
+with explicit virtual hooks for operations actively implemented by descendants.
+The existing match/UI callbacks retain their behavior in `MainGame`. The ~600-line prototype is retired without
+copying its shadowed movement, terrain, firing and rendering algorithms.
 
 `WeaponRuntimeBridge.gd` was retired in PR #94. The last scene-facing
 weapon compatibility hooks were absorbed by `MainGame`, while actual
@@ -23,7 +29,7 @@ This removes one real inheritance layer **without adding a service
 or an additional horizontal wrapper**.
 
 Do not add new facade/inheritance layers. The CI depth guard now enforces
-**max-depth 7** against the actual scene script. The older
+**max-depth 6** against the actual scene script. The older
 `ModeRuntimeBridge.gd` was retired earlier; see
 `docs/RETIRED_MODE_RUNTIME_BRIDGE.md`. Older diagrams and PR
 descriptions are historical rather than the current inheritance graph.
@@ -63,7 +69,7 @@ Online as merely a placeholder are no longer accurate.
 
 The `.github/workflows/godot-smoke.yml` pipeline runs:
 
-1. Inheritance depth budget (seven scripts)
+1. Inheritance depth budget (six scripts)
 2. Godot 4.6.3 import and script-class registration
 3. Standalone contracts and smoke tests
 4. Active-scene gameplay and menu integration
@@ -101,7 +107,7 @@ to lower a file's line count. When refactoring `WorldRuntimeBridge.gd`
 or `MainGame.gd`, first consolidate closely related methods within the
 *existing* domain services. Preserve the online serialization and RNG order.
 In particular, `MainGame` is still a large scene-facing orchestration script;
-**the seven-layer collapse does not complete the remaining modularization**.
+**the six-layer collapse does not complete the remaining modularization**.
 
 ## Mode identity compatibility
 
@@ -136,7 +142,7 @@ reduced to a virtual compile-time hook needed by inherited `_ready`:
 the active, loadout-driven selector remains
 `MainGameModeFacade._build_weapon_ui` backed by `WeaponSelectMenu`
 and `WeaponDefinitionSession`. These changes do not create another
-class, alter the seven-layer chain or change weapon availability.
+class, alter the six-layer chain or change weapon availability.
 
 ## Fire-button presentation ownership (PR #97)
 
@@ -190,7 +196,7 @@ hotseat idle/charging and realtime shell-in-flight/charging states.
 
 ## Composed match-reset state ownership (PR #102)
 
-The seven-layer `reset_match` order is unchanged. `MainGame` now uses
+The six-layer `reset_match` order is unchanged. `MainGame` now uses
 its existing `_reset_hotseat_charge` hook and no longer clears the
 world-owned turn-AI visual plan before its parent does so again:
 `TurnAITurnSession.reset()` remains the sole owner of the turn timer

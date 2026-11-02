@@ -3,7 +3,7 @@
 `scenes/Main.tscn` attaches
 `res://scripts/core/MainGameOnlineHostWaitingFacade.gd`.
 
-The active inheritance chain is **seven scripts**:
+The active inheritance chain is **six scripts**:
 
 ```text
 scripts/core/MainGameOnlineHostWaitingFacade.gd
@@ -11,13 +11,13 @@ scripts/core/MainGameOnlineHostWaitingFacade.gd
  -> scripts/core/MainGameSpecialWeaponsFacade.gd
  -> scripts/core/MainGameModeFacade.gd
  -> scripts/core/MainGame.gd
- -> scripts/modes/WorldRuntimeBridge.gd
- -> scripts/Main.gd (Node2D)
+ -> scripts/modes/WorldRuntimeBridge.gd (Node2D)
 ```
 
-`WeaponRuntimeBridge.gd`, the old `ModeRuntimeBridge.gd` and
+`scripts/Main.gd` (the shadowed original prototype), `WeaponRuntimeBridge.gd`,
+the old `ModeRuntimeBridge.gd` and
 `MainHybridModesXX.gd` are no longer part of the active chain.
-The depth guard in CI is now **seven**. Refer to
+The depth guard in CI is now **six**. Refer to
 [`CURRENT_ARCHITECTURE.md`](CURRENT_ARCHITECTURE.md) for the full
 ownership map and test requirements.
 
