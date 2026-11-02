@@ -38,6 +38,7 @@ func _run() -> void:
 	await process_frame
 	_test_campaign_map_drag()
 	_test_campaign_level_launch()
+	_test_legacy_quick_ai_firing_is_not_hotseat_gated()
 	_test_hotseat_weapons_turns_and_fire()
 	_test_cluster_split_runtime()
 	_test_player_weapon_selection_component()
@@ -196,6 +197,58 @@ func _test_campaign_level_launch() -> void:
 		_check(int(game.get("menu_state")) == GAME_MENU_STATE, "Level 1 launches an actual match")
 		_check(bool(game.get("single_player_mode")), "campaign starts in single-player mode")
 		_check((game.get("level_session") as LevelSession).definition != null, "launched match has a level definition")
+		_check(int(game.get("game_mode")) == 2, "campaign uses realtime single-player physics, not turn-based quick mode")
+		_check(bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_CAMPAIGN)),
+			"campaign retains its own controller identity through match reset")
+		_check(not bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER)),
+			"campaign retains distinct mode identity despite shared realtime runtime")
+		_check(not bool(game.call("_is_hotseat_game_active")) and
+			not bool(game.call("_is_ai_turn_active")),
+			"campaign has neither hotseat charge gating nor turn-based AI")
+		# The same realtime aim/charge pathway used by ordinary Quick Game
+		# must work in Campaign while its mode controller remains Campaign.
+		game.set("rt_fire_button_held", true)
+		game.call("_update_realtime_fire_charge", 0.4)
+		_check(float(game.get("rt_fire_charge_percent")) > 0.0,
+			"campaign player can charge a realtime shot")
+		game.set("rt_fire_button_held", false)
+		var realtime_aim: RealtimeAIAimingSession = game.get("realtime_ai_aim") as RealtimeAIAimingSession
+		var angles: Array[float] = game.get("player_angles")
+		realtime_aim.has_plan = true
+		realtime_aim.target_angle = angles[1]
+		realtime_aim.target_power_percent = 55.0
+		game.set("rt_ai_fire_cooldown", 0.0)
+		game.set("rt_ai_move_cooldown", 99.0)
+		game.call("_update_realtime_ai", 0.01)
+		var fired_shells: Array[Dictionary] = game.get("rt_projectiles")
+		var ai_fired: bool = false
+		for shell: Dictionary in fired_shells:
+			if int(shell.get("owner", -1)) == 1:
+				ai_fired = true
+		_check(ai_fired and float(game.get("rt_ai_fire_cooldown")) > 0.0,
+			"campaign realtime AI fires a projectile when aimed and ready")
+		game.call("_on_quick_game_pressed")
+		_check(bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER)) and
+			not bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_CAMPAIGN)),
+			"ordinary Quick Game exits Campaign identity even with the same realtime engine")
+		game.call("_on_hotseat_pressed")
+		_check(bool(game.call("_is_active_mode", ModeControllerRegistry.MODE_HOTSEAT)),
+			"hotseat mode selection remains distinct after campaign")
+
+func _test_legacy_quick_ai_firing_is_not_hotseat_gated() -> void:
+	game.call("_on_quick_game_pressed")
+	# Older turn-based single-player scenarios may still be loaded or tested;
+	# those AI shots must not require a human charge-release transition.
+	game.set("game_mode", 1)
+	game.set("current_player", 1)
+	game.set("hotseat_release_in_progress", false)
+	_check(not bool(game.call("_is_hotseat_game_active")),
+		"legacy single-player turn AI is not classified as human hotseat")
+	game.call("_on_fire_pressed")
+	_check(bool(game.get("projectile_active")) or
+		not (game.get("turn_projectiles") as Array).is_empty(),
+		"legacy AI turn fire callback is not suppressed by hotseat charging")
+	game.call("_on_hotseat_pressed")
 
 func _test_hotseat_weapons_turns_and_fire() -> void:
 	game.call("_on_hotseat_pressed")
