@@ -1358,26 +1358,14 @@ func _weapon_projectile_scale(weapon: String) -> float:
 	return float(_weapon_value(weapon, "projectile_scale", 1.0))
 
 
-func _weapon_definition(weapon: String) -> WeaponDefinition:
-	return weapon_definition_session.definition(weapon)
-
 func _weapon_display_name(weapon: String) -> String:
 	return weapon_definition_session.display_name(weapon)
-
-func _weapon_split_behavior(weapon: String) -> String:
-	return weapon_definition_session.split_behavior(weapon)
-
-func _weapon_child_id(weapon: String) -> String:
-	return weapon_definition_session.child_id(weapon)
 
 func _weapon_child_count(weapon: String) -> int:
 	return weapon_definition_session.child_count(weapon)
 
 func _weapon_has_split_behavior(weapon: String) -> bool:
 	return weapon_definition_session.has_split_behavior(weapon)
-
-func _weapon_should_split_on_descent(weapon: String, split_done: bool, vel: Vector2) -> bool:
-	return weapon_definition_session.should_split_on_descent(weapon, split_done, vel)
 
 func _make_split_children(owner: int, weapon: String, pos: Vector2, vel: Vector2) -> Array[Dictionary]:
 	return weapon_definition_session.make_split_children(
