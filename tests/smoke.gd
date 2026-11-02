@@ -981,6 +981,14 @@ func _test_legacy_input_motion_policy() -> void:
 	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(200.0, 1.0, 100.0, 0.5, 1500.0), 250.0), "tank position integrates movement")
 	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(1490.0, 1.0, 100.0, 0.5, 1500.0), 1455.0), "tank cannot cross right world edge")
 	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(20.0, -1.0, 100.0, 0.5, 1500.0), 45.0), "tank cannot cross left world edge")
+	_check(is_equal_approx(LegacyInputMotionPolicy.next_tank_x(1490.0, 1.0, 100.0, 0.5, 1500.0, 70.0), 1430.0),
+		"mode-specific AI edge margin clamps movement")
+	_check(LegacyInputMotionPolicy.can_move_without_overlap(100.0, 190.0),
+		"human and turn movement keep ninety-pixel separation")
+	_check(not LegacyInputMotionPolicy.can_move_without_overlap(100.0, 250.0, 160.0),
+		"AI movement rejects positions inside its larger separation radius")
+	_check(LegacyInputMotionPolicy.can_move_without_overlap(100.0, 260.0, 160.0),
+		"AI movement permits positions at its exact separation radius")
 	_check(not LegacyInputMotionPolicy.can_move_without_overlap(100.0, 185.0), "nearby tanks block movement")
 	_check(LegacyInputMotionPolicy.can_move_without_overlap(100.0, 190.0), "ninety-unit tank gap is permitted")
 	_check(is_equal_approx(LegacyInputMotionPolicy.camera_x(150.0, false, 0.0, 0.0, Vector2.INF, 800.0, 1.0, 1600.0), 0.0), "camera clamps near world start")
