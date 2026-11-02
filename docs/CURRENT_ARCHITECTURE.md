@@ -91,7 +91,12 @@ adapters and must continue forwarding work to the existing domain owners:
 
 - **Weapon data and loadout** — `scripts/weapons/WeaponDefinitionSession.gd`
   with `WeaponDefinition`, `WeaponRegistry`, `WeaponLoadout` and
-  `WeaponSplitLogic`; avoid parallel registries
+  `WeaponSplitLogic`; avoid parallel registries.
+  Legacy scene accessors needed by gameplay (statistics, split-child creation
+  and menu labels) are retained. Unused scene-only metadata aliases
+  (`_weapon_definition`, `_weapon_split_behavior`, `_weapon_child_id`,
+  `_weapon_should_split_on_descent`) were retired; callers should use the
+  existing `WeaponDefinitionSession` methods directly.
 - **Projectiles** — `scripts/weapons/ProjectileManager.gd` for step/impact
   policy, `ProjectileFactory.gd` for geometry, and
   `TurnProjectileSession.gd` for active shell state

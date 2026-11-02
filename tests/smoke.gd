@@ -903,6 +903,9 @@ func _test_weapon_definition_session() -> void:
 	_check(session.display_name(WeaponCatalog.HEAVY) != "", "session displays registry weapon names")
 	_check(session.value(WeaponCatalog.HEAVY, "direct_damage", -1) != -1, "session reads definition metadata")
 	_check(session.has_split_behavior(WeaponCatalog.CLUSTER), "session recognizes Cluster split behavior")
+	_check(session.split_behavior(WeaponCatalog.CLUSTER) != "", "session owns split behavior metadata directly")
+	_check(session.child_id(WeaponCatalog.CLUSTER) == WeaponCatalog.CLUSTER_CHILD, "session owns child weapon ID directly")
+	_check(session.definition(WeaponCatalog.HEAVY) != null, "session exposes canonical weapon definitions directly")
 	_check(session.should_split_on_descent(WeaponCatalog.CLUSTER, false, Vector2(10, 12)), "session permits descending cluster split")
 	_check(not session.should_split_on_descent(WeaponCatalog.CLUSTER, true, Vector2(10, 12)), "session blocks duplicate cluster split")
 	var children: Array[Dictionary] = session.make_split_children(
