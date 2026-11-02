@@ -915,8 +915,14 @@ func _release_realtime_charged_shot() -> void:
 	player_power_percents[HUMAN_PLAYER_INDEX] = power_percent
 	player_powers[HUMAN_PLAYER_INDEX] = power
 
+	# Dynamic weapon dispatch is owned by the derived facade. Physical
+	# shells (including burst rounds) occupy the player's fire slot;
+	# instant Laser effects do not. Do not force the slot active for all
+	# weapons merely because the charge was released.
 	_fire_realtime_projectile(HUMAN_PLAYER_INDEX)
-	rt_player_shell_active = true
+	rt_player_shell_active = ProjectileManager.has_shell_for_owner(
+		rt_projectiles, HUMAN_PLAYER_INDEX
+	)
 	_reset_realtime_charge_state()
 
 func _update_ui() -> void:

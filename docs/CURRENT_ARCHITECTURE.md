@@ -554,3 +554,20 @@ cannot inadvertently clear that state. Live tests cover normal AI
 launch geometry, cap eviction in both human-preserving and last-human
 eviction cases, plus existing normal, Bouncer and burst launch tests.
 No extra classes, inheritance layers or state aliases.
+
+## One realtime charged-shot release owner (PR #128)
+
+The former special-weapons facade duplicated the realtime charge
+validation, percentage/power calculation, reset and dispatch for
+Laser and Machine Gun. `MainGame._release_realtime_charged_shot`
+now performs that lifecycle once for all weapons and commits the
+player's aim and power settings consistently before virtual
+`_fire_realtime_projectile` dispatch. The special facade owns only
+weapon behavior: instantaneous Laser effects, burst initiation
+(including its existing active-burst gate), and ordinary shared shell
+launch. Human shell-active state is computed from actual projectiles
+rather than forced true after a Laser release; Laser and burst retain
+their realtime trajectory visibility behavior. Live tests cover
+Laser and burst charge, stored player settings, shell availability,
+and metadata-driven dispatch. No additional virtual method, new
+class or state owner.
