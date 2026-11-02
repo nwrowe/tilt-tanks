@@ -16,8 +16,9 @@ MainGameOnlineHostWaitingFacade.gd
 
 The former `scripts/Main.gd` prototype ancestor is no longer inherited.
 Its shared Node2D bindings, state and two live camera helpers now reside in
-`WorldRuntimeBridge`, while the existing match/UI callbacks retain their
-behavior directly in `MainGame`. The ~600-line prototype is retired without
+`WorldRuntimeBridge`. Terrain lookup and settling are also singly owned there,
+with explicit virtual hooks for operations actively implemented by descendants.
+The existing match/UI callbacks retain their behavior in `MainGame`. The ~600-line prototype is retired without
 copying its shadowed movement, terrain, firing and rendering algorithms.
 
 `WeaponRuntimeBridge.gd` was retired in PR #94. The last scene-facing
