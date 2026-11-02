@@ -1164,7 +1164,7 @@ func _end_turn_without_shot() -> void:
 	_save_runtime_current_player_settings()
 	match_controller.complete_turn_without_shot(
 		TURN_TIME_LIMIT, angle_deg, power,
-		power_percent if "power_percent" in self else 0.0
+		power_percent
 	)
 	_apply_post_turn_match_state()
 
@@ -1227,9 +1227,9 @@ func _apply_controller_radial_damage(
 func _initialize_match_controller_from_runtime_reset() -> void:
 	var default_angle: float = angle_deg
 	var default_power: float = power
-	var default_power_percent: float = power_percent if "power_percent" in self else 50.0
-	var mode: int = game_mode if "game_mode" in self else 0
-	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	var default_power_percent: float = power_percent
+	var mode: int = game_mode
+	var world_width: float = active_world_width
 	var left_start: Vector2 = tank_positions[0] if tank_positions.size() > 0 else Vector2.ZERO
 	var right_start: Vector2 = tank_positions[1] if tank_positions.size() > 1 else Vector2.ZERO
 	match_runtime_sync.start_match(
@@ -1263,8 +1263,7 @@ func _save_runtime_current_player_settings() -> void:
 		return
 	player_angles[current_player] = angle_deg
 	player_powers[current_player] = power
-	if "player_power_percents" in self:
-		player_power_percents[current_player] = power_percent
+	player_power_percents[current_player] = power_percent
 
 func _sync_projectile_state_to_match_controller() -> void:
 	# Legacy physics still advances the projectile in game runtime; the
@@ -1287,9 +1286,9 @@ func _sync_game_over_state_from_match_controller() -> void:
 	# game_over and tank_health directly.
 
 func _sync_match_state_from_runtime() -> void:
-	var frame_percents: Array[float] = player_power_percents if "player_power_percents" in self else match_state.player_power_percents
-	var mode: int = game_mode if "game_mode" in self else 0
-	var world_width: float = active_world_width if "active_world_width" in self else WORLD_WIDTH
+	var frame_percents: Array[float] = player_power_percents
+	var mode: int = game_mode
+	var world_width: float = active_world_width
 	game_over = match_runtime_sync.sync_frame(
 		current_player, tank_positions, player_angles, player_powers,
 		frame_percents, wind, turn_timer, mode, world_width,
@@ -1310,7 +1309,7 @@ func _apply_match_state_to_runtime_basics() -> void:
 		player_angles = match_state.player_angles.duplicate()
 	if match_state.player_powers.size() == player_powers.size():
 		player_powers = match_state.player_powers.duplicate()
-	if "player_power_percents" in self and match_state.player_power_percents.size() == player_power_percents.size():
+	if match_state.player_power_percents.size() == player_power_percents.size():
 		player_power_percents = match_state.player_power_percents.duplicate()
 
 func _apply_match_projectile_state_to_runtime() -> void:
