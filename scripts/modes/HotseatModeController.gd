@@ -4,8 +4,11 @@ class_name HotseatModeController
 func mode_name() -> String:
 	return "hotseat"
 
-func is_active(menu_state: int, game_mode: int, menu_state_game: int, realtime_mode: int) -> bool:
-	return HotseatMode.is_active(menu_state, game_mode, menu_state_game, realtime_mode)
+func is_active(
+	menu_state: int, game_mode: int, menu_state_game: int,
+	hotseat_mode: int, online_duel_mode: int
+) -> bool:
+	return HotseatMode.is_active(menu_state, game_mode, menu_state_game, hotseat_mode, online_duel_mode)
 
 func can_begin_charge(projectile_active: bool, turn_projectiles: Array, game_over: bool, overlay_open: bool) -> bool:
 	return HotseatMode.can_begin_charge(projectile_active, turn_projectiles, game_over, overlay_open)

@@ -607,7 +607,7 @@ func _draw_terrain_outline() -> void:
 # Mode facade
 
 func _is_hotseat_game_active() -> bool:
-	return HotseatMode.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_SINGLE_PLAYER_REALTIME)
+	return HotseatMode.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_HOTSEAT, GAME_MODE_ONLINE_DUEL)
 
 func _hotseat_can_begin_charge() -> bool:
 	return HotseatMode.can_begin_charge(projectile_active, turn_projectiles, game_over, overlay_open)

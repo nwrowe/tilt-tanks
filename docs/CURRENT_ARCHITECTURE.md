@@ -135,6 +135,22 @@ The projectile/explosion lifecycle and match frame publication points are
 unchanged. This is *change-aware copy elision*, not a full conversion to
 event-only match updates.
 
+## Campaign realtime fix (PR #143)
+
+Campaign selects the distinct `MODE_CAMPAIGN` controller/level session but
+executes the same realtime single-player simulation as Quick Game
+(`GAME_MODE_SINGLE_PLAYER_REALTIME`). The prior mapping to legacy
+`GAME_MODE_SINGLE_PLAYER_QUICK` unintentionally selected turn-based AI and
+the turn widget. When a campaign match resets, mode synchronization preserves
+its Campaign identity; choosing ordinary Quick Game explicitly changes it
+back to `MODE_REALTIME_SINGLE_PLAYER`.
+
+Realtime charging and turn-widget presentation check the actual gameplay
+runtime, not whether the active controller name equals Quick Game. Hotseat
+input gating applies only to Hotseat or Online Duel; older turn-based AI fire
+callbacks are never mistaken for human held-button releases. Live-scene tests
+exercise Campaign start, charge, AI projectile firing, and mode transitions.
+
 ## Active online multiplayer
 
 Online Duel is implemented and guarded with packet/snapshot contract tests
