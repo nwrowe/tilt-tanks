@@ -638,7 +638,9 @@ func _apply_ai_move(target_x: float) -> void:
 	if absf(target_x - current_x) < 4.0:
 		return
 	var clamped_x: float = clampf(target_x, AI_EDGE_MARGIN, active_world_width - AI_EDGE_MARGIN)
-	if absf(clamped_x - tank_positions[HUMAN_PLAYER_INDEX].x) < AI_MIN_DISTANCE_FROM_HUMAN:
+	if not LegacyInputMotionPolicy.can_move_without_overlap(
+		clamped_x, tank_positions[HUMAN_PLAYER_INDEX].x, AI_MIN_DISTANCE_FROM_HUMAN
+	):
 		return
 	tank_positions[AI_PLAYER_INDEX].x = clamped_x
 	tank_positions[AI_PLAYER_INDEX].y = _ground_y_at_x(clamped_x) - TANK_RADIUS
@@ -1264,12 +1266,18 @@ func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_s
 			speed += SNOW_SLIDE_SPEED * 0.45
 	return {"direction": direction, "speed": speed, "blocked": blocked}
 
-func _update_tank_movement(delta: float) -> void:
-	var input_direction: float = 0.0
+# Shared input collection for turn-based and realtime human movement.
+# AI movement uses its own planned direction and target.
+func _movement_input_direction() -> float:
+	var direction: float = 0.0
 	if Input.is_key_pressed(KEY_LEFT) or mobile_left_pressed:
-		input_direction -= 1.0
+		direction -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or mobile_right_pressed:
-		input_direction += 1.0
+		direction += 1.0
+	return direction
+
+func _update_tank_movement(delta: float) -> void:
+	var input_direction: float = _movement_input_direction()
 	var adjusted: Dictionary = _snow_adjusted_direction_and_speed(tank_positions[current_player].x, input_direction, TANK_MOVE_SPEED * _movement_speed_mult_at_x(tank_positions[current_player].x))
 	var direction: float = float(adjusted.get("direction", 0.0))
 	if direction == 0.0:
@@ -1287,18 +1295,16 @@ func _update_tank_movement(delta: float) -> void:
 func _update_realtime_player_movement(delta: float) -> void:
 	rt_movement_energy = RT_MOVEMENT_ENERGY_MAX
 	rt_movement_exhaust_cooldown = 0.0
-	var input_direction: float = 0.0
-	if Input.is_key_pressed(KEY_LEFT) or mobile_left_pressed:
-		input_direction -= 1.0
-	if Input.is_key_pressed(KEY_RIGHT) or mobile_right_pressed:
-		input_direction += 1.0
+	var input_direction: float = _movement_input_direction()
 	var adjusted: Dictionary = _snow_adjusted_direction_and_speed(tank_positions[HUMAN_PLAYER_INDEX].x, input_direction, TANK_MOVE_SPEED * _movement_speed_mult_at_x(tank_positions[HUMAN_PLAYER_INDEX].x))
 	var direction: float = float(adjusted.get("direction", 0.0))
 	if direction == 0.0:
 		return
 	var speed: float = float(adjusted.get("speed", TANK_MOVE_SPEED))
-	var new_x: float = clampf(tank_positions[HUMAN_PLAYER_INDEX].x + direction * speed * delta, 45.0, active_world_width - 45.0)
-	if absf(new_x - tank_positions[AI_PLAYER_INDEX].x) >= 90.0:
+	var new_x: float = LegacyInputMotionPolicy.next_tank_x(
+		tank_positions[HUMAN_PLAYER_INDEX].x, direction, speed, delta, active_world_width
+	)
+	if LegacyInputMotionPolicy.can_move_without_overlap(new_x, tank_positions[AI_PLAYER_INDEX].x):
 		tank_positions[HUMAN_PLAYER_INDEX].x = new_x
 		tank_positions[HUMAN_PLAYER_INDEX].y = _tank_y_for_surface(HUMAN_PLAYER_INDEX, new_x)
 
@@ -1314,8 +1320,11 @@ func _move_realtime_ai(delta: float) -> void:
 	if input_direction != 0.0:
 		if (input_direction > 0.0 and new_x > rt_ai_target_x) or (input_direction < 0.0 and new_x < rt_ai_target_x):
 			new_x = rt_ai_target_x
+	# Keep target overshoot handling before the AI-specific edge clamp.
 	new_x = clampf(new_x, AI_EDGE_MARGIN, active_world_width - AI_EDGE_MARGIN)
-	if absf(new_x - tank_positions[HUMAN_PLAYER_INDEX].x) < AI_MIN_DISTANCE_FROM_HUMAN:
+	if not LegacyInputMotionPolicy.can_move_without_overlap(
+		new_x, tank_positions[HUMAN_PLAYER_INDEX].x, AI_MIN_DISTANCE_FROM_HUMAN
+	):
 		return
 	tank_positions[AI_PLAYER_INDEX].x = new_x
 	tank_positions[AI_PLAYER_INDEX].y = _tank_y_for_surface(AI_PLAYER_INDEX, new_x)
