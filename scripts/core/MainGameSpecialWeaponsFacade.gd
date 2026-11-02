@@ -241,13 +241,12 @@ func _fire_realtime_projectile(owner: int) -> void:
 	var weapon: String = selected_weapon if owner == HUMAN_PLAYER_INDEX else WEAPON_STANDARD
 	var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
 	var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-	match _weapon_behavior(weapon):
-		"laser_cut":
-			_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
-			return
-		"machine_gun":
-			_begin_machine_gun_burst(owner, shot_angle, shot_power_percent, true, weapon)
-			return
+	if _weapon_behavior(weapon) == "laser_cut":
+		_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
+		return
+	if _weapon_behavior(weapon) == "machine_gun":
+		_begin_machine_gun_burst(owner, shot_angle, shot_power_percent, true, weapon)
+		return
 	# Normal and special fired shells have one scene owner for muzzle
 	# geometry, capacity eviction, collection mutation and fire effects.
 	_spawn_weapon_shell(owner, weapon, shot_angle, shot_power_percent, true)
