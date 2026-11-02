@@ -552,9 +552,6 @@ func _draw_snow_highlight_segment(segment: PackedVector2Array) -> void:
 		draw_line(segment[i], segment[i + 1], Color(0.98, 1.0, 1.0, 0.96), 3.5)
 		draw_line(segment[i] + Vector2(0, 5), segment[i + 1] + Vector2(0, 5), Color(0.68, 0.82, 1.0, 0.28), 1.5)
 
-func _water_volume_for_range(start_i: int, end_i: int, water_y: float) -> float:
-	return WaterManager.water_volume_for_range(terrain_points, start_i, end_i, water_y, TERRAIN_STEP)
-
 func _add_water_volume_to_pond(pond: Dictionary) -> Dictionary:
 	return WaterManager.add_volume_to_pond(terrain_points, pond, TERRAIN_STEP)
 
@@ -563,21 +560,6 @@ func _deepest_index_in_range(start_i: int, end_i: int) -> int:
 
 func _connected_basin_from_valley(valley_i: int, reference_water_y: float) -> Dictionary:
 	return WaterManager.connected_basin_from_valley(terrain_points, valley_i, reference_water_y, WATER_CONNECTED_MARGIN)
-
-func _solve_water_level_for_volume(left_i: int, right_i: int, target_volume: float) -> float:
-	return WaterManager.solve_water_level_for_volume(terrain_points, left_i, right_i, target_volume, TERRAIN_STEP, WATER_MAX_SURFACE_ITERATIONS)
-
-func _pond_at_x(x: float) -> Dictionary:
-	return WaterManager.pond_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
-
-func _is_in_pond(pos: Vector2) -> bool:
-	return WaterManager.is_in_pond(ponds, terrain_points, pos, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH)
-
-func _tank_y_for_surface(player: int, x: float) -> float:
-	return WaterManager.tank_y_for_surface(ponds, terrain_points, x, TERRAIN_STEP, TANK_RADIUS, WATER_MIN_VISIBLE_DEPTH, WATER_FLOAT_TANK_SUBMERGENCE)
-
-func _movement_speed_mult_at_x(x: float) -> float:
-	return WaterManager.movement_speed_mult_at_x(ponds, terrain_points, x, TERRAIN_STEP, WATER_MIN_VISIBLE_DEPTH, WATER_DRIVE_SPEED_MULT)
 
 func _draw_ponds_under_ground() -> void:
 	for rect: Dictionary in WaterManager.backing_rects_for_ponds(ponds, terrain_points, _bottom_floor_y()):
@@ -651,51 +633,10 @@ func _is_hotseat_game_active() -> bool:
 func _hotseat_can_begin_charge() -> bool:
 	return HotseatMode.can_begin_charge(projectile_active, turn_projectiles, game_over, overlay_open)
 
-func _draw_turn_widget() -> void:
-	if game_over:
-		return
-	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME:
-		return
-
-	var box: Rect2 = Rect2(Vector2(VIEW_SIZE.x - 232.0, 64.0), Vector2(156.0, 44.0))
-	draw_rect(box, Color(0.02, 0.03, 0.04, 0.64), true)
-	draw_rect(box, Color(1.0, 1.0, 1.0, 0.22), false, 1.0)
-
-	var text: String = HotseatMode.turn_label(current_player, turn_timer)
-	draw_string(ThemeDB.fallback_font, box.position + Vector2(16.0, 29.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
-
-func _update_hotseat_charge(delta: float) -> void:
-	if not _is_hotseat_game_active():
-		return
-
-	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
-
-	if HotseatMode.can_begin_keyboard_charge(keyboard_down, hotseat_keyboard_fire_held, projectile_active, turn_projectiles, game_over, overlay_open):
-		hotseat_keyboard_fire_held = true
-		hotseat_charge_time = 0.0
-		hotseat_charge_percent = HOTSEAT_CHARGE_MIN_PERCENT
-
-	if hotseat_fire_button_held or hotseat_keyboard_fire_held:
-		hotseat_charge_time = minf(HOTSEAT_CHARGE_TIME_MAX, hotseat_charge_time + delta)
-
-		var charge_ratio: float = clampf(hotseat_charge_time / HOTSEAT_CHARGE_TIME_MAX, 0.0, 1.0)
-		hotseat_charge_percent = HotseatMode.charge_percent(
-			hotseat_charge_time,
-			HOTSEAT_CHARGE_TIME_MAX,
-			HOTSEAT_CHARGE_MIN_PERCENT,
-			HOTSEAT_CHARGE_MAX_PERCENT
-		)
-
-		power_percent = hotseat_charge_percent
-		power = _power_from_percent(power_percent)
-		MobileControls.style_charge_button(mobile_fire_button, charge_ratio)
-
-	elif _hotseat_can_begin_charge():
-		MobileControls.style_charge_button(mobile_fire_button, 0.0)
-
-	if HotseatMode.should_release_keyboard_charge(keyboard_down, hotseat_keyboard_fire_held):
-		hotseat_keyboard_fire_held = false
-		_release_hotseat_charged_shot()
+# Compile-visible hook: the active MainGameModeFacade owns hotseat charging.
+# MainGame's frame loop deliberately dispatches to that mode implementation.
+func _update_hotseat_charge(_delta: float) -> void:
+	pass
 
 func _draw_trajectory_preview() -> void:
 	if projectile_active or not turn_projectiles.is_empty() or game_over:
@@ -722,9 +663,6 @@ func _draw_trajectory_preview() -> void:
 
 		var alpha: float = 0.55 * (1.0 - float(i - 1) / float(TRAJECTORY_DOT_COUNT))
 		draw_circle(_world_to_screen(pos), TRAJECTORY_DOT_RADIUS, Color(1.0, 1.0, 1.0, alpha))
-
-func _player_can_fire() -> bool:
-	return RealtimeSinglePlayerMode.player_can_fire(rt_player_shell_active, game_over)
 
 func _on_hotseat_fire_button_down() -> void:
 	if not _is_hotseat_game_active():
@@ -844,39 +782,6 @@ func _shell_impact_position(
 		Callable(self, "_is_in_pond"), Callable(self, "_ground_y_at_x"),
 		active_world_width, Callable(self, "_bottom_floor_y"), snap_ground
 	)
-
-func _update_realtime_fire_charge(delta: float) -> void:
-	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
-		return
-
-	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
-
-	if RealtimeSinglePlayerMode.can_begin_fire_charge(keyboard_down, rt_keyboard_fire_held, rt_player_shell_active, game_over, overlay_open):
-		rt_keyboard_fire_held = true
-		rt_fire_charge_time = 0.0
-		rt_fire_charge_percent = RT_CHARGE_MIN_PERCENT
-	elif RealtimeSinglePlayerMode.should_release_fire_charge(keyboard_down, rt_keyboard_fire_held):
-		rt_keyboard_fire_held = false
-		_release_realtime_charged_shot()
-
-	if rt_fire_button_held or rt_keyboard_fire_held:
-		rt_fire_charge_time = minf(RT_CHARGE_TIME_MAX, rt_fire_charge_time + delta)
-
-		var charge_ratio: float = clampf(rt_fire_charge_time / RT_CHARGE_TIME_MAX, 0.0, 1.0)
-		rt_fire_charge_percent = RealtimeSinglePlayerMode.charge_percent(
-			rt_fire_charge_time,
-			RT_CHARGE_TIME_MAX,
-			RT_CHARGE_MIN_PERCENT,
-			RT_CHARGE_MAX_PERCENT
-		)
-
-		power_percent = rt_fire_charge_percent
-		power = _power_from_percent(power_percent)
-		MobileControls.style_charge_button(mobile_fire_button, charge_ratio)
-	elif rt_player_shell_active:
-		MobileControls.style_unavailable_fire_button(mobile_fire_button)
-	else:
-		MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
 func _release_hotseat_charged_shot() -> void:
 	if not _hotseat_can_begin_charge():
