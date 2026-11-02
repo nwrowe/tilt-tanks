@@ -93,6 +93,7 @@ func _run() -> void:
 	_test_identical_method_override_cleanup()
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_motion_live()
+	_test_single_realtime_shell_launch_owner_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
 	_test_shared_turn_realtime_bouncer_contact_live()
@@ -1229,6 +1230,71 @@ func _test_shared_projectile_motion_live() -> void:
 		"active turn scene uses the canonical numerical motion step")
 	game.call("reset_match")
 
+func _test_single_realtime_shell_launch_owner_live() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	var start: int = source.find("func _fire_realtime_projectile(")
+	var finish: int = source.find("\nfunc ", start + 4)
+	var fire_body: String = source.substr(start, finish - start)
+	_check(fire_body.contains("_spawn_weapon_shell(owner, weapon, shot_angle, shot_power_percent, true)") and
+		not fire_body.contains("ProjectileFactory.make_fired_shell(") and
+		not fire_body.contains("rt_projectiles.pop_front()") and
+		not fire_body.contains("_trigger_fire_fx(") and
+		not source.contains("func _spawn_special_shell("),
+		"one launch owner handles normal, custom and burst shells without redundant factory paths")
+
+	game.call("_on_quick_game_pressed")
+	var dummy: Array[Dictionary] = []
+	var positions: Array = game.get("tank_positions")
+	var human_shell: Dictionary = ProjectileFactory.make_shell(
+		0, WeaponCatalog.HEAVY, Vector2(260.0, 50.0), Vector2(25.0, -10.0)
+	)
+	# Six shells at capacity: first one should be evicted when the AI fires.
+	dummy.append(ProjectileFactory.make_shell(
+		1, WeaponCatalog.STANDARD, Vector2(180.0, 20.0), Vector2.ZERO
+	))
+	dummy.append(human_shell)
+	for j: int in range(4):
+		dummy.append(ProjectileFactory.make_shell(
+			1, WeaponCatalog.STANDARD, Vector2(370.0 + j, 20.0), Vector2.ZERO
+		))
+	game.set("rt_projectiles", dummy)
+	game.set("rt_player_shell_active", true)
+	var ai_angle: float = 32.0
+	var ai_percent: float = 56.0
+	var player_angles: Array[float] = game.get("player_angles")
+	var player_percents: Array[float] = game.get("player_power_percents")
+	player_angles[1] = ai_angle
+	player_percents[1] = ai_percent
+	var expected: Dictionary = ProjectileFactory.make_fired_shell(
+		1, WeaponCatalog.STANDARD, positions[1], -1.0, ai_angle,
+		float(game.call("_power_from_percent", ai_percent)), 48.0
+	)
+	game.call("_fire_realtime_projectile", 1)
+	var after: Array = game.get("rt_projectiles")
+	_check(after.size() == 6 and
+		(after[0] as Dictionary).get("weapon", "") == WeaponCatalog.HEAVY and
+		(after.back() as Dictionary).get("pos", Vector2.INF) == expected["pos"] and
+		(after.back() as Dictionary).get("vel", Vector2.INF) == expected["vel"],
+		"normal AI shot uses shared geometry and evicts oldest shell at capacity")
+	_check(bool(game.get("rt_player_shell_active")),
+		"AI launch does not clear active human shell availability")
+	# Removing the last human shell via capacity eviction clears only the
+	# human flag; AI rounds remain in flight.
+	var ai_only: Array[Dictionary] = []
+	ai_only.append(human_shell)
+	for j: int in range(5):
+		ai_only.append(ProjectileFactory.make_shell(
+			1, WeaponCatalog.STANDARD, Vector2(500.0 + j, 20.0), Vector2.ZERO
+		))
+	game.set("rt_projectiles", ai_only)
+	game.call("_fire_realtime_projectile", 1)
+	_check((game.get("rt_projectiles") as Array).size() == 6 and
+		not bool(game.get("rt_player_shell_active")),
+		"capacity eviction recomputes human availability when last human shell is dropped")
+	game.call("reset_match")
+
 func _test_shared_projectile_launch_geometry_live() -> void:
 	game.call("_on_quick_game_pressed")
 	game.set("selected_weapon", WeaponCatalog.STANDARD)
@@ -1254,7 +1320,7 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 		0, WeaponRegistry.WEAPON_BOUNCER, positions[0], 1.0,
 		special_angle, special_force, cannon_length
 	)
-	game.call("_spawn_special_shell", 0, WeaponRegistry.WEAPON_BOUNCER, special_angle, special_percent, true)
+	game.call("_spawn_weapon_shell", 0, WeaponRegistry.WEAPON_BOUNCER, special_angle, special_percent, true)
 	var projectiles: Array = game.get("rt_projectiles")
 	_check(projectiles.size() >= 2, "special realtime shell still launches from shared factory")
 	if projectiles.size() >= 2:
