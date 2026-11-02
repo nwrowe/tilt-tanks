@@ -94,6 +94,7 @@ func _run() -> void:
 	_test_canonical_pond_reflow_live()
 	_test_shared_projectile_motion_live()
 	_test_single_realtime_shell_launch_owner_live()
+	_test_shared_realtime_charge_release_live()
 	_test_shared_projectile_launch_geometry_live()
 	_test_bouncer_weapon_policy_live()
 	_test_shared_turn_realtime_bouncer_contact_live()
@@ -1295,6 +1296,53 @@ func _test_single_realtime_shell_launch_owner_live() -> void:
 		"capacity eviction recomputes human availability when last human shell is dropped")
 	game.call("reset_match")
 
+func _test_shared_realtime_charge_release_live() -> void:
+	var base_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGame.gd"
+	)
+	var special_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
+	)
+	_check(base_source.contains("func _release_realtime_charged_shot()") and
+		not special_source.contains("func _release_realtime_charged_shot()") and
+		base_source.contains("ProjectileManager.has_shell_for_owner("),
+		"one charge-release scene owner handles Laser, Machine Gun and ordinary shells")
+
+	game.call("_on_quick_game_pressed")
+	game.set("selected_weapon", WeaponRegistry.WEAPON_LASER)
+	game.set("angle_deg", 75.0)
+	game.set("rt_fire_charge_percent", 68.0)
+	game.call("_release_realtime_charged_shot")
+	var player_angles: Array[float] = game.get("player_angles")
+	var player_powers: Array[float] = game.get("player_power_percents")
+	_check(not bool(game.get("rt_player_shell_active")) and
+		(game.get("rt_projectiles") as Array).is_empty() and
+		bool(game.get("quickgame_player_shot_hide_trajectory")) and
+		is_zero_approx(float(game.get("rt_fire_charge_percent"))),
+		"instant Laser clears charge and hides trajectory without occupying a shell slot")
+	_check(is_equal_approx(player_angles[0], 75.0) and
+		is_equal_approx(player_powers[0], 68.0),
+		"Laser charge now commits same player aim/power state as an ordinary shot")
+
+	game.call("reset_match")
+	game.call("_on_quick_game_pressed")
+	game.set("selected_weapon", WeaponRegistry.WEAPON_MACHINE_GUN)
+	game.set("angle_deg", 42.0)
+	game.set("rt_fire_charge_percent", 63.0)
+	game.call("_release_realtime_charged_shot")
+	player_angles = game.get("player_angles")
+	player_powers = game.get("player_power_percents")
+	var burst: WeaponBurstSession = game.get("weapon_burst") as WeaponBurstSession
+	_check(burst.active and (game.get("rt_projectiles") as Array).size() == 1 and
+		bool(game.get("rt_player_shell_active")) and
+		bool(game.get("quickgame_player_shot_hide_trajectory")) and
+		is_zero_approx(float(game.get("rt_fire_charge_percent"))),
+		"Machine Gun charge starts one burst and occupies the human fire slot")
+	_check(is_equal_approx(player_angles[0], 42.0) and
+		is_equal_approx(player_powers[0], 63.0),
+		"Machine Gun charge shares canonical player angle and power commit")
+	game.call("reset_match")
+
 func _test_shared_projectile_launch_geometry_live() -> void:
 	game.call("_on_quick_game_pressed")
 	game.set("selected_weapon", WeaponCatalog.STANDARD)
@@ -1683,9 +1731,9 @@ func _test_metadata_laser_profile_fire_dispatch() -> void:
 	var source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 	)
-	_check(source.split('_weapon_behavior(selected_weapon) == "laser_cut"').size() == 3 and
+	_check(source.split('_weapon_behavior(selected_weapon) == "laser_cut"').size() == 2 and
 		source.contains('_weapon_behavior(weapon) == "laser_cut"'),
-		"hotseat, realtime charged and realtime direct fire dispatch by behavior")
+		"hotseat selection and the common realtime launcher dispatch Laser metadata")
 	game.call("_on_hotseat_pressed")
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	var old_loadout: WeaponLoadout = game.get("active_weapon_loadout") as WeaponLoadout
@@ -1839,7 +1887,7 @@ func _test_metadata_burst_profile_dispatch() -> void:
 	var facade_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGameSpecialWeaponsFacade.gd"
 	)
-	_check(facade_source.split('_weapon_behavior(selected_weapon) == "machine_gun"').size() == 3 and
+	_check(facade_source.split('_weapon_behavior(selected_weapon) == "machine_gun"').size() == 2 and
 		facade_source.contains('_weapon_behavior(weapon) == "machine_gun"') and
 		facade_source.contains("_burst_round_weapon()"),
 		"burst dispatch uses behavior metadata and the session-owned child round")
