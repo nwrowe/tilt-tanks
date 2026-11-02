@@ -123,10 +123,7 @@ func _process_online_client(delta: float) -> void:
 	_online_update_client_interpolation(delta)
 	_online_process_client_input(delta)
 
-	if explosion_timer > 0.0:
-		explosion_timer = maxf(0.0, explosion_timer - delta)
-		if explosion_timer <= 0.0:
-			explosion_pos = Vector2.INF
+	_age_explosion_visual(delta, true)
 
 	_online_finish_client_frame(delta)
 

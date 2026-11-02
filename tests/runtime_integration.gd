@@ -100,6 +100,7 @@ func _run() -> void:
 	_test_bouncer_weapon_policy_live()
 	_test_shared_turn_realtime_bouncer_contact_live()
 	_test_metadata_bouncer_profile_dispatch()
+	_test_explosion_visual_age_policy()
 	_test_camera_focus_clamp_ownership()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
@@ -1436,6 +1437,26 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 	_check(world_source.contains("func _on_fire_pressed(") and
 		world_source.contains("ProjectileFactory.make_fired_shell("),
 		"world compatibility launch delegates to canonical shell factory")
+	game.call("reset_match")
+
+func _test_explosion_visual_age_policy() -> void:
+	game.call("reset_match")
+	game.set("explosion_timer", 0.15)
+	game.set("explosion_pos", Vector2(400, 300))
+	_check(not bool(game.call("_age_explosion_visual", 0.05, false)) and
+		is_equal_approx(float(game.get("explosion_timer")), 0.10) and
+		game.get("explosion_pos") == Vector2(400, 300),
+		"turn explosion visual stays active before expiry")
+	_check(bool(game.call("_age_explosion_visual", 0.15, false)) and
+		float(game.get("explosion_timer")) < 0.0 and
+		game.get("explosion_pos") == Vector2.INF,
+		"turn explosion retains historical negative expiry")
+	game.set("explosion_timer", 0.15)
+	game.set("explosion_pos", Vector2(400, 300))
+	_check(bool(game.call("_age_explosion_visual", 0.20, true)) and
+		is_zero_approx(float(game.get("explosion_timer"))) and
+		game.get("explosion_pos") == Vector2.INF,
+		"guest and game-over expiration clamp to zero")
 	game.call("reset_match")
 
 func _test_camera_focus_clamp_ownership() -> void:

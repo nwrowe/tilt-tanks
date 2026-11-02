@@ -71,8 +71,8 @@ func _test_shared_online_client_frame_ownership() -> void:
 	_check(guest_frame.find("_online_update_client_interpolation(delta)") <
 		guest_frame.find("_online_process_client_input(delta)") and
 		guest_frame.find("_online_process_client_input(delta)") <
-		guest_frame.find("if explosion_timer > 0.0:") and
-		guest_frame.find("if explosion_timer > 0.0:") <
+		guest_frame.find("_age_explosion_visual(delta, true)") and
+		guest_frame.find("_age_explosion_visual(delta, true)") <
 		guest_frame.find("_online_finish_client_frame(delta)"),
 		"guest interpolation, input, explosion expiry and camera stages keep prior ordering")
 
