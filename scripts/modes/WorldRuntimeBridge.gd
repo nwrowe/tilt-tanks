@@ -308,6 +308,53 @@ var rt_fire_charge_time: float = 0.0
 var rt_fire_charge_percent: float = 0.0
 
 
+# Compile-time scene hooks: active MainGame/ModeFacade implementations own
+# these operations. Godot must see the signatures in this base because its
+# frame/menu/draw code invokes them, but the old prototype algorithms must
+# not become competing fallbacks.
+func _build_overlay_ui() -> void:
+	pass
+
+func _generate_random_terrain() -> void:
+	pass
+
+func _end_turn_without_shot() -> void:
+	pass
+
+func _update_projectile(_delta: float) -> void:
+	pass
+
+func _draw_ground_fill() -> void:
+	pass
+
+func _draw_terrain_outline() -> void:
+	pass
+
+func _draw_tank(_index: int, _color: Color) -> void:
+	pass
+
+func _draw_explosion() -> void:
+	pass
+
+func _draw_turn_widget() -> void:
+	pass
+
+# Shared lifecycle/geometry operations, not independently duplicated in MainGame.
+func _hide_overlays() -> void:
+	if menu_panel != null:
+		menu_panel.visible = false
+	if end_panel != null:
+		end_panel.visible = false
+	overlay_open = false
+	end_popup_shown = false
+
+func _settle_tanks_on_terrain() -> void:
+	for player: int in range(tank_positions.size()):
+		tank_positions[player].y = _tank_y_for_surface(player, tank_positions[player].x)
+
+func _ground_y_at_x(x: float) -> float:
+	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
+
 # Compatibility implementations from the retired mode ancestor.
 func _mode_runtime_ready() -> void:
 	rng.randomize()
