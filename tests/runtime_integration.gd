@@ -1241,7 +1241,7 @@ func _test_single_realtime_shell_launch_owner_live() -> void:
 		not fire_body.contains("ProjectileFactory.make_fired_shell(") and
 		not fire_body.contains("rt_projectiles.pop_front()") and
 		not fire_body.contains("_trigger_fire_fx(") and
-		not source.contains("func _spawn_special_shell("),
+		not source.contains("func _spawn_weapon_shell("),
 		"one launch owner handles normal, custom and burst shells without redundant factory paths")
 
 	game.call("_on_quick_game_pressed")
@@ -1918,13 +1918,13 @@ func _test_metadata_burst_profile_dispatch() -> void:
 		))
 	game.set("rt_projectiles", full)
 	var first: Dictionary = full[0].duplicate(true)
-	game.call("_spawn_special_shell", 0, child_id, 45.0, 70.0, true)
+	game.call("_spawn_weapon_shell", 0, child_id, 45.0, 70.0, true)
 	var after_child: Array = game.get("rt_projectiles")
 	_check(after_child.size() == 7 and
 		(after_child[0] as Dictionary) == first and
 		str((after_child.back() as Dictionary).get("weapon", "")) == child_id,
 		"custom burst child bypasses realtime cap without evicting existing shells")
-	game.call("_spawn_special_shell", 0, WeaponCatalog.HEAVY, 45.0, 70.0, true)
+	game.call("_spawn_weapon_shell", 0, WeaponCatalog.HEAVY, 45.0, 70.0, true)
 	var after_regular: Array = game.get("rt_projectiles")
 	_check(after_regular.size() == 7 and
 		(after_regular[0] as Dictionary) != first and
