@@ -684,6 +684,12 @@ func _test_composed_menu_view() -> void:
 	_check(view.layer != null and is_instance_valid(view.layer), "menu view keeps one attached canvas")
 
 func _test_menu_layer_retirement() -> void:
+	var world_source: String = FileAccess.get_file_as_string("res://scripts/modes/WorldRuntimeBridge.gd")
+	var progression_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameProgressionFacade.gd")
+	for menu_hook: String in ["_show_multiplayer_menu", "_on_online_pressed", "_on_campaign_pressed"]:
+		_check(world_source.contains("func " + menu_hook + "() -> void:\n\t# Compile-visible callback: MainGameProgressionFacade owns the active menu.\n\tpass") and
+			progression_source.contains("\nfunc " + menu_hook + "("),
+			"progression owns active multiplayer/campaign menu while world retains callback contract: " + menu_hook)
 	# Verify mode runtime now provides all menu contracts without the
 	# removed MainWithMenus ancestor.
 	game.call("_show_main_menu")
