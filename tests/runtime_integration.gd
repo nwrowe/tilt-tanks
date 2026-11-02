@@ -2849,6 +2849,18 @@ func _test_scene_adapter_domain_grouping_live() -> void:
 	var source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
+	# Rendering and movement now share one snow-line policy per mode.
+	var snow_mode_source: String = FileAccess.get_file_as_string(
+		"res://scripts/core/MainGameModeFacade.gd"
+	)
+	_check(source.contains("\nfunc _active_snow_line_y(") and
+		snow_mode_source.contains("\nfunc _active_snow_line_y("),
+		"active snow line is the only mode-specific override")
+	for snow_function: String in ["_draw_snow_faces", "_draw_snow_surface_highlights",
+		"_snow_adjusted_direction_and_speed", "_is_snow_at_x"]:
+		_check(not snow_mode_source.contains("\nfunc " + snow_function + "("),
+			"mode facade reuses MainGame SnowManager implementation: " + snow_function)
+
 	_check(not source.contains("\nfunc _update_realtime_fire_charge(")
 		and not source.contains("\nfunc _draw_turn_widget("),
 		"shadowed charging and turn-widget bodies live in the mode facade")
