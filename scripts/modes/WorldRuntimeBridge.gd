@@ -387,23 +387,12 @@ func _on_multiplayer_pressed() -> void:
 	_show_multiplayer_menu()
 
 func _show_multiplayer_menu() -> void:
-	menu_navigation.open_multiplayer()
-	_hide_game_ui()
-	_clear_menu_controls()
-	menu_view.build_multiplayer(
-		get_viewport_rect().size, BUTTON_HOTSEAT_PATH, BUTTON_ONLINE_PATH,
-		BUTTON_BACK_PATH, _on_hotseat_pressed, _on_online_pressed, _show_main_menu
-	)
-	queue_redraw()
+	# Compile-visible callback: MainGameProgressionFacade owns the active menu.
+	pass
 
 func _on_online_pressed() -> void:
-	menu_navigation.show_online()
-	_hide_game_ui()
-	_clear_menu_controls()
-	menu_view.build_placeholder(
-		get_viewport_rect().size, "Online", BUTTON_BACK_PATH, _show_multiplayer_menu
-	)
-	queue_redraw()
+	# Compile-visible callback: MainGameProgressionFacade owns the active menu.
+	pass
 
 func _on_quick_game_pressed() -> void:
 	game_mode = GAME_MODE_SINGLE_PLAYER_REALTIME
@@ -859,7 +848,8 @@ func _on_options_pressed() -> void:
 	_show_placeholder_menu("Options")
 
 func _on_campaign_pressed() -> void:
-	_show_placeholder_menu("Campaign")
+	# Compile-visible callback: MainGameProgressionFacade owns the active menu.
+	pass
 
 func _hide_game_ui() -> void:
 	if ui_layer != null:
