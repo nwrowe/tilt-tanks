@@ -1,8 +1,13 @@
 extends RefCounted
 class_name HotseatMode
 
-static func is_active(menu_state: int, game_mode: int, game_menu_state: int, realtime_mode: int) -> bool:
-	return menu_state == game_menu_state and game_mode != realtime_mode
+static func is_active(
+	menu_state: int, game_mode: int, game_menu_state: int,
+	hotseat_mode: int, online_duel_mode: int
+) -> bool:
+	# Turn-based single-player AI is not a human hotseat participant.
+	# Treating every non-realtime mode as hotseat blocks AI fire callbacks.
+	return menu_state == game_menu_state and (game_mode == hotseat_mode or game_mode == online_duel_mode)
 
 static func can_begin_charge(projectile_active: bool, turn_projectiles: Array[Dictionary], game_over: bool, overlay_open: bool) -> bool:
 	return not projectile_active and turn_projectiles.is_empty() and not game_over and not overlay_open
