@@ -330,12 +330,7 @@ func _close_weapon_menu() -> void:
 	overlay_open = (menu_panel != null and menu_panel.visible) or (end_panel != null and end_panel.visible)
 
 func _hide_overlays() -> void:
-	if menu_panel != null:
-		menu_panel.visible = false
-	if end_panel != null:
-		end_panel.visible = false
-	overlay_open = false
-	end_popup_shown = false
+	super._hide_overlays()
 	weapon_menu_open = false
 	WeaponSelectMenu.hide_panel(weapon_panel)
 
@@ -497,13 +492,6 @@ func _flatten_spawn_area(center_x: float, half_width: float) -> void:
 
 func _refresh_terrain_line() -> void:
 	TerrainManager.refresh_terrain_line(terrain, terrain_points)
-
-func _settle_tanks_on_terrain() -> void:
-	for player: int in range(tank_positions.size()):
-		tank_positions[player].y = _tank_y_for_surface(player, tank_positions[player].x)
-
-func _ground_y_at_x(x: float) -> float:
-	return TerrainMath.ground_y_at_x(terrain_points, x, TERRAIN_STEP)
 
 func _bottom_floor_y() -> float:
 	return TerrainMath.bottom_floor_y(VIEW_SIZE, CAMERA_Y_OFFSET, CAMERA_SCALE, BOTTOM_FLOOR_SCREEN_MARGIN)
