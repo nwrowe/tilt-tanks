@@ -952,8 +952,12 @@ func _show_end_popup() -> void:
 	_start_destroyed_tank_smoke()
 	if end_popup_shown:
 		return
-	var winner: int = 1 if tank_health[0] <= 0 else 0
-	end_label.text = "Player %d wins!\nP1 HP: %d    P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
+	# MatchController decides the winner, including simultaneous defeat.
+	var winner: int = match_controller.winner_index()
+	if winner < 0:
+		end_label.text = "Draw!\nP1 HP: %d    P2 HP: %d" % [tank_health[0], tank_health[1]]
+	else:
+		end_label.text = "Player %d wins!\nP1 HP: %d    P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
 	end_panel.visible = true
 	overlay_open = true
 	end_popup_shown = true
@@ -1099,8 +1103,7 @@ func _explode_realtime_weapon(pos: Vector2, weapon: String, _owner: int = -1) ->
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 
 func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> void:
@@ -1111,8 +1114,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	_apply_weapon_crater(pos, weapon)
 	_apply_weapon_damage(pos, weapon)
 	_settle_tanks_on_terrain()
-	if tank_health[0] <= 0 or tank_health[1] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 	elif advance_after:
 		cluster_camera_hold_pos = pos
@@ -1175,8 +1177,7 @@ func _explode(pos: Vector2) -> void:
 	_apply_crater(pos)
 	_apply_explosion_damage(pos)
 	_settle_tanks_on_terrain()
-	if tank_health[0] <= 0 or tank_health[1] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 	else:
 		_advance_turn()

@@ -238,8 +238,7 @@ func _explode_turn_weapon(pos: Vector2, weapon: String, advance_after: bool) -> 
 	_apply_weapon_impact(pos, weapon)
 	if not _is_burst_round(weapon):
 		_start_global_explosion_camera_hold(pos)
-	if tank_health[0] <= 0 or tank_health[1] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 	elif advance_after:
 		pending_advance_after_explosion_hold = true
@@ -249,8 +248,7 @@ func _explode_realtime_weapon(pos: Vector2, weapon: String, owner: int = NO_CAME
 	_apply_weapon_impact(pos, weapon)
 	if owner == HUMAN_PLAYER_INDEX and not _is_burst_round(weapon):
 		_start_global_explosion_camera_hold(pos)
-	if tank_health[HUMAN_PLAYER_INDEX] <= 0 or tank_health[AI_PLAYER_INDEX] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 
 ## Shared scene-facing impact sequence for turn and realtime projectiles.
@@ -514,8 +512,7 @@ func _fire_laser(
 	_trigger_fire_fx(owner, shot_angle)
 	if not realtime or owner == HUMAN_PLAYER_INDEX:
 		_start_global_explosion_camera_hold(end_pos)
-	if tank_health[0] <= 0 or tank_health[1] <= 0:
-		game_over = true
+	if game_over:
 		_show_end_popup()
 
 func _cut_laser_path(
