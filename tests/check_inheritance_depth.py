@@ -2,7 +2,7 @@
 """Guard the active Godot scene's inheritance chain against regression.
 
 Usage:
-    python3 tests/check_inheritance_depth.py --max-depth 14
+    python3 tests/check_inheritance_depth.py --max-depth 6
 """
 import argparse
 import pathlib
@@ -47,7 +47,7 @@ def inheritance_chain(start: pathlib.Path) -> list[pathlib.Path]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--max-depth", type=int, default=14)
+    parser.add_argument("--max-depth", type=int, default=6)
     args = parser.parse_args()
     try:
         chain = inheritance_chain(active_script())

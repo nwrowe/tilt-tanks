@@ -1,4 +1,4 @@
-# Active refactoring roadmap — seven-layer baseline (November 1, 2026)
+# Active refactoring roadmap — six-layer baseline (November 1, 2026)
 
 This document replaces the outdated 14-layer retirement plan. The latest
 source of truth is `scenes/Main.tscn`, the actual `extends` declarations,
@@ -13,13 +13,15 @@ MainGameOnlineHostWaitingFacade.gd
   -> MainGameSpecialWeaponsFacade.gd
   -> MainGameModeFacade.gd
   -> MainGame.gd
-  -> WorldRuntimeBridge.gd
-  -> Main.gd (Node2D)
+  -> WorldRuntimeBridge.gd (Node2D)
 ```
 
-The CI depth budget is **7**. This is a ceiling, not a target to reach at
-any cost. As of PRs #97–#98, `WorldRuntimeBridge.gd` has 1,248 lines and
-`MainGame.gd` has 1,377 lines. Neither should become the dumping ground
+The CI depth budget is **6**. This is a ceiling, not a target to reach at
+any cost. The retired `scripts/Main.gd` prototype contributed only shared state,
+two unique camera helpers, and a few inherited callback bodies to the active
+scene. Those required contracts now reside in the appropriate active scripts;
+its shadowed prototypes were not copied over. `WorldRuntimeBridge` and
+`MainGame` remain large scene coordinators. Neither should become the dumping ground
 for behavior retired from another ancestor.
 
 ## Design objectives

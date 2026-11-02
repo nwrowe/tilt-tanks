@@ -1,4 +1,80 @@
-extends "res://scripts/Main.gd"
+extends Node2D
+
+# Active scene bindings and shared state from the retired prototype root.
+# Rules and algorithms stay with the existing domain owners.
+@onready var terrain: Line2D = $Terrain
+@onready var status_label: Label = $UI/Panel/StatusLabel
+@onready var angle_label: Label = $UI/Panel/AngleLabel
+@onready var power_label: Label = $UI/Panel/PowerLabel
+@onready var power_slider: HSlider = $UI/Panel/PowerSlider
+@onready var fire_button: Button = $UI/Panel/FireButton
+@onready var reset_button: Button = $UI/Panel/ResetButton
+@onready var ui_layer: CanvasLayer = $UI
+
+const VIEW_SIZE: Vector2 = Vector2(900, 540)
+const CAMERA_SCALE: float = 0.66
+const CAMERA_Y_OFFSET: float = 70.0
+const WORLD_WIDTH: float = 1500.0
+const GROUND_Y: float = 460.0
+const TERRAIN_STEP: float = 10.0
+const TERRAIN_MIN_Y: float = 255.0
+const TERRAIN_MAX_Y: float = 500.0
+const TANK_RADIUS: float = 16.0
+const TANK_START_LEFT_X: float = 130.0
+const TANK_START_RIGHT_X: float = WORLD_WIDTH - 130.0
+const TANK_MOVE_SPEED: float = 58.0
+const CANNON_LENGTH: float = 48.0
+const PROJECTILE_RADIUS: float = 5.0
+const EXPLOSION_RADIUS: float = 62.0
+const DIRECT_HIT_RADIUS: float = 24.0
+const DIRECT_HIT_DAMAGE: int = 75
+const MAX_SPLASH_DAMAGE: int = 70
+const CRATER_RADIUS: float = 58.0
+const CRATER_DEPTH: float = 48.0
+const EXPLOSION_DURATION: float = 0.525
+const MAX_WIND_ACCEL: float = 85.0
+const TURN_TIME_LIMIT: float = 15.0
+const POWER_MIN: float = 500.0
+const POWER_MAX: float = 1300.0
+const POWER_DEFAULT: float = 800.0
+const MOBILE_TILT_FULL_SCALE: float = 0.18
+const MOBILE_MIN_ANGLE: float = 2.0
+const MOBILE_MAX_ANGLE: float = 94.0
+
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var terrain_points: Array[Vector2] = []
+var tank_positions: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
+var tank_health: Array[int] = [100, 100]
+var player_angles: Array[float] = [45.0, 45.0]
+var player_powers: Array[float] = [POWER_DEFAULT, POWER_DEFAULT]
+
+var current_player: int = 0
+var angle_deg: float = 45.0
+var power: float = POWER_DEFAULT
+var gravity: float = 520.0
+var wind: float = 0.0
+var turn_timer: float = TURN_TIME_LIMIT
+
+var projectile_active: bool = false
+var projectile_pos: Vector2 = Vector2.ZERO
+var projectile_vel: Vector2 = Vector2.ZERO
+var explosion_pos: Vector2 = Vector2.INF
+var explosion_timer: float = 0.0
+var game_over: bool = false
+var camera_x: float = 0.0
+
+var menu_button: Button
+var menu_panel: Panel
+var end_panel: Panel
+var end_label: Label
+var mobile_left_button: Button
+var mobile_right_button: Button
+var mobile_fire_button: Button
+var mobile_left_pressed: bool = false
+var mobile_right_pressed: bool = false
+var overlay_open: bool = false
+var end_popup_shown: bool = false
+
 
 # Retired ModeRuntimeBridge: composed policy owners remain separate;
 # lifecycle compatibility hooks were folded into the active world runtime.
@@ -383,7 +459,13 @@ func _is_ai_turn_waiting_for_explosion() -> bool:
 	)
 
 func _advance_turn() -> void:
-	super._advance_turn()
+	current_player = 1 - current_player
+	_load_current_player_settings()
+	turn_timer = TURN_TIME_LIMIT
+	mobile_left_pressed = false
+	mobile_right_pressed = false
+	mobile_left_button.release_focus()
+	mobile_right_button.release_focus()
 	if _is_ai_turn_active():
 		_begin_ai_turn()
 	else:
@@ -1237,3 +1319,10 @@ func _update_realtime_ai_visual_aim(delta: float) -> void:
 		player_angles[AI_PLAYER_INDEX], delta
 	)
 
+# The only prototype camera helpers needed by the active runtime.
+func _update_camera(delta: float) -> void:
+	var target: float = _camera_target_x()
+	camera_x = lerpf(camera_x, target, clampf(delta * 4.0, 0.0, 1.0))
+
+func _world_to_screen(world_point: Vector2) -> Vector2:
+	return Vector2((world_point.x - camera_x) * CAMERA_SCALE, world_point.y * CAMERA_SCALE + CAMERA_Y_OFFSET)

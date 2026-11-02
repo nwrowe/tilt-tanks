@@ -71,7 +71,7 @@ func _run() -> void:
 	_test_weapon_menu_owner_migration_live()
 	_test_weapon_frame_policy_live()
 	_test_weapon_lifecycle_consolidation_live()
-	_test_seven_layer_weapon_domain_ownership_live()
+	_test_six_layer_weapon_domain_ownership_live()
 	_test_scene_adapter_domain_grouping_live()
 	_test_rendering_owner_migration_live()
 	_test_water_manager_world_delegation()
@@ -947,14 +947,14 @@ func _test_mode_runtime_ancestor_retirement() -> void:
 	while active_script != null:
 		chain.append(active_script.resource_path)
 		active_script = active_script.get_base_script()
-	_check(chain.size() == 7, "active Godot scene inherits exactly seven script layers")
+	_check(chain.size() == 6, "active Godot scene inherits exactly six script layers")
 	_check(not chain.has("res://scripts/weapons/WeaponRuntimeBridge.gd"),
 		"retired weapon bridge no longer appears in the active chain")
 	_check(not chain.has("res://scripts/modes/ModeRuntimeBridge.gd"),
 		"retired ModeRuntimeBridge is not an active parent")
 	_check(chain.has("res://scripts/modes/WorldRuntimeBridge.gd") and
-		chain.has("res://scripts/Main.gd"),
-		"active world runtime extends legacy root directly")
+		not chain.has("res://scripts/Main.gd"),
+		"active world runtime no longer inherits the legacy prototype")
 	game.call("_show_main_menu")
 	_check(int(game.get("menu_state")) == 0 and (game.get("menu_buttons") as Array).size() == 3,
 		"world runtime preserves original main menu initialization")
@@ -1126,7 +1126,7 @@ func _test_identical_method_override_cleanup() -> void:
 	# MainGame now owns compatibility hooks previously inherited via the
 	# retired weapon bridge; the original projectile behavior must remain intact.
 	var main_script: Script = load("res://scripts/core/MainGame.gd") as Script
-	_check(main_script != null, "seven-layer MainGame script remains loadable")
+	_check(main_script != null, "six-layer MainGame script remains loadable")
 	if main_script == null:
 		return
 	var main_source: String = FileAccess.get_file_as_string(
@@ -2434,7 +2434,7 @@ func _test_shadowed_bridge_removal_live() -> void:
 		"_apply_weapon_damage", "_build_weapon_ui", "_toggle_weapon_menu"
 	]:
 		_check(main_source.contains("\nfunc " + name + "("),
-			"seven-layer game retains compiler-visible method " + name)
+			"six-layer game retains compiler-visible method " + name)
 	_check(mode_source.contains("\nfunc _update_all_realtime_projectiles(") and
 		special_source.contains("super._update_all_realtime_projectiles(delta)") and
 		not mode_source.contains("super._update_all_realtime_projectiles(delta)"),
@@ -2785,7 +2785,7 @@ func _test_destroyed_smoke_game_ownership_live() -> void:
 	_check(smoke.tank_index == -1 and smoke.puffs.is_empty(),
 		"world and scene resets continue clearing effect state")
 
-func _test_seven_layer_weapon_domain_ownership_live() -> void:
+func _test_six_layer_weapon_domain_ownership_live() -> void:
 	var main_source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
 	)
@@ -2805,7 +2805,7 @@ func _test_seven_layer_weapon_domain_ownership_live() -> void:
 	var shells: TurnProjectileSession = game.get("turn_projectile_session") as TurnProjectileSession
 	var smoke: DestroyedTankSmokeSession = game.get("destroyed_smoke_session") as DestroyedTankSmokeSession
 	_check(session != null and shells != null and smoke != null,
-		"seven-layer scene keeps existing domain services without introducing adapters")
+		"six-layer scene keeps existing domain services without introducing adapters")
 	for name: String in [
 		"_update_projectile", "_split_turn_cluster_projectile",
 		"_update_turn_weapon_projectiles", "_turn_shell_should_explode",

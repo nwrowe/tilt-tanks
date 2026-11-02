@@ -330,7 +330,12 @@ func _close_weapon_menu() -> void:
 	overlay_open = (menu_panel != null and menu_panel.visible) or (end_panel != null and end_panel.visible)
 
 func _hide_overlays() -> void:
-	super._hide_overlays()
+	if menu_panel != null:
+		menu_panel.visible = false
+	if end_panel != null:
+		end_panel.visible = false
+	overlay_open = false
+	end_popup_shown = false
 	weapon_menu_open = false
 	WeaponSelectMenu.hide_panel(weapon_panel)
 
@@ -957,7 +962,13 @@ func _process_game_over_visuals(delta: float) -> void:
 
 func _show_end_popup() -> void:
 	_start_destroyed_tank_smoke()
-	super._show_end_popup()
+	if end_popup_shown:
+		return
+	var winner: int = 1 if tank_health[0] <= 0 else 0
+	end_label.text = "Player %d wins!\nP1 HP: %d    P2 HP: %d" % [winner + 1, tank_health[0], tank_health[1]]
+	end_panel.visible = true
+	overlay_open = true
+	end_popup_shown = true
 
 func _start_destroyed_tank_smoke() -> void:
 	if not destroyed_smoke_session.start(tank_health):
@@ -1170,7 +1181,17 @@ func _end_turn_without_shot() -> void:
 	_apply_post_turn_match_state()
 
 func _explode(pos: Vector2) -> void:
-	super._explode(pos)
+	projectile_active = false
+	explosion_pos = pos
+	explosion_timer = EXPLOSION_DURATION
+	_apply_crater(pos)
+	_apply_explosion_damage(pos)
+	_settle_tanks_on_terrain()
+	if tank_health[0] <= 0 or tank_health[1] <= 0:
+		game_over = true
+		_show_end_popup()
+	else:
+		_advance_turn()
 	_sync_match_state_from_runtime()
 
 func _apply_explosion_damage(pos: Vector2) -> void:
