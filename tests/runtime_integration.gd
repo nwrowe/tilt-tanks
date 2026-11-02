@@ -45,6 +45,7 @@ func _run() -> void:
 	_test_single_weapon_metadata_owner()
 	_test_pruned_weapon_collision_dispatch_live()
 	_test_shared_shell_impact_policy_live()
+	_test_legacy_turn_contact_matches_shells_live()
 	_test_retired_world_mode_helpers_live()
 	_test_composed_weapon_definition_session()
 	_test_canonical_weapon_alias_forwarding_live()
@@ -2346,6 +2347,27 @@ func _test_composed_weapon_menu_view_live() -> void:
 		"return to main menu hides composed selector")
 	game.call("reset_match")
 
+func _test_legacy_turn_contact_matches_shells_live() -> void:
+	game.call("_on_hotseat_pressed")
+	var dry_ponds: Array[Dictionary] = []
+	game.set("ponds", dry_ponds)
+	var x: float = 540.0
+	var ground_y: float = float(game.call("_ground_y_at_x", x))
+	var contact: Vector2 = Vector2(x, ground_y + 2.0)
+	_check(bool(game.call("_turn_shell_should_explode", 0, contact)) and
+		bool(game.call("_realtime_projectile_should_explode", 0, contact)) and
+		game.call("_shell_impact_position", 0, contact, true) == Vector2(x, ground_y),
+		"legacy and ordinary shells agree on terrain collision, only legacy snaps impact")
+	game.set("projectile_active", true)
+	game.set("turn_projectile_weapon", WeaponCatalog.STANDARD)
+	game.set("projectile_pos", contact)
+	game.set("projectile_vel", Vector2.ZERO)
+	game.call("_update_projectile", 0.0)
+	_check(not bool(game.get("projectile_active")) and
+		(game.get("explosion_pos") as Vector2) == Vector2(x, ground_y),
+		"real legacy turn update detonates at resolved ground-snapped impact")
+	game.call("reset_match")
+
 func _test_shared_shell_impact_policy_live() -> void:
 	var source: String = FileAccess.get_file_as_string(
 		"res://scripts/core/MainGame.gd"
@@ -2353,11 +2375,12 @@ func _test_shared_shell_impact_policy_live() -> void:
 	_check(source.contains("func _turn_shell_should_explode(") and
 		source.contains("func _realtime_projectile_should_explode("),
 		"both compile-time collision hooks remain in MainGame")
-	var count: int = source.split("ProjectileManager.should_shell_explode(").size() - 1
+	var count: int = source.split("ProjectileManager.impact_position(").size() - 1
 	_check(count == 1 and
-		source.contains("func _shell_should_explode(") and
+		source.contains("func _shell_impact_position(") and
+		source.contains("return _shell_impact_position(owner, pos) != Vector2.INF") and
 		source.split("return _shell_should_explode(owner, pos)").size() == 3,
-		"turn and realtime collision hooks share one scene adapter and impact policy")
+		"legacy turn, spawned turn and realtime share one scene impact resolver")
 	game.call("_on_hotseat_pressed")
 	var old_ponds: Array[Dictionary] = game.get("ponds")
 	var empty_ponds: Array[Dictionary] = []
