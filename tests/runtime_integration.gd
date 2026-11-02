@@ -572,13 +572,10 @@ func _test_weapon_bridge_retirement() -> void:
 	# inheriting the deleted WeaponDefinitionRuntimeBridge.
 	var session: WeaponDefinitionSession = game.get("weapon_definition_session") as WeaponDefinitionSession
 	_check(session != null, "active game owns composed weapon-definition session")
-	_check(game.call("_weapon_definition", WeaponCatalog.HEAVY) == session.definition(WeaponCatalog.HEAVY), "compatibility weapon lookup resolves to composed registry")
 	_check(game.call("_weapon_display_name", WeaponCatalog.CLUSTER) == session.display_name(WeaponCatalog.CLUSTER), "weapon display names still resolve")
 	_check(game.call("_weapon_has_split_behavior", WeaponCatalog.CLUSTER), "legacy cluster split metadata remains available")
 	_check(not game.call("_weapon_has_split_behavior", WeaponCatalog.STANDARD), "standard weapon still has no split behavior")
 	_check(game.call("_weapon_child_count", WeaponCatalog.CLUSTER) == 3, "cluster child count remains definition-driven")
-	_check(game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, false, Vector2(0.0, 10.0)), "descending cluster split remains available")
-	_check(not game.call("_weapon_should_split_on_descent", WeaponCatalog.CLUSTER, true, Vector2(0.0, 10.0)), "repeat split is suppressed")
 	game.call("_select_level", LevelRegistry.LEVEL_DEFAULT)
 	game.call("_set_selected_weapon_for_current_player", WeaponCatalog.CLUSTER)
 	_check(str(game.get("selected_weapon")) == WeaponCatalog.CLUSTER, "normal loadout permits cluster selection")
@@ -2846,9 +2843,9 @@ func _test_scene_adapter_domain_grouping_live() -> void:
 	_check(crater >= 0 and crater < damage,
 		"crater and radial damage effects remain adjacent")
 	var stat: int = source.find("\nfunc _weapon_value(")
-	var definition: int = source.find("\nfunc _weapon_definition(")
-	_check(stat >= 0 and stat < definition and
-		source.find("\nfunc _weapon_projectile_scale(") < definition,
+	var display_name: int = source.find("\nfunc _weapon_display_name(")
+	_check(stat >= 0 and stat < display_name and
+		source.find("\nfunc _weapon_projectile_scale(") < display_name,
 		"legacy stat getters stay beside canonical weapon-definition adapters")
 	_check(not FileAccess.file_exists(
 		"res://scripts/weapons/WeaponRuntimeBridge.gd"
