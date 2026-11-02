@@ -466,6 +466,17 @@ func _test_runtime_radial_damage() -> void:
 	game.call("_apply_explosion_damage", impact)
 	_check((game.get("tank_health") as Array) == [0, 0], "legacy explosion can destroy both tanks")
 	_check(controller.is_game_over() and controller.winner_index() == -1, "live dual destruction is a draw")
+	# Exercise the active special-weapons explosion dispatch and UI result:
+	# the controller, not another scene health check, owns winner selection.
+	game.call("reset_match")
+	game.set("tank_positions", both_positions)
+	game.set("tank_health", both_health)
+	game.call("_explode_turn_weapon", impact, WeaponCatalog.STANDARD, false)
+	_check(bool(game.get("game_over")) and controller.winner_index() == -1,
+		"live turn explosion preserves the controller's draw outcome")
+	var popup: Label = game.get("end_label") as Label
+	_check(popup != null and popup.text.begins_with("Draw!"),
+		"game-over popup reports simultaneous defeat as a draw")
 	game.call("reset_match")
 	_check(state.tank_health == [100, 100] and not controller.is_game_over(), "reset clears damage and draw")
 
