@@ -201,10 +201,7 @@ func _process(delta: float) -> void:
 			queue_redraw()
 		WeaponFramePolicy.Stage.TURN_SHELLS:
 			_update_turn_weapon_projectiles(delta)
-			if explosion_timer > 0.0:
-				explosion_timer -= delta
-				if explosion_timer <= 0.0:
-					explosion_pos = Vector2.INF
+			_age_explosion_visual(delta)
 			_update_camera(delta)
 			_update_ui()
 			_update_destroyed_smoke(delta)
@@ -825,10 +822,7 @@ func _update_ui() -> void:
 
 # Game-facing destroyed smoke hooks; the existing session owns puffs and RNG.
 func _process_game_over_visuals(delta: float) -> void:
-	if explosion_timer > 0.0:
-		explosion_timer = maxf(0.0, explosion_timer - delta)
-		if explosion_timer <= 0.0:
-			explosion_pos = Vector2.INF
+	_age_explosion_visual(delta, true)
 	_update_camera(delta)
 	_update_ui()
 	_update_destroyed_smoke(delta)
