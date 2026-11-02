@@ -130,33 +130,6 @@ func _on_fire_pressed() -> void:
 	if _weapon_behavior(selected_weapon) == "bounce":
 		turn_bouncer_bounce_count = 0
 
-func _release_realtime_charged_shot() -> void:
-	if _weapon_behavior(selected_weapon) == "laser_cut":
-		if not _player_can_fire() or game_over or overlay_open:
-			_reset_realtime_charge_state()
-			return
-		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
-		power = _power_from_percent(power_percent)
-		_fire_laser(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true, selected_weapon)
-		rt_player_shell_active = false
-		quickgame_player_shot_hide_trajectory = true
-		_reset_realtime_charge_state()
-		return
-	if _weapon_behavior(selected_weapon) == "machine_gun":
-		if not _player_can_fire() or game_over or overlay_open or weapon_burst.active:
-			_reset_realtime_charge_state()
-			return
-		power_percent = clampf(rt_fire_charge_percent, RT_CHARGE_MIN_PERCENT, RT_CHARGE_MAX_PERCENT)
-		power = _power_from_percent(power_percent)
-		_begin_machine_gun_burst(HUMAN_PLAYER_INDEX, angle_deg, power_percent, true, selected_weapon)
-		rt_player_shell_active = true
-		quickgame_player_shot_hide_trajectory = true
-		_reset_realtime_charge_state()
-		return
-	super._release_realtime_charged_shot()
-	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and (ProjectileManager.has_shell_for_owner(rt_projectiles, HUMAN_PLAYER_INDEX) or rt_player_shell_active):
-		quickgame_player_shot_hide_trajectory = true
-
 func _update_projectile(delta: float) -> void:
 	if _weapon_behavior(turn_projectile_weapon) == "bounce":
 		_update_bouncing_turn_projectile(delta)
@@ -243,8 +216,14 @@ func _fire_realtime_projectile(owner: int) -> void:
 	var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
 	if _weapon_behavior(weapon) == "laser_cut":
 		_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
+		if owner == HUMAN_PLAYER_INDEX:
+			quickgame_player_shot_hide_trajectory = true
 		return
 	if _weapon_behavior(weapon) == "machine_gun":
+		# A burst that already owns the fire lifecycle cannot be restarted,
+		# even if no human shell remains in this particular frame.
+		if weapon_burst.active:
+			return
 		_begin_machine_gun_burst(owner, shot_angle, shot_power_percent, true, weapon)
 		return
 	# Normal and special fired shells have one scene owner for muzzle
