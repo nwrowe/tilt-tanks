@@ -497,7 +497,7 @@ func _realtime_special_projectiles_active() -> bool:
 			return true
 	return false
 
-func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
+func _spawn_weapon_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
 	var shot_power: float = _power_from_percent(shot_power_percent)
 	var shell: Dictionary = ProjectileFactory.make_fired_shell(
