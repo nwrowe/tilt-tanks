@@ -67,6 +67,15 @@ were removed. Shared world water drawing and water physics remain implemented
 in WorldRuntimeBridge, and level snow-line variation is selected through one
 MainGameModeFacade policy hook. There is no parallel fallback physics path.
 
+## Mode menu callback ownership (PR #140)
+
+The base world runtime still declares multiplayer-menu, Online-button,
+and Campaign-button callbacks because its menu controls pass these callables
+to the active scene. Their former placeholder implementations are retired.
+`MainGameProgressionFacade` is the active owner of the multiplayer menu,
+Online Duel entry, and Campaign hub. These callbacks are virtual contracts,
+not alternate menu flows.
+
 ## Frame and camera ownership (PRs #138–#139)
 
 The active scene's frame dispatch is deliberate, not six parallel simulation
