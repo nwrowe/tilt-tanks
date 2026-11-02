@@ -8,8 +8,11 @@ truth for gameplay behavior.
 
 This change **does not inline the prototype**. Only its shared scene node
 bindings and state declarations were moved to WorldRuntimeBridge.gd.
-The only unique actively invoked helpers, _update_camera and
-_world_to_screen, also live there. The original Main._advance_turn,
+The only unique actively invoked prototype helpers, _update_camera and
+_world_to_screen, also live there. Two short terrain operations formerly
+shadowed in MainGame, _ground_y_at_x and _settle_tanks_on_terrain, are
+now centrally owned by WorldRuntimeBridge. Its other required callbacks
+are declared as explicit virtual contracts without duplicating old algorithms. The original Main._advance_turn,
 Main._explode, Main._show_end_popup and Main._hide_overlays bodies were
 preserved at their actual dispatch callers. This keeps the super handoffs
 and explosion/turn/overlay ordering intact without retaining a redundant
