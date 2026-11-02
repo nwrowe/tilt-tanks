@@ -690,6 +690,30 @@ func _test_shared_projectile_impact_policy() -> void:
 	)
 	_check(not hit and lookups == ["pond", "ground", "floor"],
 		"airborne in-world shell remains active with unchanged check ordering")
+	lookups.clear()
+	var legacy_impact: Vector2 = ProjectileManager.impact_position(
+		Vector2(300.0, 220.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor, true
+	)
+	_check(legacy_impact == Vector2(300.0, 200.0) and
+		lookups == ["pond", "ground"],
+		"legacy ground impact snaps to terrain with preserved contact order")
+	lookups.clear()
+	var shell_impact: Vector2 = ProjectileManager.impact_position(
+		Vector2(300.0, 220.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor
+	)
+	_check(shell_impact == Vector2(300.0, 220.0) and
+		lookups == ["pond", "ground"],
+		"ordinary shell impact retains its raw terrain contact position")
+	lookups.clear()
+	var airborne_impact: Vector2 = ProjectileManager.impact_position(
+		Vector2(300.0, 80.0), target, 24.0, 5.0,
+		pond_contains, ground_height_at, 1200.0, bottom_floor, true
+	)
+	_check(airborne_impact == Vector2.INF and
+		lookups == ["pond", "ground", "floor"],
+		"airborne legacy shot has no impact and still checks world boundary")
 
 func _test_main_scene() -> void:
 	var scene: PackedScene = load("res://scenes/Main.tscn") as PackedScene
