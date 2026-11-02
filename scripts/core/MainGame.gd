@@ -499,8 +499,13 @@ func _bottom_floor_y() -> float:
 func _terrain_slope_at_x(x: float) -> float:
 	return SnowManager.slope_at_x(terrain_points, x, TERRAIN_STEP, active_world_width)
 
+# Shared snow mechanics and rendering use the active level's snow line.
+# The mode facade overrides this one policy value, not four implementations.
+func _active_snow_line_y() -> float:
+	return SNOW_LINE_Y
+
 func _is_snow_at_x(x: float) -> bool:
-	return SnowManager.is_snow_at_x(terrain_points, x, TERRAIN_STEP, SNOW_LINE_Y)
+	return SnowManager.is_snow_at_x(terrain_points, x, TERRAIN_STEP, _active_snow_line_y())
 
 func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
 	return SnowManager.adjusted_direction_and_speed(
@@ -510,7 +515,7 @@ func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_s
 		base_speed,
 		TERRAIN_STEP,
 		active_world_width,
-		SNOW_LINE_Y,
+		_active_snow_line_y(),
 		SNOW_UPHILL_BLOCK_SLOPE,
 		SNOW_SLIDE_SLOPE,
 		SNOW_SLIDE_SPEED,
@@ -523,7 +528,7 @@ func _draw_snow_caps() -> void:
 	_draw_snow_surface_highlights()
 
 func _draw_snow_faces() -> void:
-	for face_data: Dictionary in SnowManager.snow_face_polygons(terrain_points, SNOW_LINE_Y, 0.62):
+	for face_data: Dictionary in SnowManager.snow_face_polygons(terrain_points, _active_snow_line_y(), 0.62):
 		var face_world: PackedVector2Array = face_data.get("face", PackedVector2Array())
 		var face_screen: PackedVector2Array = PackedVector2Array()
 		for point: Vector2 in face_world:
@@ -539,7 +544,7 @@ func _draw_snow_faces() -> void:
 			draw_colored_polygon(shadow_screen, Color(0.62, 0.78, 1.0, SNOW_FACE_SHADOW_ALPHA))
 
 func _draw_snow_surface_highlights() -> void:
-	for segment_world: Array in SnowManager.snow_segments(terrain_points, SNOW_LINE_Y):
+	for segment_world: Array in SnowManager.snow_segments(terrain_points, _active_snow_line_y()):
 		var segment: PackedVector2Array = PackedVector2Array()
 		for point: Vector2 in segment_world:
 			segment.append(_world_to_screen(point))

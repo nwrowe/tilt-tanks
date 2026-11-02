@@ -411,47 +411,9 @@ func _generate_ponds() -> void:
 func _level_snow_line_y() -> float:
 	return level_session.snow_line_y(SNOW_LINE_Y)
 
-func _is_snow_at_x(x: float) -> bool:
-	return SnowManager.is_snow_at_x(terrain_points, x, TERRAIN_STEP, _level_snow_line_y())
-
-func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
-	return SnowManager.adjusted_direction_and_speed(
-		terrain_points,
-		x,
-		input_direction,
-		base_speed,
-		TERRAIN_STEP,
-		active_world_width,
-		_level_snow_line_y(),
-		SNOW_UPHILL_BLOCK_SLOPE,
-		SNOW_SLIDE_SLOPE,
-		SNOW_SLIDE_SPEED,
-		SNOW_DRIVE_MULT,
-		SNOW_UPHILL_SLOW_MULT
-	)
-
-func _draw_snow_faces() -> void:
-	for face_data: Dictionary in SnowManager.snow_face_polygons(terrain_points, _level_snow_line_y(), 0.62):
-		var face_world: PackedVector2Array = face_data.get("face", PackedVector2Array())
-		var face_screen: PackedVector2Array = PackedVector2Array()
-		for point: Vector2 in face_world:
-			face_screen.append(_world_to_screen(point))
-		if face_screen.size() >= 3:
-			draw_colored_polygon(face_screen, Color(0.90, 0.95, 1.0, SNOW_FACE_ALPHA))
-
-		var shadow_world: PackedVector2Array = face_data.get("shadow", PackedVector2Array())
-		var shadow_screen: PackedVector2Array = PackedVector2Array()
-		for point: Vector2 in shadow_world:
-			shadow_screen.append(_world_to_screen(point))
-		if shadow_screen.size() >= 3:
-			draw_colored_polygon(shadow_screen, Color(0.62, 0.78, 1.0, SNOW_FACE_SHADOW_ALPHA))
-
-func _draw_snow_surface_highlights() -> void:
-	for segment_world: Array in SnowManager.snow_segments(terrain_points, _level_snow_line_y()):
-		var segment: PackedVector2Array = PackedVector2Array()
-		for point: Vector2 in segment_world:
-			segment.append(_world_to_screen(point))
-		_draw_snow_highlight_segment(segment)
+# One level-specific policy hook feeds the inherited SnowManager routines.
+func _active_snow_line_y() -> float:
+	return _level_snow_line_y()
 
 func _active_level_name() -> String:
 	return level_session.display_name()
