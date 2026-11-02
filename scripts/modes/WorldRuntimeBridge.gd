@@ -1161,39 +1161,18 @@ func _movement_speed_mult_at_x(x: float) -> float:
 	)
 
 func _draw_ponds_under_ground() -> void:
-	for pond: Dictionary in ponds:
-		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
-		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
-		var water_y: float = float(pond.get("water_y", 0.0))
-		if end_i <= start_i:
-			continue
-		var start_x: float = terrain_points[start_i].x
-		var end_x: float = terrain_points[end_i].x
-		var top_left: Vector2 = _world_to_screen(Vector2(start_x, water_y))
-		var bottom_right: Vector2 = _world_to_screen(Vector2(end_x, _bottom_floor_y() + 260.0))
+	for rect: Dictionary in WaterManager.backing_rects_for_ponds(ponds, terrain_points, _bottom_floor_y()):
+		var top_left: Vector2 = _world_to_screen(rect.get("start", Vector2.ZERO))
+		var bottom_right: Vector2 = _world_to_screen(rect.get("end", Vector2.ZERO))
 		draw_rect(Rect2(top_left, bottom_right - top_left), Color(0.035, 0.22, 0.50, 0.95), true)
 
 func _draw_water_surfaces() -> void:
-	for pond: Dictionary in ponds:
-		var start_i: int = clampi(int(pond.get("start_i", 0)), 0, terrain_points.size() - 1)
-		var end_i: int = clampi(int(pond.get("end_i", 0)), 0, terrain_points.size() - 1)
-		var water_y: float = float(pond.get("water_y", 0.0))
-		var segment_start: int = -1
-		for i: int in range(start_i, end_i + 1):
-			var visible: bool = terrain_points[i].y > water_y + WATER_MIN_VISIBLE_DEPTH
-			if visible and segment_start < 0:
-				segment_start = i
-			elif not visible and segment_start >= 0:
-				_draw_water_surface_segment(segment_start, i - 1, water_y)
-				segment_start = -1
-		if segment_start >= 0:
-			_draw_water_surface_segment(segment_start, end_i, water_y)
+	for segment: Dictionary in WaterManager.surface_segments_for_ponds(ponds, terrain_points, WATER_MIN_VISIBLE_DEPTH):
+		_draw_water_surface_segment_world(segment.get("start", Vector2.ZERO), segment.get("end", Vector2.ZERO))
 
-func _draw_water_surface_segment(start_i: int, end_i: int, water_y: float) -> void:
-	if end_i <= start_i:
-		return
-	var left: Vector2 = _world_to_screen(Vector2(terrain_points[start_i].x, water_y))
-	var right: Vector2 = _world_to_screen(Vector2(terrain_points[end_i].x, water_y))
+func _draw_water_surface_segment_world(start_world: Vector2, end_world: Vector2) -> void:
+	var left: Vector2 = _world_to_screen(start_world)
+	var right: Vector2 = _world_to_screen(end_world)
 	draw_line(left, right, Color(0.18, 0.66, 1.0, 0.88), 3.0)
 	draw_line(left + Vector2(0, 3), right + Vector2(0, 3), Color(0.72, 0.92, 1.0, 0.28), 1.5)
 

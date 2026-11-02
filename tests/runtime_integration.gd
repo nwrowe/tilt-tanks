@@ -702,6 +702,15 @@ func _test_menu_layer_retirement() -> void:
 	_check((game.get("player_power_percents") as Array) == [50.0, 50.0], "gameplay setup retains charge defaults")
 
 func _test_water_manager_world_delegation() -> void:
+	# The world runtime is the one scene owner of the water draw adapters.
+	var world_draw_source: String = FileAccess.get_file_as_string(
+		"res://scripts/modes/WorldRuntimeBridge.gd"
+	)
+	for method_name: String in [
+		"_draw_ponds_under_ground", "_draw_water_surfaces", "_draw_water_surface_segment_world"
+	]:
+		_check(world_draw_source.contains("\nfunc " + method_name + "("),
+			"world runtime owns water drawing: " + method_name)
 	# The active scene resolves these through the existing WorldRuntimeBridge,
 	# not duplicate MainGame adapters.
 	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
