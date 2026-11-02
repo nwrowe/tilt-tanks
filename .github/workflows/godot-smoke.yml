@@ -32,6 +32,19 @@ jobs:
       - name: Reject duplicate inherited method implementations
         run: python3 tests/check_duplicate_inherited_methods.py
 
+      - name: Check active script ancestry (localize parser failures)
+        run: |
+          for script in \
+            scripts/modes/WorldRuntimeBridge.gd \
+            scripts/core/MainGame.gd \
+            scripts/core/MainGameModeFacade.gd \
+            scripts/core/MainGameSpecialWeaponsFacade.gd \
+            scripts/core/MainGameProgressionFacade.gd \
+            scripts/core/MainGameOnlineHostWaitingFacade.gd; do
+            echo "Checking ${script}"
+            bash tests/check_godot_run.sh godot --headless --path . --check-only --script "res://${script}"
+          done
+
       - name: Import assets and register script classes
         run: bash tests/check_godot_run.sh godot --headless --path . --import
 
