@@ -494,3 +494,18 @@ preserves tank, water, terrain and world-boundary test order.
 This does not conflate Bouncer ground contact, Cluster splitting,
 camera focus or online host authority. Live-scene tests verify
 both owners and contact types and enforce only one scene adapter.
+
+## Shared Bouncer contact in turn and realtime (PR #124)
+
+`MainGameSpecialWeaponsFacade._step_bouncer_shell` now owns
+tank/pond/boundary checks, bounce-limit evaluation, reflection and
+ground-position adjustment for both modes. Turn gameplay converts
+its legacy scalar `projectile_pos`, `projectile_vel` and
+`turn_bouncer_bounce_count` into a short-lived shell dictionary,
+calls the same routine, then copies results back. No second mutable
+session or per-mode bounce algorithm exists. A terminal ground
+contact returns its snapped impact position for legacy turn
+explosions; realtime shells retain their pre-existing raw-stepped
+explosion position and dictionary mutation semantics. Live tests
+compare the modes at first/terminal contacts, enemy ownership and
+metadata behavior.
