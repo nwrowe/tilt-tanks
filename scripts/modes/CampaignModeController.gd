@@ -1,7 +1,7 @@
 extends ModeController
 class_name CampaignModeController
 
-# Placeholder controller for future campaign flow.
+# Campaign owns level identity while reusing realtime single-player combat.
 # Campaign should eventually own level selection, progression, unlocks, scripted
 # constraints, and campaign-specific loadouts, while reusing match/weapons/world
 # systems underneath.
@@ -19,7 +19,7 @@ func exit_mode() -> void:
 	pass
 
 func should_show_turn_widget() -> bool:
-	return true
+	return false
 
 func set_campaign_level(id: String, index: int) -> void:
 	campaign_id = id
