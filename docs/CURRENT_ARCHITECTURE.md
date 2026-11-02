@@ -537,3 +537,20 @@ dictionary/scalar state representations and collision/event
 ordering. Smoke tests check multi-frame equivalence, ownership,
 nested data isolation and default shell fields; live-scene tests
 protect turn-step execution.
+
+## One realtime shell launch scene owner (PR #127)
+
+`MainGameSpecialWeaponsFacade._fire_realtime_projectile` still
+selects standard versus metadata-driven instant Laser or Machine Gun
+behavior. It now passes ordinary fired shells into the **same**
+`_spawn_weapon_shell` used by Bouncer, burst rounds and other
+special-projectile paths. The old `_spawn_special_shell` name is
+retired because launch geometry, capacity eviction, per-mode shell
+appending and fire FX are no longer special-only responsibilities.
+The existing burst child exemption from the ordinary realtime cap
+is preserved. After any realtime append/eviction, player shell-active
+state is recomputed from actual human-owned projectiles; an AI shot
+cannot inadvertently clear that state. Live tests cover normal AI
+launch geometry, cap eviction in both human-preserving and last-human
+eviction cases, plus existing normal, Bouncer and burst launch tests.
+No extra classes, inheritance layers or state aliases.

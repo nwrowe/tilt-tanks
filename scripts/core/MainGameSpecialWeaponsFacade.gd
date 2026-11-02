@@ -239,28 +239,18 @@ func _fire_realtime_projectile(owner: int) -> void:
 	if game_over:
 		return
 	var weapon: String = selected_weapon if owner == HUMAN_PLAYER_INDEX else WEAPON_STANDARD
+	var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
+	var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
 	if _weapon_behavior(weapon) == "laser_cut":
-		var shot_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
-		var shot_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
 		_fire_laser(owner, shot_angle, shot_power_percent, true, weapon)
 		return
 	if _weapon_behavior(weapon) == "machine_gun":
-		var mg_angle: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
-		var mg_power_percent: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-		_begin_machine_gun_burst(owner, mg_angle, mg_power_percent, true, weapon)
+		_begin_machine_gun_burst(owner, shot_angle, shot_power_percent, true, weapon)
 		return
-	if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES:
-		rt_projectiles.pop_front()
-	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
-	var shot_angle_default: float = player_angles[owner] if owner == AI_PLAYER_INDEX else angle_deg
-	var shot_power_percent_default: float = player_power_percents[owner] if owner == AI_PLAYER_INDEX else power_percent
-	var shot_power: float = _power_from_percent(shot_power_percent_default)
-	rt_projectiles.append(ProjectileFactory.make_fired_shell(
-		owner, weapon, tank_positions[owner], facing, shot_angle_default,
-		shot_power, CANNON_LENGTH
-	))
+	# Normal and special fired shells have one scene owner for muzzle
+	# geometry, capacity eviction, collection mutation and fire effects.
+	_spawn_weapon_shell(owner, weapon, shot_angle, shot_power_percent, true)
 	projectile_active = false
-	_trigger_fire_fx(owner, shot_angle_default)
 	if owner == HUMAN_PLAYER_INDEX:
 		quickgame_player_shot_hide_trajectory = true
 
@@ -405,7 +395,7 @@ func _fire_next_machine_gun_round() -> void:
 		float(_weapon_value(weapon_burst.weapon_id, "burst_power_jitter", 7.0)),
 		MOBILE_MIN_ANGLE, MOBILE_MAX_ANGLE
 	)
-	_spawn_special_shell(
+	_spawn_weapon_shell(
 		weapon_burst.owner, _burst_round_weapon(), float(shot["angle"]),
 		float(shot["power_percent"]), weapon_burst.realtime
 	)
@@ -506,7 +496,7 @@ func _realtime_special_projectiles_active() -> bool:
 			return true
 	return false
 
-func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
+func _spawn_weapon_shell(owner: int, weapon: String, shot_angle: float, shot_power_percent: float, realtime: bool) -> void:
 	var facing: float = 1.0 if owner == HUMAN_PLAYER_INDEX else -1.0
 	var shot_power: float = _power_from_percent(shot_power_percent)
 	var shell: Dictionary = ProjectileFactory.make_fired_shell(
@@ -517,7 +507,11 @@ func _spawn_special_shell(owner: int, weapon: String, shot_angle: float, shot_po
 		if rt_projectiles.size() >= RT_MAX_ACTIVE_PROJECTILES and not _is_burst_round(weapon):
 			rt_projectiles.pop_front()
 		rt_projectiles.append(shell)
-		rt_player_shell_active = owner == HUMAN_PLAYER_INDEX
+		# A new AI shell must not hide an already-active human projectile.
+		# Recalculate after eviction so a popped human shell also clears it.
+		rt_player_shell_active = ProjectileManager.has_shell_for_owner(
+			rt_projectiles, HUMAN_PLAYER_INDEX
+		)
 	else:
 		turn_projectiles.append(shell)
 	_trigger_fire_fx(owner, shot_angle)
