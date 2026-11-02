@@ -147,6 +147,7 @@ var single_player_mode: bool:
 const GAME_MODE_HOTSEAT: int = 0
 const GAME_MODE_SINGLE_PLAYER_QUICK: int = 1
 const GAME_MODE_SINGLE_PLAYER_REALTIME: int = 2
+const GAME_MODE_ONLINE_DUEL: int = 3
 
 const AI_PLAYER_INDEX: int = 1
 const HUMAN_PLAYER_INDEX: int = 0
