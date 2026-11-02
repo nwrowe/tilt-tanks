@@ -308,6 +308,9 @@ var rt_fire_charge_time: float = 0.0
 var rt_fire_charge_percent: float = 0.0
 
 
+# Shadowed world fallback bodies are intentionally reduced to compile-visible
+# hooks below. Their active behavior lives in MainGame or MainGameModeFacade,
+# with no `super` call to these world implementations.
 # Compile-time scene hooks: active MainGame/ModeFacade implementations own
 # these operations. Godot must see the signatures in this base because its
 # frame/menu/draw code invokes them, but the old prototype algorithms must
@@ -506,17 +509,7 @@ func _is_ai_turn_waiting_for_explosion() -> bool:
 	)
 
 func _advance_turn() -> void:
-	current_player = 1 - current_player
-	_load_current_player_settings()
-	turn_timer = TURN_TIME_LIMIT
-	mobile_left_pressed = false
-	mobile_right_pressed = false
-	mobile_left_button.release_focus()
-	mobile_right_button.release_focus()
-	if _is_ai_turn_active():
-		_begin_ai_turn()
-	else:
-		turn_ai_session.cancel()
+	pass
 
 func _make_ai_visual_shot_plan() -> Dictionary:
 	return TurnAIVisualAimSession.perturb_plan(
@@ -730,11 +723,7 @@ func _camera_target_x() -> float:
 	)
 
 func _draw_realtime_projectiles() -> void:
-	for shell: Dictionary in rt_projectiles:
-		var owner: int = int(shell.get("owner", HUMAN_PLAYER_INDEX))
-		var pos: Vector2 = shell.get("pos", Vector2.ZERO)
-		var color: Color = Color(1.0, 0.92, 0.2) if owner == HUMAN_PLAYER_INDEX else Color(1.0, 0.38, 0.25)
-		draw_circle(_world_to_screen(pos), PROJECTILE_RADIUS * CAMERA_SCALE, color)
+	pass
 
 func _update_ui() -> void:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME:
@@ -758,14 +747,7 @@ func _update_steam_puffs(delta: float) -> void:
 	)
 
 func _draw_steam_puffs() -> void:
-	for puff: Dictionary in steam_puffs:
-		var appearance: Dictionary = SteamPuffEffect.appearance(
-			puff, STEAM_PUFF_LIFETIME, STEAM_PUFF_START_RADIUS,
-			STEAM_PUFF_END_RADIUS, CAMERA_SCALE
-		)
-		draw_circle(
-			_world_to_screen(appearance["pos"]), appearance["radius"], appearance["color"]
-		)
+	pass
 
 func _randomize_wind() -> void:
 	var display_wind: float = rng.randf_range(-WIND_DISPLAY_MAX, WIND_DISPLAY_MAX)
@@ -950,21 +932,7 @@ func _bottom_floor_y() -> float:
 # Required compatibility method for lower ancestor compile-time dispatch.
 
 func _draw_trajectory_preview() -> void:
-	if projectile_active or game_over:
-		return
-	var facing: float = 1.0 if current_player == 0 else -1.0
-	var rad: float = deg_to_rad(angle_deg)
-	var muzzle_offset: Vector2 = Vector2(facing * CANNON_LENGTH * cos(rad), -CANNON_LENGTH * sin(rad))
-	var pos: Vector2 = tank_positions[current_player] + muzzle_offset
-	var vel: Vector2 = Vector2(facing * power * cos(rad), -power * sin(rad))
-	for i: int in range(1, TRAJECTORY_DOT_COUNT + 1):
-		vel.y += gravity * TRAJECTORY_DOT_DT
-		vel.x += wind * TRAJECTORY_DOT_DT
-		pos += vel * TRAJECTORY_DOT_DT
-		if pos.x < 0.0 or pos.x > active_world_width or pos.y >= _ground_y_at_x(pos.x):
-			break
-		var alpha: float = 0.55 * (1.0 - float(i - 1) / float(TRAJECTORY_DOT_COUNT))
-		draw_circle(_world_to_screen(pos), TRAJECTORY_DOT_RADIUS, Color(1.0, 1.0, 1.0, alpha))
+	pass
 
 func _update_legacy_main_ui() -> void:
 	if angle_label != null:
@@ -1045,16 +1013,7 @@ func _release_realtime_charged_shot() -> void:
 	return
 
 func _resize_mobile_action_buttons() -> void:
-	# Keep left/right enlarged and move FIRE farther right so it is easier to hit.
-	if mobile_left_button != null:
-		mobile_left_button.position = Vector2(16, 430)
-		mobile_left_button.size = Vector2(92, 88)
-	if mobile_right_button != null:
-		mobile_right_button.position = Vector2(122, 430)
-		mobile_right_button.size = Vector2(92, 88)
-	if mobile_fire_button != null:
-		mobile_fire_button.position = Vector2(430, 448)
-		mobile_fire_button.size = Vector2(188, 70)
+	pass
 
 func _draw_wind_widget() -> void:
 	# Borderless center-zero wind meter with label.
@@ -1115,33 +1074,7 @@ func _draw() -> void:
 	_draw_menu_background()
 
 func _draw_snow_caps() -> void:
-	if terrain_points.size() < 2:
-		return
-	var segment: PackedVector2Array = PackedVector2Array()
-	for i: int in range(terrain_points.size()):
-		var p: Vector2 = terrain_points[i]
-		if p.y <= SNOW_LINE_Y:
-			segment.append(_world_to_screen(p))
-		else:
-			_draw_snow_segment(segment)
-			segment = PackedVector2Array()
-	_draw_snow_segment(segment)
-
-func _draw_snow_segment(segment: PackedVector2Array) -> void:
-	if segment.size() < 2:
-		return
-	for i: int in range(segment.size() - 1):
-		draw_line(segment[i], segment[i + 1], Color(0.92, 0.96, 1.0, 0.95), SNOW_EDGE_WIDTH)
-		draw_line(segment[i] + Vector2(0, 4), segment[i + 1] + Vector2(0, 4), Color(0.74, 0.86, 1.0, 0.42), 2.0)
-
-func _is_snow_at_x(x: float) -> bool:
-	return _ground_y_at_x(x) <= SNOW_LINE_Y
-
-func _terrain_slope_at_x(x: float) -> float:
-	var dx: float = TERRAIN_STEP * 3.0
-	var left_y: float = _ground_y_at_x(clampf(x - dx, 0.0, active_world_width))
-	var right_y: float = _ground_y_at_x(clampf(x + dx, 0.0, active_world_width))
-	return (right_y - left_y) / (2.0 * dx)
+	pass
 
 func _pond_at_x(x: float) -> Dictionary:
 	return WaterManager.pond_at_x(
@@ -1223,30 +1156,9 @@ func _reset_realtime_charge_state() -> void:
 	rt_keyboard_fire_held = false
 	MobileControls.style_charge_button(mobile_fire_button, 0.0)
 
-func _snow_adjusted_direction_and_speed(x: float, input_direction: float, base_speed: float) -> Dictionary:
-	var direction: float = input_direction
-	var speed: float = base_speed
-	if not _is_snow_at_x(x):
-		return {"direction": direction, "speed": speed, "blocked": false}
+func _snow_adjusted_direction_and_speed(_x: float, _input_direction: float, _base_speed: float) -> Dictionary:
+	return {}
 
-	var slope: float = _terrain_slope_at_x(x)
-	var blocked: bool = false
-	var downhill_direction: float = signf(slope)
-	var moving_uphill: bool = input_direction != 0.0 and signf(input_direction) == -downhill_direction and absf(slope) > SNOW_UPHILL_BLOCK_SLOPE
-	if moving_uphill:
-		blocked = true
-		direction = 0.0
-	elif input_direction == 0.0 and absf(slope) > SNOW_SLIDE_SLOPE:
-		direction = downhill_direction
-		speed = SNOW_SLIDE_SPEED
-	else:
-		speed *= SNOW_DRIVE_MULT
-		if input_direction != 0.0 and signf(input_direction) == downhill_direction and absf(slope) > SNOW_SLIDE_SLOPE:
-			speed += SNOW_SLIDE_SPEED * 0.45
-	return {"direction": direction, "speed": speed, "blocked": blocked}
-
-# Shared input collection for turn-based and realtime human movement.
-# AI movement uses its own planned direction and target.
 func _movement_input_direction() -> float:
 	var direction: float = 0.0
 	if Input.is_key_pressed(KEY_LEFT) or mobile_left_pressed:
