@@ -101,12 +101,19 @@ func _select_runtime_mode(mode_name: String) -> void:
 		ModeControllerRegistry.MODE_HOTSEAT:
 			game_mode = GAME_MODE_HOTSEAT
 		ModeControllerRegistry.MODE_CAMPAIGN:
-			game_mode = GAME_MODE_SINGLE_PLAYER_QUICK
+			# Campaign has its own identity/levels but uses realtime combat.
+			game_mode = GAME_MODE_SINGLE_PLAYER_REALTIME
 		ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER:
 			game_mode = GAME_MODE_HOTSEAT
 		_:
 			game_mode = GAME_MODE_HOTSEAT
 	active_mode_state.set_mode(mode_name, mode_controllers)
+
+func _on_quick_game_pressed() -> void:
+	# Explicitly leave Campaign when returning to ordinary Quick Game, even
+	# though both now share the same realtime runtime integer.
+	_select_realtime_single_player_mode()
+	super._on_quick_game_pressed()
 
 func _select_hotseat_mode() -> void:
 	_select_runtime_mode(ModeControllerRegistry.MODE_HOTSEAT)
@@ -122,11 +129,12 @@ func _select_network_multiplayer_mode() -> void:
 
 func _sync_active_mode_from_runtime() -> void:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
-		active_mode_state.set_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER, mode_controllers)
-	elif active_mode_state.is_mode(ModeControllerRegistry.MODE_CAMPAIGN) or active_mode_state.is_mode(ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER):
-		# Preserve explicit future-mode selections that currently map onto legacy
-		# compatibility game_mode values.
-		active_mode_state.set_mode(active_mode_state.current_mode_name, mode_controllers)
+		# Campaign and Quick Game share the realtime runtime but retain distinct
+		# controllers, level rules, and UI identities.
+		var selected: String = ModeControllerRegistry.MODE_CAMPAIGN if active_mode_state.is_mode(ModeControllerRegistry.MODE_CAMPAIGN) else ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER
+		active_mode_state.set_mode(selected, mode_controllers)
+	elif game_mode == GAME_MODE_HOTSEAT and active_mode_state.is_mode(ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER):
+		active_mode_state.set_mode(ModeControllerRegistry.MODE_NETWORK_MULTIPLAYER, mode_controllers)
 	else:
 		active_mode_state.set_mode(ModeControllerRegistry.MODE_HOTSEAT, mode_controllers)
 
@@ -135,7 +143,7 @@ func _is_active_mode(mode_name: String) -> bool:
 	return active_mode_state.is_mode(mode_name)
 
 func _is_hotseat_game_active() -> bool:
-	return hotseat_mode_controller.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_SINGLE_PLAYER_REALTIME)
+	return hotseat_mode_controller.is_active(menu_state, game_mode, MENU_STATE_GAME, GAME_MODE_HOTSEAT, GAME_MODE_ONLINE_DUEL)
 
 func _hotseat_can_begin_charge() -> bool:
 	return hotseat_mode_controller.can_begin_charge(projectile_active, turn_projectiles, game_over, overlay_open)
@@ -143,7 +151,7 @@ func _hotseat_can_begin_charge() -> bool:
 func _draw_turn_widget() -> void:
 	if game_over:
 		return
-	if _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) and menu_state == MENU_STATE_GAME:
+	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME and menu_state == MENU_STATE_GAME:
 		return
 
 	var box: Rect2 = Rect2(Vector2(VIEW_SIZE.x - 232.0, 64.0), Vector2(156.0, 44.0))
@@ -197,7 +205,7 @@ func _player_can_fire() -> bool:
 	return realtime_mode_controller.player_can_fire(rt_player_shell_active, game_over)
 
 func _update_realtime_fire_charge(delta: float) -> void:
-	if not _is_active_mode(ModeControllerRegistry.MODE_REALTIME_SINGLE_PLAYER) or menu_state != MENU_STATE_GAME:
+	if game_mode != GAME_MODE_SINGLE_PLAYER_REALTIME or menu_state != MENU_STATE_GAME:
 		return
 
 	var keyboard_down: bool = Input.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE)
