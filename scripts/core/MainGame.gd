@@ -1023,22 +1023,13 @@ func _camera_target_x() -> float:
 	if manual_camera_active and not projectile_active and turn_projectiles.is_empty() and rt_projectiles.is_empty():
 		return camera_x
 	if realtime_cluster_focus_pos != Vector2.INF:
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(realtime_cluster_focus_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+		return _camera_x_for_focus(realtime_cluster_focus_pos.x)
 	if turn_cluster_camera_pos != Vector2.INF:
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(turn_cluster_camera_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+		return _camera_x_for_focus(turn_cluster_camera_pos.x)
 	if cluster_camera_hold_pos != Vector2.INF and cluster_camera_hold_timer > 0.0:
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(cluster_camera_hold_pos.x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+		return _camera_x_for_focus(cluster_camera_hold_pos.x)
 	if game_over and destroyed_tank_index >= 0 and destroyed_tank_index < tank_positions.size():
-		var focus_x: float = tank_positions[destroyed_tank_index].x
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(
-			focus_x - camera_world_width * 0.5,
-			0.0,
-			maxf(0.0, active_world_width - camera_world_width)
-		)
+		return _camera_x_for_focus(tank_positions[destroyed_tank_index].x)
 	return super._camera_target_x()
 
 # Existing gameplay callbacks remain on the game node; pure state sync

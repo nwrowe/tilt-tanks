@@ -100,6 +100,7 @@ func _run() -> void:
 	_test_bouncer_weapon_policy_live()
 	_test_shared_turn_realtime_bouncer_contact_live()
 	_test_metadata_bouncer_profile_dispatch()
+	_test_camera_focus_clamp_ownership()
 	_test_machine_gun_projectile_camera_focus()
 	_test_composed_weapon_burst_session_live()
 	_test_metadata_burst_profile_dispatch()
@@ -1436,6 +1437,26 @@ func _test_shared_projectile_launch_geometry_live() -> void:
 		world_source.contains("ProjectileFactory.make_fired_shell("),
 		"world compatibility launch delegates to canonical shell factory")
 	game.call("reset_match")
+
+func _test_camera_focus_clamp_ownership() -> void:
+	var world_source: String = FileAccess.get_file_as_string("res://scripts/modes/WorldRuntimeBridge.gd")
+	var main_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGame.gd")
+	var special_source: String = FileAccess.get_file_as_string("res://scripts/core/MainGameSpecialWeaponsFacade.gd")
+	_check(world_source.contains("\nfunc _camera_x_for_focus(") and
+		not main_source.contains("\nfunc _camera_x_for_focus(") and
+		not special_source.contains("\nfunc _camera_x_for_focus("),
+		"world owns one shared camera focus clamping adapter")
+	var width: float = float(game.get("active_world_width"))
+	var visible: float = 900.0 / 0.66
+	_check(is_equal_approx(float(game.call("_camera_x_for_focus", -400.0)), 0.0),
+		"camera focus clamp prevents negative scrolling")
+	_check(is_equal_approx(float(game.call("_camera_x_for_focus", width + 400.0)),
+		maxf(0.0, width - visible)),
+		"camera focus clamp prevents scrolling past right world edge")
+	var middle: float = width * 0.5
+	_check(is_equal_approx(float(game.call("_camera_x_for_focus", middle)),
+		clampf(middle - visible * 0.5, 0.0, maxf(0.0, width - visible))),
+		"camera focus helper retains centered tracking")
 
 func _test_machine_gun_projectile_camera_focus() -> void:
 	# Machine-gun camera geometry is a reusable projectile collection

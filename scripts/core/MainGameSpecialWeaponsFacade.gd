@@ -72,10 +72,6 @@ func _camera_target_x() -> float:
 	# Do not mutate live explosion state merely to calculate camera focus.
 	return super._camera_target_x()
 
-func _camera_x_for_focus(focus_x: float) -> float:
-	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
-
 func _should_freeze_camera_until_pending_hotseat_advance_runs() -> bool:
 	return (
 		pending_advance_after_explosion_hold

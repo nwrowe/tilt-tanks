@@ -706,6 +706,12 @@ func _choose_realtime_ai_move_target() -> void:
 func _update_all_realtime_projectiles(delta: float) -> void:
 	return
 
+# Single camera world-to-viewport clamp shared by gameplay and special weapons.
+# Focus selection remains mode-specific; this never mutates live camera state.
+func _camera_x_for_focus(focus_x: float) -> float:
+	var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
+	return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+
 func _camera_target_x() -> float:
 	if game_mode == GAME_MODE_SINGLE_PLAYER_REALTIME:
 		var focus_x: float = tank_positions[HUMAN_PLAYER_INDEX].x
@@ -715,8 +721,7 @@ func _camera_target_x() -> float:
 				newest_human_projectile = shell.get("pos", Vector2.INF)
 		if newest_human_projectile != Vector2.INF:
 			focus_x = newest_human_projectile.x
-		var camera_world_width: float = VIEW_SIZE.x / CAMERA_SCALE
-		return clampf(focus_x - camera_world_width * 0.5, 0.0, maxf(0.0, active_world_width - camera_world_width))
+		return _camera_x_for_focus(focus_x)
 	return LegacyInputMotionPolicy.camera_x(
 		tank_positions[current_player].x, projectile_active, projectile_pos.x,
 		explosion_timer, explosion_pos, VIEW_SIZE.x, CAMERA_SCALE, active_world_width
