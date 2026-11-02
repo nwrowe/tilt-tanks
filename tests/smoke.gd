@@ -10,6 +10,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_main_scene()
 	_test_match_controller()
+	_test_unchanged_match_frame_snapshots()
 	_test_composed_match_runtime_synchronizer()
 	_test_match_damage()
 	_test_player_frame_adoption()
@@ -895,6 +896,49 @@ func _test_complete_turn_with_settings() -> void:
 	_check(is_equal_approx(state.player_power_percents[1], 68.0), "turn completion preserves player 2 charge")
 	_check(is_equal_approx(state.turn_timer, 30.0), "turn completion resets timer")
 	_check(state.tank_health == [100, 100] and not state.game_over, "turn completion leaves health and winner intact")
+
+func _test_unchanged_match_frame_snapshots() -> void:
+	var state: MatchState = MatchState.new()
+	var controller: MatchController = MatchController.new(state)
+	var positions: Array[Vector2] = [Vector2(100, 300), Vector2(1300, 300)]
+	var angles: Array[float] = [28.0, 71.0]
+	var powers: Array[float] = [700.0, 920.0]
+	var percents: Array[float] = [22.0, 67.0]
+	controller.sync_runtime_player_frame(0, positions, angles, powers, percents, 0.0, 15.0, 0, 1500.0)
+	var prior_positions: Array[Vector2] = state.tank_positions
+	var prior_angles: Array[float] = state.player_angles
+	var prior_powers: Array[float] = state.player_powers
+	var prior_percents: Array[float] = state.player_power_percents
+	# A new runtime array with identical values should not replace stored
+	# snapshots. Retained references expose whether an allocation occurred.
+	controller.sync_runtime_player_frame(
+		0, positions.duplicate(), angles.duplicate(), powers.duplicate(),
+		percents.duplicate(), 0.0, 14.0, 0, 1500.0
+	)
+	prior_positions[0] = Vector2(200, 300)
+	prior_angles[0] = 29.0
+	prior_powers[0] = 710.0
+	prior_percents[0] = 23.0
+	_check(state.tank_positions[0] == Vector2(200, 300) and
+		is_equal_approx(state.player_angles[0], 29.0) and
+		is_equal_approx(state.player_powers[0], 710.0) and
+		is_equal_approx(state.player_power_percents[0], 23.0),
+		"unchanged frame retains all four existing snapshot arrays")
+	_check(positions[0] == Vector2(100, 300) and angles[0] == 28.0 and
+		powers[0] == 700.0 and percents[0] == 22.0,
+		"retained snapshots remain detached from runtime arrays")
+	controller.sync_runtime_player_frame(0, positions, angles, powers, percents, 0.0, 13.0, 0, 1500.0)
+	_check(state.tank_positions == positions and state.player_angles == angles and
+		state.player_powers == powers and state.player_power_percents == percents,
+		"changed runtime values restore all canonical player snapshots")
+	positions[1] = Vector2(1400, 300)
+	controller.sync_runtime_player_frame(0, positions, angles, powers, percents, 0.0, 12.0, 0, 1500.0)
+	_check(state.tank_positions[1] == Vector2(1400, 300) and
+		is_equal_approx(state.turn_timer, 12.0),
+		"one changed player position and changing timer still publish correctly")
+	positions[1] = Vector2.ZERO
+	_check(state.tank_positions[1] == Vector2(1400, 300),
+		"subsequent runtime array mutation cannot alias controller snapshot")
 
 func _test_weapon_definition_session() -> void:
 	var session: WeaponDefinitionSession = WeaponDefinitionSession.new()
