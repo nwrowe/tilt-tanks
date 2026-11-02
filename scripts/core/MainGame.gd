@@ -561,29 +561,6 @@ func _deepest_index_in_range(start_i: int, end_i: int) -> int:
 func _connected_basin_from_valley(valley_i: int, reference_water_y: float) -> Dictionary:
 	return WaterManager.connected_basin_from_valley(terrain_points, valley_i, reference_water_y, WATER_CONNECTED_MARGIN)
 
-func _draw_ponds_under_ground() -> void:
-	for rect: Dictionary in WaterManager.backing_rects_for_ponds(ponds, terrain_points, _bottom_floor_y()):
-		var top_left: Vector2 = _world_to_screen(rect.get("start", Vector2.ZERO))
-		var bottom_right: Vector2 = _world_to_screen(rect.get("end", Vector2.ZERO))
-		draw_rect(Rect2(top_left, bottom_right - top_left), Color(0.035, 0.22, 0.50, 0.95), true)
-
-func _draw_water_surfaces() -> void:
-	for segment: Dictionary in WaterManager.surface_segments_for_ponds(ponds, terrain_points, WATER_MIN_VISIBLE_DEPTH):
-		_draw_water_surface_segment_world(segment.get("start", Vector2.ZERO), segment.get("end", Vector2.ZERO))
-
-func _draw_water_surface_segment(start_i: int, end_i: int, water_y: float) -> void:
-	if terrain_points.is_empty() or end_i <= start_i:
-		return
-	var left_i: int = clampi(start_i, 0, terrain_points.size() - 1)
-	var right_i: int = clampi(end_i, 0, terrain_points.size() - 1)
-	_draw_water_surface_segment_world(Vector2(terrain_points[left_i].x, water_y), Vector2(terrain_points[right_i].x, water_y))
-
-func _draw_water_surface_segment_world(start_world: Vector2, end_world: Vector2) -> void:
-	var left: Vector2 = _world_to_screen(start_world)
-	var right: Vector2 = _world_to_screen(end_world)
-	draw_line(left, right, Color(0.18, 0.66, 1.0, 0.88), 3.0)
-	draw_line(left + Vector2(0, 3), right + Vector2(0, 3), Color(0.72, 0.92, 1.0, 0.28), 1.5)
-
 func _apply_crater(pos: Vector2) -> void:
 	TerrainManager.apply_crater(terrain_points, pos, CRATER_RADIUS, CRATER_DEPTH, VAR_TERRAIN_MIN_Y, _bottom_floor_y())
 	_refresh_terrain_line()
