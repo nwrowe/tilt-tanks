@@ -482,3 +482,15 @@ another class. The live scene still calls the existing special
 explosion hooks, common impact lifecycle, and the separate mode
 `_explode` camera adapter. Live tests and actual ENet preserve
 the active launch/impact/turn behavior.
+
+## Shared turn and realtime shell contact scene adapter (PR #123)
+
+`MainGame._turn_shell_should_explode` and
+`_realtime_projectile_should_explode` remain as compatibility hooks,
+but both call one `_shell_should_explode` scene implementation.
+For two-player gameplay, the target is always the opposing tank.
+The sole `ProjectileManager.should_shell_explode` invocation
+preserves tank, water, terrain and world-boundary test order.
+This does not conflate Bouncer ground contact, Cluster splitting,
+camera focus or online host authority. Live-scene tests verify
+both owners and contact types and enforce only one scene adapter.

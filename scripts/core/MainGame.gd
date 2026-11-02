@@ -837,18 +837,18 @@ func _update_turn_weapon_projectiles(delta: float) -> void:
 		_advance_turn()
 
 func _turn_shell_should_explode(owner: int, pos: Vector2) -> bool:
-	var target: int = 1 - owner
-	return ProjectileManager.should_shell_explode(
-		pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS,
-		Callable(self, "_is_in_pond"), Callable(self, "_ground_y_at_x"),
-		active_world_width, Callable(self, "_bottom_floor_y")
-	)
+	return _shell_should_explode(owner, pos)
 
 func _has_active_realtime_shell_for_owner(owner: int) -> bool:
 	return ProjectileManager.has_shell_for_owner(rt_projectiles, owner)
 
 func _realtime_projectile_should_explode(owner: int, pos: Vector2) -> bool:
-	var target: int = AI_PLAYER_INDEX if owner == HUMAN_PLAYER_INDEX else HUMAN_PLAYER_INDEX
+	return _shell_should_explode(owner, pos)
+
+## Both game modes target the opposing tank and use identical shell
+## contact order. Retain the legacy hook names for existing call sites.
+func _shell_should_explode(owner: int, pos: Vector2) -> bool:
+	var target: int = 1 - owner
 	return ProjectileManager.should_shell_explode(
 		pos, tank_positions[target], TANK_RADIUS, PROJECTILE_RADIUS,
 		Callable(self, "_is_in_pond"), Callable(self, "_ground_y_at_x"),
