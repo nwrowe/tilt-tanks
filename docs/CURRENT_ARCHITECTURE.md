@@ -67,6 +67,41 @@ were removed. Shared world water drawing and water physics remain implemented
 in WorldRuntimeBridge, and level snow-line variation is selected through one
 MainGameModeFacade policy hook. There is no parallel fallback physics path.
 
+## Frame and camera ownership (PRs #138–#139)
+
+The active scene's frame dispatch is deliberate, not six parallel simulation
+loops. Keep the following order and ownership when changing a game mode:
+
+1. **Online host-waiting facade** skips simulation on the waiting screen.
+   In a live duel, host fallback and snapshot cadence run *after* the lower
+   gameplay frame.
+2. **Progression facade** diverts network guests into the client-only pipeline
+   (authoritative interpolation, eligible local input, local visual aging,
+   camera/UI/effects). Guests do **not** run `MainGame._process` or
+   `WorldRuntimeBridge._process`, nor generate local authoritative physics.
+   A pending hotseat handoff also has its own waiting-frame path.
+3. **Special-weapons facade** handles its terminal-screen shortcut and weapon
+   burst/hold transitions around the parent frame.
+4. **Mode facade** preserves global post-explosion camera hold limits after
+   its parent frame.
+5. **MainGame** chooses the weapon-frame stage (game-over, weapon menu, turn
+   shells, or normal world simulation), synchronizes match state after active
+   local simulation, and ages muzzle/smoke effects.
+6. **WorldRuntimeBridge** chooses the realtime, turn-AI, AI-explosion-wait, or
+   legacy turn-mode frame, then updates the camera and HUD where appropriate.
+
+Camera focus *precedence* remains in the scene overrides; a single
+`WorldRuntimeBridge._camera_x_for_focus` performs the geometry clamp shared
+by cluster hold, destroyed-tank focus, realtime human focus, and machine-gun
+focus. It must not mutate live projectile or explosion state.
+
+`WorldRuntimeBridge._age_explosion_visual` centralizes expiry of local
+explosion visuals without changing which mode advances them. Turn/realtime
+physics historically permit a negative expiry value; AI wait, game-over and
+network guest visual-only paths clamp to zero. Only the AI-wait frame cancels
+the waiting AI session. Never advance the same visual timer from both the
+guest/client path and the authoritative host simulation path.
+
 ## Active online multiplayer
 
 Online Duel is implemented and guarded with packet/snapshot contract tests
